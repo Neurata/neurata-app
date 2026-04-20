@@ -4160,7 +4160,7 @@ function showForgotPassword() {
         if (result.error) {
           nAlert('Could not send reset email. Please try again.', 'Error', 'warn');
         } else {
-          nAlert('Password reset email sent to ' + email + '. Check your inbox.', 'Email Sent ✓', 'success');
+          nAlert('If ' + email + ' is registered with Neurata, a password reset link has been sent. Please check your inbox and spam folder.', 'Reset Link Sent', 'info');
         }
       });
     }
