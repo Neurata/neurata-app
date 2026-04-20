@@ -6114,7 +6114,14 @@ function obComplete(){
         });
       })
       .then(function() {
-        // Step 4: Set local APP state and launch
+        // Step 4: Write brokerage_id to JWT app_metadata
+        // This is critical — RLS policies read brokerage_id from the JWT token
+        return getSupabase().auth.updateUser({
+          data: { brokerage_id: OB.brkLic }
+        });
+      })
+      .then(function() {
+        // Step 5: Set local APP state and show confirmation
         var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
         APP.currentUser = {
           name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
@@ -6164,9 +6171,10 @@ function obInviteComplete(){
       addr:rep.brkAddress||rep.businessAddress||'',
       phone:rep.brkPhone||rep.businessPhone||''
     };
-    sv('currentUser',APP.currentUser);
-    sv('brokerage',APP.brokerage);
-    launchPlatform();
+    // Write brokerage_id to JWT app_metadata so RLS policies work
+    getSupabase().auth.updateUser({
+      data: { brokerage_id: rep.businessLicence||'' }
+    }).then(function(){ launchPlatform(); });
   })
   .catch(function(err){
     if(btn){btn.disabled=false;btn.textContent='Create Account →';}
