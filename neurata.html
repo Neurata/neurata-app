@@ -446,6 +446,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 @keyframes ssDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -1163,7 +1164,18 @@ async function ld(k,d){try{if(!window.storage)return d;const r=await window.stor
 // ══════════════════════════════════════════
 // CONFIGURATION
 // ══════════════════════════════════════════
-var WORKER_URL = 'https://api.neurata.ai';
+var WORKER_URL       = 'https://api.neurata.ai';
+var SUPABASE_URL      = 'https://sozghbobflcjrfsmewxv.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_KA_-dMzzaj3SA750GqL4Yg_hqIrCT8K';
+
+// Supabase client — initialised after the CDN library loads
+var _supabaseClient = null;
+function getSupabase() {
+  if (!_supabaseClient) {
+    _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return _supabaseClient;
+}
 
 // ══════════════════════════════════════════
 // APP STATE — starts empty
