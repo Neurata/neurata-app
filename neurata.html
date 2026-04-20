@@ -462,7 +462,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="fg"><label>Password</label><input type="password" id="li-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       </div>
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
-      <button class="btn pri full" onclick="doLogin()">Sign In →</button>
+      <button class="btn pri full" id="li-btn" onclick="doLogin()">Sign In →</button>
       <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:8px">
         <button class="btn xs ghost" onclick="showScr('scr-onboard')">New to Neurata? Create an account</button>
         <button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button>
@@ -4071,25 +4071,164 @@ function renderBilling() {
 // AUTH & SESSION
 // ══════════════════════════════════════════
 function doLogin(){
-  var email=(document.getElementById('li-email')||{}).value||'';
-  var pw=(document.getElementById('li-pw')||{}).value||'';
-  var errEl=document.getElementById('li-err');if(errEl)errEl.style.display='none';
-  if(!email||email.indexOf('@')<0){if(errEl){errEl.style.display='';errEl.textContent='Please enter a valid email address.';}return;}
-  if(pw.length<6){if(errEl){errEl.style.display='';errEl.textContent='Incorrect email or password.';}return;}
-  ld('currentUser',null).then(function(saved){
-    if(saved&&saved.name){APP.currentUser=saved;}
-    else{APP.currentUser={name:email.split('@')[0],lic:'',role:'Representative',licFor:'',initials:email[0].toUpperCase(),brkLic:'',brkName:''};}
-    ld('sc',[]).then(function(savedSC){
-      if(savedSC&&savedSC.length)APP.sc=savedSC;
-      ld('brokerage',{}).then(function(savedBrk){
-        if(savedBrk&&savedBrk.lic)APP.brokerage=savedBrk;
-        launchPlatform();
-      });
+  var email = (document.getElementById('li-email')||{}).value||'';
+  var pw    = (document.getElementById('li-pw')||{}).value||'';
+  var errEl = document.getElementById('li-err');
+  var btn   = document.getElementById('li-btn');
+  if (errEl) errEl.style.display = 'none';
+  if (!email || email.indexOf('@') < 0) {
+    if (errEl) { errEl.style.display=''; errEl.textContent='Please enter a valid email address.'; }
+    return;
+  }
+  if (pw.length < 6) {
+    if (errEl) { errEl.style.display=''; errEl.textContent='Password must be at least 6 characters.'; }
+    return;
+  }
+  if (btn) { btn.disabled=true; btn.textContent='Signing in…'; }
+
+  getSupabase().auth.signInWithPassword({email: email, password: pw})
+    .then(function(result) {
+      if (result.error) {
+        if (btn) { btn.disabled=false; btn.textContent='Sign In →'; }
+        if (errEl) { errEl.style.display=''; errEl.textContent='Incorrect email or password.'; }
+        return;
+      }
+      // Auth succeeded — load user profile from users table
+      loadUserProfile(result.data.user.id);
+    })
+    .catch(function(err) {
+      if (btn) { btn.disabled=false; btn.textContent='Sign In →'; }
+      if (errEl) { errEl.style.display=''; errEl.textContent='Sign in failed. Please try again.'; }
     });
+}
+
+// ── PASSWORD RESET ────────────────────────────────────────────────────
+function showForgotPassword() {
+  _dlgShow({
+    type: 'info',
+    title: 'Reset Password',
+    msg: 'Enter your brokerage email address and we will send you a password reset link.',
+    input: true,
+    inputType: 'email',
+    inputPlaceholder: 'you@yourbrokerage.ca',
+    buttons: [
+      {label:'Cancel', style:'', value:null},
+      {label:'Send Reset Link', style:'pri', value:true}
+    ],
+    cb: function(val) {
+      if (!val || !val.trim || !val.trim()) return;
+      var email = val.trim();
+      if (email.indexOf('@') < 0) { nAlert('Please enter a valid email address.', 'Invalid Email', 'warn'); return; }
+      getSupabase().auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://app.neurata.ai'
+      }).then(function(result) {
+        if (result.error) {
+          nAlert('Could not send reset email. Please try again.', 'Error', 'warn');
+        } else {
+          nAlert('Password reset email sent to ' + email + '. Check your inbox.', 'Email Sent ✓', 'success');
+        }
+      });
+    }
   });
 }
 
-function signOut(){toggleUserMenu(false);APP.currentUser={name:'',lic:'',role:'',licFor:'',initials:'',brkLic:'',brkName:''};MM.running=false;if(MM.interval){clearInterval(MM.interval);MM.interval=null;}document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});var em=document.getElementById('li-email');var pw=document.getElementById('li-pw');if(em)em.value='';if(pw)pw.value='';showScr('scr-login');}
+
+function loadUserProfile(userId) {
+  getSupabase()
+    .from('users')
+    .select('*, brokerages(*)')
+    .eq('id', userId)
+    .single()
+    .then(function(result) {
+      if (result.error || !result.data) {
+        // User authenticated but no profile yet — shouldn't happen post-onboarding
+        nAlert('Account setup incomplete. Please contact support@neurata.ai', 'Setup Error', 'warn');
+        getSupabase().auth.signOut();
+        return;
+      }
+      var u = result.data;
+      var b = u.brokerages || {};
+      // Populate APP state from database
+      APP.currentUser = {
+        id:        u.id,
+        name:      u.full_name,
+        email:     u.email,
+        lic:       u.bcfsa_lic || '',
+        role:      u.role,
+        initials:  u.full_name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase(),
+        brkLic:    b.bcfsa_lic || '',
+        brkName:   b.name || '',
+        globalSS:  u.global_ss || false
+      };
+      APP.brokerage = {
+        name:  b.name || '',
+        lic:   b.bcfsa_lic || '',
+        addr:  b.address || '',
+        phone: b.phone || '',
+        city:  b.city || ''
+      };
+      // Load strata corps for this user
+      loadUserSCs(userId);
+    });
+}
+
+function loadUserSCs(userId) {
+  var role = APP.currentUser.role;
+  var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
+  var query;
+  if (isAdmin) {
+    // MB/AB: load all SCs for the brokerage
+    query = getSupabase()
+      .from('strata_corps')
+      .select('*')
+      .eq('brokerage_id', APP.brokerage.lic);
+  } else {
+    // REP/ASST/DEL: load only assigned SCs via sc_users
+    query = getSupabase()
+      .from('sc_users')
+      .select('strata_corps(*)')
+      .eq('user_id', userId);
+  }
+  query.then(function(result) {
+    if (result.error) { launchPlatform(); return; }
+    var rows = result.data || [];
+    APP.sc = rows.map(function(r) {
+      var sc = isAdmin ? r : r.strata_corps;
+      if (!sc) return null;
+      return {
+        id:        sc.plan_number,
+        plan:      sc.plan_number,
+        name:      sc.name,
+        lots:      sc.lots || 1,
+        addr:      sc.address || '',
+        mgr:       APP.currentUser.name,
+        mgrLic:    APP.currentUser.lic,
+        mmStatus:  sc.is_subscribed ? 'ACTIVE' : '',
+        adjCount:  0,
+        meetings:  [],
+        decisions: [],
+        docs:      []
+      };
+    }).filter(Boolean);
+    launchPlatform();
+  });
+}
+
+function signOut(){
+  toggleUserMenu(false);
+  getSupabase().auth.signOut().then(function(){
+    APP.currentUser={name:'',lic:'',role:'',licFor:'',initials:'',brkLic:'',brkName:''};
+    APP.sc=[];
+    APP.brokerage={};
+    MM.running=false;
+    if(MM.interval){clearInterval(MM.interval);MM.interval=null;}
+    document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});
+    var em=document.getElementById('li-email');
+    var pw=document.getElementById('li-pw');
+    if(em)em.value='';if(pw)pw.value='';
+    showScr('scr-login');
+  });
+}
 function toggleUserMenu(force){var menu=document.getElementById('user-menu');if(!menu)return;if(force===false){menu.classList.remove('open');return;}menu.classList.toggle('open');}
 document.addEventListener('click',function(e){var pill=document.querySelector('.u-pill');var menu=document.getElementById('user-menu');if(menu&&pill&&!pill.contains(e.target)&&!menu.contains(e.target))menu.classList.remove('open');});
 
@@ -4190,22 +4329,28 @@ function switchSuperAdminRole(idx) {
 
 // Auto-restore saved session on page load
 window.addEventListener('load', function() {
-  try {
-    ld('currentUser', null).then(function(saved) {
-      if (saved && saved.name && saved.role) {
-        APP.currentUser = saved;
-        ld('brokerage', {}).then(function(brk) {
-          if (brk && brk.lic) APP.brokerage = brk;
-          ld('sc', []).then(function(sc) {
-            if (sc && sc.length) APP.sc = sc;
-            launchPlatform();
-            if (saved.isSuperAdmin) renderSuperAdminBar();
-          }).catch(function(){ launchPlatform(); });
-        }).catch(function(){ launchPlatform(); });
-      }
-      // else stay on login screen
-    }).catch(function(){}); // storage not available — stay on login
-  } catch(e) {} // window.storage not available on this platform
+  // Restore Supabase session if one exists
+  getSupabase().auth.getSession().then(function(result) {
+    if (result.data && result.data.session && result.data.session.user) {
+      loadUserProfile(result.data.session.user.id);
+    }
+    // else stay on login screen
+  }).catch(function(){
+    // No session or error — stay on login screen
+  });
+
+  // Listen for auth state changes (handles token refresh, sign out from another tab)
+  getSupabase().auth.onAuthStateChange(function(event, session) {
+    if (event === 'SIGNED_OUT') {
+      APP.currentUser = {name:'',lic:'',role:'',initials:'',brkLic:'',brkName:''};
+      APP.sc = [];
+      APP.brokerage = {};
+      showScr('scr-login');
+    }
+    if (event === 'TOKEN_REFRESHED' && session) {
+      // Session refreshed silently — no action needed
+    }
+  });
 });
 
 
@@ -5645,13 +5790,59 @@ function invToggleCreateBtn(){var btn=document.getElementById('inv-create-btn');
 
 function obComplete(){
   if(!document.getElementById('ob-ck1').checked){nAlert('Please agree to the Terms of Service.');return;}
-  var initials=OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-  APP.currentUser={name:OB.repName,legalName:OB.repLegalName,lic:OB.lic,role:OB.repRole,licFor:OB.repLicFor,initials:initials,brkLic:OB.brkLic,brkName:OB.brkName};
-  APP.brokerage={name:OB.brkName,lic:OB.brkLic,addr:OB.brkAddr,phone:OB.brkPhone,city:''};
-  sv('currentUser',APP.currentUser);
-  sv('brokerage',APP.brokerage);
-  sv('sc',APP.sc);
-  launchPlatform();
+  var email = (document.getElementById('ob-email')||{}).value||'';
+  var pw    = (document.getElementById('ob-pw')||{}).value||'';
+  var btn   = document.getElementById('ob-create-btn');
+  if(btn){btn.disabled=true;btn.textContent='Creating account…';}
+
+  // Step 1: Create Supabase Auth account
+  getSupabase().auth.signUp({email: email, password: pw})
+    .then(function(result) {
+      if (result.error) {
+        if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+        nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
+        return;
+      }
+      var userId = result.data.user.id;
+
+      // Step 2: Upsert brokerage record
+      return getSupabase().from('brokerages').upsert({
+        bcfsa_lic:           OB.brkLic,
+        name:                OB.brkName,
+        address:             OB.brkAddr,
+        phone:               OB.brkPhone,
+        subscription_status: 'trial',
+        trial_meetings_used: 0
+      }, {onConflict: 'bcfsa_lic'})
+      .then(function() {
+        // Step 3: Create user profile
+        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        return getSupabase().from('users').insert({
+          id:           userId,
+          brokerage_id: OB.brkLic,
+          full_name:    OB.repName,
+          email:        email,
+          bcfsa_lic:    OB.lic,
+          role:         OB.repRole || 'Managing Broker'
+        });
+      })
+      .then(function() {
+        // Step 4: Set local APP state and launch
+        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        APP.currentUser = {
+          name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
+          role:OB.repRole, licFor:OB.repLicFor, initials:initials,
+          brkLic:OB.brkLic, brkName:OB.brkName
+        };
+        APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
+        nAlert('Account created! Please check your email to confirm your address before signing in.', 'Account Created ✓', 'success');
+        showScr('scr-login');
+      });
+    })
+    .catch(function(err) {
+      if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+      nAlert('Account creation failed. Please try again.', 'Error', 'warn');
+    });
 }
 
 function obInviteComplete(){
