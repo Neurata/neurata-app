@@ -5381,7 +5381,7 @@ function createSC() {
         sc_id:       plan,
         user_id:     APP.currentUser.id,
         access_type: 'manager'
-      }).catch(function(){});
+      }).then(function(){});
     }
   });
   closeMo('mo-add-sc');
