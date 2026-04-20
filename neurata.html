@@ -145,7 +145,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .prog-f{height:100%;border-radius:3px;transition:width .4s}
 
 /* ── EMPTY STATES ── */
-.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;flex:1}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;text-align:center;flex:1}
 .empty-ic{font-size:48px;margin-bottom:16px;opacity:.4}
 .empty-h{font-size:17px;font-weight:600;color:var(--ch);margin-bottom:8px}
 .empty-s{font-size:13px;color:var(--g4);max-width:360px;line-height:1.6;margin-bottom:20px}
@@ -5111,7 +5111,7 @@ function renderMinutesList(sc, el) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
-      + '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
+      + '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
       + '</div>';
     return;
   }
@@ -5665,7 +5665,7 @@ function renderMeetingsList(sc, el) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📅</div>'
       +'<div class="empty-h">No meetings yet for '+sc.plan+'</div>'
       +'<div class="empty-s">Create a meeting, build the agenda, attach documents, then launch Meeting Mode when council is ready.</div>'
-      +'<button class="btn pri" onclick="openMo(\'mo-new-mtg\')">+ Create First Meeting</button></div>';
+      +'<button class="btn pri" style="margin-top:16px" onclick="openMo(\'mo-new-mtg\')">+ Create First Meeting</button></div>';
     return;
   }
   var html = '';
