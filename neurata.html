@@ -5111,13 +5111,11 @@ function renderMinutesList(sc, el) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
-      + '</div>'
-      + '<div style="text-align:center;margin-bottom:16px">'
       + '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
       + '</div>';
     return;
   }
-  var html = '<div style="text-align:center;margin-bottom:16px">'
+  var html = '<div class="br" style="margin-bottom:16px">'
     + '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
     + '</div>';
   adjourned.forEach(function(m) {
@@ -5243,7 +5241,7 @@ function renderDocsList(sc, el) {
 
   // Always show upload button + doc list
   var scIdForDoc = sc.id;
-  var uploadBar = '<div style="text-align:center;margin-bottom:16px">'
+  var uploadBar = '<div style="margin-top:12px;text-align:center">'
     + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
     + '</div>';
 
@@ -5251,8 +5249,8 @@ function renderDocsList(sc, el) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📎</div>'
       + '<div class="empty-h">No documents yet</div>'
       + '<div class="empty-s">Upload documents here, add attachments to agenda items, or upload historic minutes — all appear in this library and feed StrataSphere.</div>'
-      + '</div>'
-      + uploadBar;
+      + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
+      + '</div>';
     return;
   }
   el.innerHTML = uploadBar + '<div id="docs-list"></div>';
