@@ -2024,7 +2024,7 @@ function saveMtg() {
   if (!sc_) { var vis=getVisibleSCs(); sc_=vis.length?vis[0]:null; }
   if (!sc_) { nAlert('No strata corporation selected. Please select one from the sidebar first.'); return; }
   var mtg = {
-    id: Date.now(), scId: sc_.id,
+    id: 'mtg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), scId: sc_.id,
     type: type, date: date, time: time, fmt: fmt, loc: loc,
     status: 'DRAFT',
     agenda: JSON.parse(JSON.stringify(NM.agenda)),
@@ -2439,7 +2439,11 @@ function renderSCReps(s) {
   });
 
   var roleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Assistant':3,'Council Delegate':4};
-  rows.sort(function(a,b){ return (roleOrder[a.title]||5)-(roleOrder[b.title]||5); });
+  rows.sort(function(a,b){
+    var ta = roleOrder[a.title] !== undefined ? roleOrder[a.title] : 5;
+    var tb = roleOrder[b.title] !== undefined ? roleOrder[b.title] : 5;
+    return ta - tb;
+  });
 
   var role = APP.currentUser.role || '';
   var canInviteRep = role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant';
@@ -3973,6 +3977,31 @@ el.innerHTML=html;
   var chks=document.getElementById('inv-rep-sc-chks');
   if(chks)chks.innerHTML=APP.sc.map(function(s){return'<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox"> '+s.plan+' — '+s.name+'</label>';}).join('');
 }
+function toggleRepActive(lic, isCurrentlyActive) {
+  var action = isCurrentlyActive ? 'deactivate' : 'reactivate';
+  var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
+  var repName = rep ? rep.name : lic;
+  nConfirm(
+    (isCurrentlyActive ? 'Deactivate ' : 'Reactivate ') + repName + '? ' + (isCurrentlyActive ? 'They will no longer be able to log in. Their data and SC connections are preserved.' : 'They will regain access to their assigned strata corporations.'),
+    function(ok) {
+      if (!ok) return;
+      // Update in APP.reps
+      if (rep) rep.status = isCurrentlyActive ? 'Inactive' : 'Active';
+      // Update in Supabase
+      getSupabase().from('users')
+        .update({is_active: !isCurrentlyActive})
+        .eq('bcfsa_lic', lic)
+        .then(function(r){
+          if (r.error) nAlert('Could not update status. Please try again.','Error','warn');
+          else renderBrokerage();
+        });
+    },
+    (isCurrentlyActive ? 'Deactivate Rep' : 'Reactivate Rep'),
+    isCurrentlyActive ? 'danger' : 'info'
+  );
+}
+
+
 function renderBrokerageRepList() {
   var reps = APP.reps || [];
   if (!reps.length) return '<div style="color:var(--g4);font-size:12px;padding:8px">No representatives loaded. Click Sync from BCFSA to fetch.</div>';
@@ -4019,10 +4048,13 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:13px;font-weight:600;border-bottom:1px solid var(--g2)">'+escHtml(r.name||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--ch3);border-bottom:1px solid var(--g2)">'+escHtml(r.title||'—')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+escHtml(r.lic||'')+'</td>'
-        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)"><span class="tag '+(r.status&&r.status.toLowerCase().indexOf('active')>=0?'grn':'gy')+'" style="font-size:10px">'+escHtml(r.status||'')+'</span></td>'
+        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)"><span class="tag '+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'gy':'grn')+'" style="font-size:10px">'+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'Inactive':'Active')+'</span></td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
-        +(isBrokerageWide?'':'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
+        +(isBrokerageWide?'':
+          '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
+          +' <button class="btn xs" data-lic="'+escHtml(r.lic||'')+'" data-active="'+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'0':'1')+'" onclick="toggleRepActive(this.dataset.lic,this.dataset.active===\'1\')">'+( r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'Reactivate':'Deactivate')+'</button>'
+        )
         +'</td></tr>';
     }).join('')+'</tbody></table>';
 }
@@ -5317,11 +5349,17 @@ function createSC() {
     warn.style.display=''; warn.textContent=plan+' already exists in your portfolio.'; return;
   }
   var newSC = {
-    id: 'sc_'+Date.now(),
-    plan: plan, name: name, lots: lots, addr: addr,
-    mgr: APP.currentUser.name,
-    mmStatus: 'TRIAL', adjCount: 0,
-    meetings: [], decisions: [], docs: []
+    id:        plan,  // use plan_number as id — matches Supabase primary key
+    plan:      plan,
+    name:      name,
+    lots:      lots,
+    addr:      addr,
+    mgr:       APP.currentUser.name,
+    mgrLic:    APP.currentUser.lic || '',
+    mmStatus:  'TRIAL',
+    adjCount:  0,
+    meetings:  [], decisions: [], docs: [],
+    councilMembers: [], repIds: [], delegateIds: []
   };
   APP.sc.push(newSC);
   APP.currentScId = newSC.id;
@@ -5334,7 +5372,17 @@ function createSC() {
     address:       addr,
     is_subscribed: false
   }).then(function(r){
-    if(r.error) nAlert('Could not save strata corporation to database. Please try again.','Save Error','warn');
+    if(r.error){
+      APP.sc = APP.sc.filter(function(s){return s.id!==plan;});
+      nAlert('Could not save strata corporation. Please check your connection and try again.','Save Error','warn');
+    } else {
+      // Add sc_users row so this SC appears in future queries
+      getSupabase().from('sc_users').insert({
+        sc_id:       plan,
+        user_id:     APP.currentUser.id,
+        access_type: 'manager'
+      }).catch(function(){});
+    }
   });
   closeMo('mo-add-sc');
   document.getElementById('sc-plan').value='';
