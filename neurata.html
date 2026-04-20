@@ -3880,7 +3880,8 @@ function renderBrokerageRepList() {
   // Sort: MB first, then AB, then others alphabetically by title then name
   var titleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Property Manager':2,'Assistant':3,'Council Delegate':4};
   var sorted = reps.slice().sort(function(a,b){
-    var ta = titleOrder[a.title]||5, tb = titleOrder[b.title]||5;
+    var ta = titleOrder[a.title] !== undefined ? titleOrder[a.title] : 5;
+    var tb = titleOrder[b.title] !== undefined ? titleOrder[b.title] : 5;
     if(ta!==tb) return ta-tb;
     return (a.name||'').localeCompare(b.name||'');
   });
