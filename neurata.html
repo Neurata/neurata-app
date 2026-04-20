@@ -4104,6 +4104,40 @@ function doLogin(){
 }
 
 // ── PASSWORD RESET ────────────────────────────────────────────────────
+function showNewPasswordPrompt() {
+  // Show a dialog to set the new password
+  _dlgShow({
+    type: 'info',
+    title: 'Set New Password',
+    msg: 'Enter your new password (minimum 8 characters).',
+    input: true,
+    inputType: 'password',
+    inputPlaceholder: 'New password',
+    buttons: [
+      {label: 'Save Password', style: 'pri', value: true}
+    ],
+    cb: function(val) {
+      if (!val || val.length < 8) {
+        nAlert('Password must be at least 8 characters.', 'Too Short', 'warn');
+        return;
+      }
+      getSupabase().auth.updateUser({password: val})
+        .then(function(result) {
+          if (result.error) {
+            nAlert('Could not update password. Please try again.', 'Error', 'warn');
+            return;
+          }
+          nAlert('Password updated successfully. You are now signed in.', 'Password Updated ✓', 'success');
+          // Load the user profile now that password is set
+          getSupabase().auth.getUser().then(function(u) {
+            if (u.data && u.data.user) loadUserProfile(u.data.user.id);
+          });
+        });
+    }
+  });
+}
+
+
 function showForgotPassword() {
   _dlgShow({
     type: 'info',
@@ -4347,6 +4381,10 @@ window.addEventListener('load', function() {
       APP.sc = [];
       APP.brokerage = {};
       showScr('scr-login');
+    }
+    if (event === 'PASSWORD_RECOVERY') {
+      // User clicked the reset link — prompt for new password
+      showNewPasswordPrompt();
     }
     if (event === 'TOKEN_REFRESHED' && session) {
       // Session refreshed silently — no action needed
