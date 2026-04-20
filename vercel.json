@@ -5,8 +5,9 @@
       "has": [{ "type": "host", "value": "app.neurata.ai" }],
       "destination": "/neurata.html"
     },
-    { "source": "/app", "destination": "/neurata.html" },
-    { "source": "/app/(.*)", "destination": "/neurata.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
