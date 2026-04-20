@@ -1159,8 +1159,95 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 // ══════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════
-async function sv(k,v){try{if(window.storage)await window.storage.set(k,JSON.stringify(v));}catch(e){}}
-async function ld(k,d){try{if(!window.storage)return d;const r=await window.storage.get(k);return r?JSON.parse(r.value):d;}catch(e){return d;}}
+// sv — persist a strata corp to Supabase
+// Key format: 'sc_BCS3229' → upserts strata_corps + child records
+async function sv(k, v) {
+  try {
+    if (!k || !v) return;
+    // Only persist SC objects — other keys (currentUser, brokerage) handled by Supabase Auth
+    if (k.startsWith('sc_') && typeof v === 'object' && v.plan) {
+      await sbSaveSC(v);
+    }
+  } catch(e) {}
+}
+
+// No-op ld — data is loaded via loadUserSCs on login
+async function ld(k, d) { return d; }
+
+// Save a full SC object to Supabase
+async function sbSaveSC(sc) {
+  if (!sc || !sc.plan) return;
+  var db = getSupabase();
+
+  // 1. Upsert the strata_corp row
+  await db.from('strata_corps').upsert({
+    plan_number:   sc.plan,
+    brokerage_id:  APP.brokerage.lic,
+    name:          sc.name,
+    lots:          sc.lots || 1,
+    address:       sc.addr || '',
+    is_subscribed: sc.mmStatus === 'ACTIVE'
+  }, {onConflict: 'plan_number'});
+
+  // 2. Upsert meetings
+  if (sc.meetings && sc.meetings.length) {
+    for (var i = 0; i < sc.meetings.length; i++) {
+      var mtg = sc.meetings[i];
+      await db.from('meetings').upsert({
+        id:           typeof mtg.id === 'string' && mtg.id.length > 20 ? mtg.id : undefined,
+        sc_id:        sc.plan,
+        type:         mtg.type,
+        date:         mtg.date,
+        time:         mtg.time || null,
+        format:       mtg.fmt || null,
+        location:     mtg.loc || null,
+        status:       mtg.status || 'DRAFT',
+        agenda:       mtg.agenda || [],
+        attendees:    mtg.attendees || [],
+        actual_start_time: mtg.actualStartTime || null,
+        adj_time:     mtg.adjTime || null,
+        minutes_state: mtg.minutesState || null,
+        minutes_content: mtg.minutes || null
+      }, {onConflict: 'id', ignoreDuplicates: false});
+    }
+  }
+
+  // 3. Upsert decisions
+  if (sc.decisions && sc.decisions.length) {
+    for (var j = 0; j < sc.decisions.length; j++) {
+      var d = sc.decisions[j];
+      await db.from('decisions').upsert({
+        sc_id:        sc.plan,
+        item_text:    d.text || d.item || '',
+        motion_text:  d.motion || d.summary || '',
+        mover:        d.mover || '',
+        seconder:     d.sec || '',
+        outcome:      d.outcome || 'CARRIED',
+        votes_for:    (d.votes && d.votes.for) || d.for || 0,
+        votes_against:(d.votes && d.votes.against) || d.against || 0,
+        votes_abstain:(d.votes && d.votes.abstain) || d.abstain || 0,
+        meeting_date: d.date || null,
+        meeting_type: d.mtgType || null,
+        source:       d.source || 'meeting-mode'
+      }, {onConflict: 'id', ignoreDuplicates: true});
+    }
+  }
+
+  // 4. Upsert council members
+  if (sc.councilMembers && sc.councilMembers.length) {
+    for (var k2 = 0; k2 < sc.councilMembers.length; k2++) {
+      var cm = sc.councilMembers[k2];
+      await db.from('council_members').upsert({
+        sc_id:       sc.plan,
+        lot_number:  cm.sl,
+        full_name:   cm.name,
+        email:       cm.email || null,
+        council_role: cm.role || null,
+        is_council:  cm.isCouncil || false
+      }, {onConflict: 'sc_id,lot_number'});
+    }
+  }
+}
 
 // ══════════════════════════════════════════
 // CONFIGURATION
@@ -1946,7 +2033,20 @@ function saveMtg() {
   };
   if (!sc_.meetings) sc_.meetings = [];
   sc_.meetings.push(mtg);
-  sv('sc_'+sc_.id, sc_);
+  // Save to Supabase
+  getSupabase().from('meetings').insert({
+    id:       mtg.id.toString(),
+    sc_id:    sc_.id,
+    type:     mtg.type,
+    date:     mtg.date,
+    time:     mtg.time || null,
+    format:   mtg.fmt || null,
+    location: mtg.loc || null,
+    status:   'DRAFT',
+    agenda:   []
+  }).then(function(r){
+    if(r.error) nAlert('Could not save meeting to database. Please try again.','Save Error','warn');
+  });
   NM.agenda = [];
   closeMo('mo-new-mtg');
   renderMeetings();
@@ -4211,24 +4311,17 @@ function loadUserProfile(userId) {
 function loadUserSCs(userId) {
   var role = APP.currentUser.role;
   var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
-  var query;
-  if (isAdmin) {
-    // MB/AB: load all SCs for the brokerage
-    query = getSupabase()
-      .from('strata_corps')
-      .select('*')
-      .eq('brokerage_id', APP.brokerage.lic);
-  } else {
-    // REP/ASST/DEL: load only assigned SCs via sc_users
-    query = getSupabase()
-      .from('sc_users')
-      .select('strata_corps(*)')
-      .eq('user_id', userId);
-  }
-  query.then(function(result) {
+  var db = getSupabase();
+
+  // Step 1: Load strata corps
+  var scQuery = isAdmin
+    ? db.from('strata_corps').select('*').eq('brokerage_id', APP.brokerage.lic)
+    : db.from('sc_users').select('strata_corps(*)').eq('user_id', userId);
+
+  scQuery.then(function(result) {
     if (result.error) { launchPlatform(); return; }
     var rows = result.data || [];
-    APP.sc = rows.map(function(r) {
+    var scList = rows.map(function(r) {
       var sc = isAdmin ? r : r.strata_corps;
       if (!sc) return null;
       return {
@@ -4238,15 +4331,113 @@ function loadUserSCs(userId) {
         lots:      sc.lots || 1,
         addr:      sc.address || '',
         mgr:       APP.currentUser.name,
-        mgrLic:    APP.currentUser.lic,
+        mgrLic:    APP.currentUser.lic || '',
         mmStatus:  sc.is_subscribed ? 'ACTIVE' : '',
         adjCount:  0,
         meetings:  [],
         decisions: [],
-        docs:      []
+        docs:      [],
+        councilMembers: [],
+        repIds:    [],
+        delegateIds: []
       };
     }).filter(Boolean);
-    launchPlatform();
+
+    if (!scList.length) { APP.sc = []; launchPlatform(); return; }
+
+    var planNumbers = scList.map(function(s){return s.plan;});
+
+    // Step 2: Load meetings, decisions, council members in parallel
+    Promise.all([
+      db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
+      db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
+      db.from('council_members').select('*').in('sc_id', planNumbers),
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id').in('sc_id', planNumbers)
+    ]).then(function(results) {
+      var meetings   = (results[0].data || []);
+      var decisions  = (results[1].data || []);
+      var council    = (results[2].data || []);
+      var documents  = (results[3].data || []);
+
+      // Map everything back onto the SC objects
+      scList.forEach(function(sc) {
+        // Meetings
+        sc.meetings = meetings
+          .filter(function(m){return m.sc_id === sc.plan;})
+          .map(function(m){
+            return {
+              id:             m.id,
+              scId:           m.sc_id,
+              type:           m.type,
+              date:           m.date,
+              time:           m.time || '',
+              fmt:            m.format || '',
+              loc:            m.location || '',
+              status:         m.status || 'DRAFT',
+              agenda:         m.agenda || [],
+              attendees:      m.attendees || [],
+              actualStartTime: m.actual_start_time || '',
+              adjTime:        m.adj_time || '',
+              minutesState:   m.minutes_state || null,
+              minutes:        m.minutes_content || null
+            };
+          });
+
+        // Decisions
+        sc.decisions = decisions
+          .filter(function(d){return d.sc_id === sc.plan;})
+          .map(function(d){
+            return {
+              itemId:  d.id,
+              date:    d.meeting_date || '',
+              mtgType: d.meeting_type || '',
+              text:    d.item_text,
+              motion:  d.motion_text,
+              mover:   d.mover,
+              sec:     d.seconder,
+              outcome: d.outcome,
+              votes:   {for: d.votes_for, against: d.votes_against, abstain: d.votes_abstain},
+              source:  d.source
+            };
+          });
+
+        // Council members
+        sc.councilMembers = council
+          .filter(function(c){return c.sc_id === sc.plan;})
+          .map(function(c){
+            return {
+              sl:        c.lot_number,
+              name:      c.full_name,
+              email:     c.email || '',
+              role:      c.council_role || '',
+              isCouncil: c.is_council
+            };
+          });
+        sc.councilSLs = sc.councilMembers
+          .filter(function(m){return m.isCouncil;})
+          .map(function(m){return m.sl;});
+
+        // Documents (metadata only — files in Storage)
+        sc.docs = documents
+          .filter(function(d){return d.sc_id === sc.plan;})
+          .map(function(d){
+            return {
+              name:        d.name,
+              sourceLabel: d.source_label || '',
+              source:      d.source || '',
+              mime:        d.mime_type || '',
+              date:        d.uploaded_at ? d.uploaded_at.slice(0,10) : ''
+            };
+          });
+      });
+
+      APP.sc = scList;
+      launchPlatform();
+    }).catch(function() {
+      // Partial failure — launch with whatever we have
+      APP.sc = scList;
+      launchPlatform();
+    });
   });
 }
 
@@ -5134,7 +5325,17 @@ function createSC() {
   };
   APP.sc.push(newSC);
   APP.currentScId = newSC.id;
-  sv('sc', APP.sc);
+  // Save to Supabase
+  getSupabase().from('strata_corps').insert({
+    plan_number:   plan,
+    brokerage_id:  APP.brokerage.lic,
+    name:          name,
+    lots:          lots,
+    address:       addr,
+    is_subscribed: false
+  }).then(function(r){
+    if(r.error) nAlert('Could not save strata corporation to database. Please try again.','Save Error','warn');
+  });
   closeMo('mo-add-sc');
   document.getElementById('sc-plan').value='';
   document.getElementById('sc-name').value='';
