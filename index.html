@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neurata — BC Strata Management, Done Right</title>
+  <meta name="description" content="Neurata helps BC strata managers run better meetings, write better minutes, and build institutional memory that survives every council election.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --org:#f6921e; --orgd:#c96f0a; --orgl:#fff3e0;
+      --dark:#111010; --dark2:#1a1918; --dark3:#242220;
+      --stone:#f7f4ef; --stone2:#ede9e2;
+      --muted:#7a7166; --text:#1c1917;
+      --display:'Bricolage Grotesque',system-ui,sans-serif;
+      --sans:'DM Sans',system-ui,sans-serif;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:var(--sans); color:var(--text); background:#fff; line-height:1.6; font-size:16px; -webkit-font-smoothing:antialiased; }
+
+    /* NAV */
+    nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(255,255,255,0.94); backdrop-filter:blur(14px); border-bottom:1px solid rgba(0,0,0,0.07); padding:0 6%; display:flex; align-items:center; justify-content:space-between; height:66px; }
+    .nav-links { display:flex; align-items:center; gap:36px; list-style:none; }
+    .nav-links a { text-decoration:none; color:var(--muted); font-size:14px; font-weight:500; transition:color .15s; }
+    .nav-links a:hover { color:var(--text); }
+    .nav-cta { background:var(--org)!important; color:#fff!important; padding:9px 22px; border-radius:7px; font-weight:600!important; font-size:14px!important; transition:background .15s!important; }
+    .nav-cta:hover { background:var(--orgd)!important; }
+
+    /* SHARED */
+    .eyebrow { display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--orgd); background:var(--orgl); padding:5px 12px; border-radius:20px; margin-bottom:20px; }
+    .eyebrow::before { content:''; width:5px; height:5px; background:var(--org); border-radius:50%; flex-shrink:0; }
+    h1,h2,h3 { font-family:var(--display); }
+    h1 { font-size:clamp(42px,6.5vw,76px); font-weight:800; line-height:1.0; letter-spacing:-0.03em; color:var(--dark); }
+    h2 { font-size:clamp(32px,4.5vw,52px); font-weight:800; line-height:1.06; letter-spacing:-0.03em; color:var(--dark); }
+    .text-org { color:var(--org); }
+    .section-sub { font-size:17px; color:var(--muted); font-weight:300; line-height:1.75; max-width:560px; }
+    .btn-pri { display:inline-block; background:var(--org); color:#fff; text-decoration:none; font-family:var(--display); font-weight:700; font-size:15px; padding:14px 28px; border-radius:8px; transition:background .15s,transform .12s; white-space:nowrap; }
+    .btn-pri:hover { background:var(--orgd); transform:translateY(-2px); }
+    .btn-outline { display:inline-block; color:var(--text); text-decoration:none; font-family:var(--display); font-weight:600; font-size:15px; padding:14px 28px; border-radius:8px; border:2px solid rgba(0,0,0,0.12); transition:border-color .15s,transform .12s; white-space:nowrap; }
+    .btn-outline:hover { border-color:var(--org); transform:translateY(-2px); }
+
+    /* HERO */
+    .hero { padding:140px 6% 0; background:var(--stone); overflow:hidden; }
+    .hero-top { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:end; max-width:1160px; margin:0 auto; }
+    @media(max-width:860px){ .hero-top{grid-template-columns:1fr;} .hero-img{display:none;} }
+    .hero-content { padding-bottom:80px; }
+    h1 .block { display:block; }
+    .hero-sub { font-size:18px; color:var(--muted); font-weight:300; line-height:1.75; margin:20px 0 36px; max-width:480px; }
+    .hero-actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:36px; }
+    .hero-trust { display:flex; flex-wrap:wrap; gap:6px; }
+    .trust-pill { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); background:rgba(0,0,0,0.05); padding:4px 10px; border-radius:20px; font-weight:500; }
+    .trust-pill::before { content:'✓'; color:var(--org); font-weight:700; font-size:11px; }
+    .hero-img { position:relative; align-self:end; }
+    .hero-img img { width:100%; max-width:500px; height:520px; object-fit:cover; object-position:top center; border-radius:16px 16px 0 0; display:block; margin-left:auto; }
+    .hero-badge { position:absolute; bottom:32px; left:-24px; background:#fff; border-radius:12px; padding:14px 18px; box-shadow:0 8px 40px rgba(0,0,0,0.12); display:flex; align-items:center; gap:12px; min-width:220px; }
+    .badge-icon { width:40px; height:40px; background:var(--orgl); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .badge-text .num { font-family:var(--display); font-size:20px; font-weight:800; color:var(--dark); line-height:1; }
+    .badge-text .lbl { font-size:11px; color:var(--muted); }
+
+    /* LOGO BAR */
+    .logobar { background:var(--dark); padding:18px 6%; text-align:center; }
+    .logobar p { font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:.08em; text-transform:uppercase; font-weight:600; }
+
+    /* PROBLEMS */
+    .problems { padding:96px 6%; background:var(--dark); }
+    .problems h2 { color:#fff; }
+    .problems .section-sub { color:rgba(255,255,255,0.45); }
+    .problems .eyebrow { background:rgba(246,146,30,0.15); color:rgba(246,146,30,0.9); }
+    .problems-head { display:flex; align-items:flex-end; justify-content:space-between; gap:40px; margin-bottom:56px; flex-wrap:wrap; }
+    .problems-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1px; background:rgba(255,255,255,0.05); border-radius:14px; overflow:hidden; }
+    .problem-card { background:var(--dark2); padding:36px 30px; }
+    .problem-num { font-family:var(--display); font-size:52px; font-weight:800; color:rgba(246,146,30,0.15); line-height:1; margin-bottom:16px; }
+    .problem-card h3 { font-size:16px; font-weight:700; color:#fff; margin-bottom:10px; line-height:1.3; }
+    .problem-card p { font-size:13px; color:rgba(255,255,255,0.45); line-height:1.75; font-weight:300; }
+    .problems-cta { margin-top:48px; text-align:center; }
+
+    /* MM MOCKUP */
+    .mockup-section { padding:96px 6%; background:#fff; }
+    .mockup-head { text-align:center; margin-bottom:56px; }
+    .mockup-head .section-sub { margin:16px auto 0; }
+    .mm-mockup { max-width:960px; margin:0 auto; background:#1a1918; border-radius:14px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.18); }
+    .mm-topbar { background:#111010; padding:10px 20px; display:flex; align-items:center; gap:16px; }
+    .mm-dots { display:flex; gap:6px; }
+    .mm-dot { width:11px; height:11px; border-radius:50%; }
+    .mm-dot.r{background:#ff5f57;} .mm-dot.y{background:#febc2e;} .mm-dot.g{background:#28c840;}
+    .mm-logo-bar { display:flex; align-items:center; gap:10px; margin-left:8px; }
+    .mm-logo-text { font-family:var(--display); font-size:13px; font-weight:700; color:#fff; opacity:.7; }
+    .mm-timer { margin-left:auto; font-family:monospace; font-size:14px; color:rgba(255,255,255,0.5); }
+    .mm-body { display:grid; grid-template-columns:200px 1fr 220px; height:440px; }
+    .mm-left { background:#141210; border-right:1px solid rgba(255,255,255,0.06); overflow:hidden; }
+    .mm-nav-hd { padding:12px 14px 8px; font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.3); }
+    .mm-nav-cat { padding:4px 14px; font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:.06em; }
+    .mm-nav-item { padding:7px 14px; display:flex; align-items:center; gap:8px; font-size:11px; color:rgba(255,255,255,0.5); }
+    .mm-nav-item.active { background:rgba(246,146,30,0.12); color:#fff; border-left:2px solid var(--org); }
+    .mm-check { width:14px; height:14px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.2); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:8px; }
+    .mm-check.done { background:#22c55e; border-color:#22c55e; color:#fff; }
+    .mm-check.active { border-color:var(--org); background:rgba(246,146,30,0.1); }
+    .mm-centre { display:flex; flex-direction:column; overflow:hidden; }
+    .mm-c-hd { padding:14px 20px 10px; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .mm-c-cat { font-size:10px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+    .mm-c-title { font-family:var(--display); font-size:16px; font-weight:700; color:#fff; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .mm-tag { font-size:9px; font-weight:700; padding:2px 7px; border-radius:4px; letter-spacing:.04em; text-transform:uppercase; }
+    .mm-tag.approval { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .mm-tag.majority { background:rgba(59,130,246,0.15); color:#60a5fa; }
+    .mm-c-body { flex:1; overflow-y:auto; padding:16px 20px; }
+    .mm-section { margin-bottom:14px; }
+    .mm-section-hd { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.3); padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:8px; }
+    .mm-motion-text { font-size:12px; color:rgba(255,255,255,0.7); line-height:1.6; font-style:italic; background:rgba(255,255,255,0.04); padding:10px 12px; border-radius:6px; border-left:2px solid var(--org); }
+    .mm-right { background:#1a1918; border-left:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; overflow:hidden; }
+    .mm-r-sec { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .mm-r-lbl { font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:6px; }
+    .att-item { display:flex; align-items:center; gap:6px; font-size:11px; color:rgba(255,255,255,0.5); padding:3px 0; }
+    .mm-ss-hd { padding:10px 14px; background:#111010; display:flex; align-items:center; gap:7px; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .ss-dot { width:6px; height:6px; border-radius:50%; background:var(--org); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+    .mm-ss-name { font-size:11px; font-weight:600; color:#fff; }
+    .mm-ss-msgs { flex:1; overflow:hidden; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+    .mm-ss-msg { font-size:11px; line-height:1.5; padding:7px 10px; border-radius:6px; }
+    .mm-ss-msg.ai { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); }
+    .mm-ss-msg.usr { background:var(--org); color:#fff; align-self:flex-end; max-width:85%; }
+    .mm-bot { background:#111010; padding:10px 14px; border-top:1px solid rgba(255,255,255,0.08); }
+    .mm-bot-row1 { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+    .mm-bot-lbl { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.3); }
+    .mm-bot-val { font-size:11px; font-weight:600; color:rgba(255,255,255,0.7); }
+    .mm-bot-div { width:1px; height:16px; background:rgba(255,255,255,0.1); }
+    .mm-sel-mock { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:3px 8px; font-size:11px; color:rgba(255,255,255,0.5); }
+    .mm-conf-btn { background:var(--org); color:#fff; font-family:var(--display); font-size:11px; font-weight:700; padding:5px 14px; border-radius:5px; margin-left:auto; }
+    .mm-bot-row2 { display:flex; align-items:center; gap:16px; }
+    .vote-grp { display:flex; align-items:center; gap:5px; }
+    .vote-lbl { font-size:10px; font-weight:700; }
+    .vote-lbl.f{color:#4ade80;} .vote-lbl.a{color:#f87171;} .vote-lbl.ab{color:rgba(255,255,255,0.35);}
+    .vote-num { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:2px 10px; font-size:13px; font-weight:700; }
+    .vote-num.f{color:#4ade80;} .vote-num.a{color:#f87171;} .vote-num.ab{color:rgba(255,255,255,0.35);}
+    .outcome-lbl { margin-left:auto; font-size:11px; font-weight:700; color:#4ade80; }
+    .mockup-cta { text-align:center; margin-top:48px; }
+
+    /* SOLUTIONS */
+    .solutions { padding:96px 6%; background:var(--stone); }
+    .solutions-head { display:flex; align-items:flex-end; justify-content:space-between; gap:40px; margin-bottom:56px; flex-wrap:wrap; }
+    .solutions-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+    .sol-card { background:#fff; border-radius:14px; padding:32px 28px; border:1px solid var(--stone2); transition:transform .2s,box-shadow .2s; }
+    .sol-card:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,0.07); }
+    .sol-icon { width:46px; height:46px; background:var(--orgl); border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:18px; }
+    .sol-card h3 { font-size:17px; font-weight:700; color:var(--dark); margin-bottom:8px; }
+    .sol-card p { font-size:13px; color:var(--muted); line-height:1.75; font-weight:300; }
+    .sol-outcome { display:inline-block; margin-top:14px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--orgd); }
+    .solutions-cta { text-align:center; margin-top:48px; }
+
+    /* COMPLIANCE */
+    .compliance { padding:96px 6%; background:var(--dark); }
+    .compliance-inner { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; max-width:1160px; margin:0 auto; }
+    @media(max-width:860px){ .compliance-inner{grid-template-columns:1fr;gap:48px;} }
+    .compliance h2{color:#fff;} .compliance .section-sub{color:rgba(255,255,255,0.45);}
+    .compliance .eyebrow{background:rgba(246,146,30,0.15);color:rgba(246,146,30,0.9);}
+    .compliance-points { list-style:none; margin-top:28px; display:flex; flex-direction:column; gap:12px; }
+    .compliance-points li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:rgba(255,255,255,0.6); font-weight:300; line-height:1.6; }
+    .cp-check { width:18px; height:18px; border-radius:50%; background:rgba(246,146,30,0.12); border:1.5px solid rgba(246,146,30,0.5); flex-shrink:0; margin-top:2px; }
+    .compliance-cta { margin-top:36px; }
+    .comp-photo { position:relative; }
+    .comp-photo img { width:100%; height:480px; object-fit:cover; object-position:center top; border-radius:14px; display:block; }
+    .comp-badge { position:absolute; bottom:-20px; right:-20px; background:var(--org); border-radius:12px; padding:16px 20px; text-align:center; min-width:140px; }
+    .comp-badge .num { font-family:var(--display); font-size:32px; font-weight:800; color:#fff; line-height:1; }
+    .comp-badge .lbl { font-size:11px; color:rgba(255,255,255,0.7); margin-top:2px; }
+    .photo-credit { font-size:10px; color:rgba(255,255,255,0.2); margin-top:8px; }
+    .photo-credit a { color:rgba(255,255,255,0.2); text-decoration:underline; }
+
+    /* PRICING */
+    .pricing { padding:96px 6%; background:#fff; }
+    .pricing-head { text-align:center; margin-bottom:56px; }
+    .pricing-head .section-sub { margin:16px auto 0; }
+    .pricing-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; max-width:840px; margin:0 auto; }
+    .pricing-card { border:1.5px solid var(--stone2); border-radius:14px; padding:36px 32px; position:relative; transition:transform .2s; }
+    .pricing-card:hover { transform:translateY(-3px); }
+    .pricing-card.featured { border-color:var(--org); background:var(--stone); }
+    .pricing-badge { position:absolute; top:-13px; left:28px; background:var(--org); color:#fff; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:4px 12px; border-radius:20px; }
+    .pricing-name { font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+    .pricing-price { font-family:var(--display); font-size:52px; font-weight:800; color:var(--dark); line-height:1; margin-bottom:4px; }
+    .pricing-price span { font-family:var(--sans); font-size:15px; color:var(--muted); font-weight:300; }
+    .pricing-desc { font-size:13px; color:var(--muted); font-weight:300; line-height:1.65; margin:12px 0 24px; }
+    .pricing-features { list-style:none; display:flex; flex-direction:column; gap:9px; margin-bottom:28px; }
+    .pricing-features li { font-size:13px; color:var(--text); display:flex; align-items:flex-start; gap:9px; }
+    .pricing-features li::before { content:'✓'; color:var(--org); font-weight:700; flex-shrink:0; }
+    .pricing-note { font-size:12px; color:var(--muted); text-align:center; margin-top:10px; }
+
+    /* TESTIMONIAL */
+    .testimonial { padding:80px 6%; background:var(--dark); text-align:center; }
+    .t-quote { font-family:var(--display); font-size:64px; font-weight:800; color:var(--org); line-height:.7; margin-bottom:28px; }
+    blockquote { font-family:var(--display); font-size:clamp(20px,3vw,28px); font-weight:600; color:#fff; line-height:1.4; max-width:720px; margin:0 auto 24px; }
+    .t-attr { font-size:13px; color:rgba(255,255,255,0.35); }
+
+    /* CTA FINAL */
+    .cta-final { padding:96px 6%; background:var(--org); text-align:center; }
+    .cta-final h2 { color:#fff; }
+    .cta-final p { font-size:18px; color:rgba(255,255,255,0.7); font-weight:300; margin:16px auto 40px; max-width:500px; }
+    .btn-white { display:inline-block; background:#fff; color:var(--orgd); text-decoration:none; font-family:var(--display); font-weight:800; font-size:16px; padding:16px 36px; border-radius:9px; transition:transform .12s,box-shadow .12s; }
+    .btn-white:hover { transform:translateY(-2px); box-shadow:0 12px 32px rgba(0,0,0,0.15); }
+    .cta-final-note { font-size:13px; color:rgba(255,255,255,0.5); margin-top:14px; }
+
+    /* FOOTER */
+    footer { background:var(--dark); border-top:1px solid rgba(255,255,255,0.05); padding:28px 6%; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+    footer p { font-size:13px; color:rgba(255,255,255,0.25); }
+    footer a { font-size:13px; color:rgba(255,255,255,0.25); text-decoration:none; transition:color .15s; }
+    footer a:hover { color:rgba(255,255,255,0.6); }
+    .footer-links { display:flex; gap:24px; }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
+    .hero-content > * { opacity:0; animation:fadeUp .65s ease forwards; }
+    .eyebrow{animation-delay:.05s;} h1{animation-delay:.15s;} .hero-sub{animation-delay:.25s;} .hero-actions{animation-delay:.35s;} .hero-trust{animation-delay:.45s;}
+
+    @media(max-width:600px){ nav .nav-links{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" style="display:flex;align-items:center;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 217.96 56" height="30" style="display:block">
+      <defs><linearGradient id="nlg2" x1="28" y1="56" x2="28" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".31" stop-color="#f7941d"/></linearGradient></defs>
+      <path fill="url(#nlg2)" d="M31.14,8.46L39.6,0h16.4v16.4l-8.46,8.46V8.46h-16.4ZM8.46,47.54v-16.4L0,39.6v16.4h16.4l8.46-8.46H8.46ZM39.6,56h16.4v-16.4l-8.46-8.46v16.4h-3.33l-16.4-16.4h-13.07l24.86,24.86ZM16.4,0H0v16.4l8.46,8.46V8.46h3.33l16.4,16.4h13.07L16.4,0Z"/>
+      <g fill="#231f20"><path d="M64.46,46.6V11h4.9l7.7,21.45h.1V11h5.1v35.6h-4.8l-7.8-21.4h-.1v21.4h-5.1Z"/><path d="M90.31,46.6V11h15.2v4.8h-10.1v10.45h8.8v4.8h-8.8v10.45h10.1v5.1h-15.2Z"/><path d="M128.76,11v27.6c0,1.17-.21,2.24-.62,3.22-.42.98-1.01,1.86-1.77,2.62-.77.77-1.65,1.37-2.65,1.8-1,.43-2.07.65-3.2.65s-2.19-.22-3.17-.65c-.98-.43-1.86-1.03-2.62-1.8-.77-.77-1.37-1.64-1.8-2.62-.43-.98-.65-2.06-.65-3.22V11h5.1v27.1c0,1.27.3,2.2.9,2.8.6.6,1.35.9,2.25.9s1.65-.3,2.25-.9c.6-.6.9-1.53.9-2.8V11h5.1Z"/><path d="M137.01,46.6V11h8.2c6,0,9,3.48,9,10.45,0,2.1-.32,3.88-.97,5.35s-1.79,2.65-3.42,3.55l5.5,16.25h-5.4l-4.75-15.2h-3.05v15.2h-5.1ZM142.11,15.8v11.1h2.9c.9,0,1.62-.12,2.15-.38s.95-.61,1.25-1.07c.27-.47.45-1.04.55-1.73.1-.68.15-1.48.15-2.38s-.05-1.69-.15-2.38c-.1-.68-.3-1.28-.6-1.78-.63-.93-1.83-1.4-3.6-1.4h-2.65Z"/><path d="M162.61,46.6V15.8h-5.9v-4.8h16.9v4.8h-5.9v30.8h-5.1Z"/><path d="M178.26,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM190.86,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/></g>
+    </svg>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#problems">The Problem</a></li>
+    <li><a href="#mockup">Meeting Mode</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="https://app.neurata.ai" class="nav-cta">Start Free Trial</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-top">
+    <div class="hero-content">
+      <div class="eyebrow">BC Strata Management</div>
+      <h1>
+        <span class="block">Stop losing</span>
+        <span class="block">hours to</span>
+        <span class="block text-org">paperwork.</span>
+      </h1>
+      <p class="hero-sub">Neurata turns your strata meetings into structured records, properly worded minutes, and institutional memory that survives every council election — automatically.</p>
+      <div class="hero-actions">
+        <a href="https://app.neurata.ai" class="btn-pri">Start Saving Time →</a>
+        <a href="#mockup" class="btn-outline">See Meeting Mode</a>
+      </div>
+      <div class="hero-trust">
+        <span class="trust-pill">2 free meetings</span>
+        <span class="trust-pill">BC SPA compliant</span>
+        <span class="trust-pill">No credit card</span>
+        <span class="trust-pill">Canadian data residency</span>
+      </div>
+    </div>
+    <div class="hero-img">
+      <img src="https://images.unsplash.com/photo-1529686342540-1b43aec0df75?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Strata manager working efficiently" loading="eager" onerror="this.style.background='#e8e4dd';this.removeAttribute('src')"/>
+      <div class="hero-badge">
+        <div class="badge-icon">⏱</div>
+        <div class="badge-text">
+          <div class="num">3 hrs</div>
+          <div class="lbl">saved per meeting</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="logobar">
+  <p>Built for BC strata managers · Compliant with the Strata Property Act · PIPA-compliant data handling</p>
+</div>
+
+<!-- PROBLEMS -->
+<section class="problems" id="problems">
+  <div class="problems-head">
+    <div>
+      <div class="eyebrow">The real cost</div>
+      <h2>Sound familiar?</h2>
+    </div>
+    <p class="section-sub">These aren't edge cases. They're every month, for every manager, at every building.</p>
+  </div>
+  <div class="problems-grid">
+    <div class="problem-card">
+      <div class="problem-num">01</div>
+      <h3>Minutes that take longer than the meeting</h3>
+      <p>You spend more time writing up what happened than it took to happen. Then council edits them. Then you redo them. Every single month.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-num">02</div>
+      <h3>New council, lost history</h3>
+      <p>A new council is elected and nobody knows why that contractor was hired, what was decided about bylaw enforcement, or what was deferred last year.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-num">03</div>
+      <h3>Compliance risk that keeps you up</h3>
+      <p>Motions worded incorrectly. Votes not properly recorded. Notice periods missed. The Strata Property Act doesn't care how busy you were.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-num">04</div>
+      <h3>Agendas rebuilt from scratch every time</h3>
+      <p>Same structure, same categories, same items — rebuilt every month because there's no system that makes it automatic and professional.</p>
+    </div>
+  </div>
+  <div class="problems-cta">
+    <a href="https://app.neurata.ai" class="btn-pri">Stop Losing Hours →</a>
+  </div>
+</section>
+
+<!-- MEETING MODE MOCKUP -->
+<section class="mockup-section" id="mockup">
+  <div class="mockup-head">
+    <div class="eyebrow">Meeting Mode</div>
+    <h2>Run every meeting<br><span class="text-org">like a professional.</span></h2>
+    <p class="section-sub">Live agenda, real-time vote recording, automatic quorum check, SPA-compliant motions. Everything you need, nothing you don't.</p>
+  </div>
+  <div class="mm-mockup">
+    <div class="mm-topbar">
+      <div class="mm-dots"><div class="mm-dot r"></div><div class="mm-dot y"></div><div class="mm-dot g"></div></div>
+      <div class="mm-logo-bar">
+        <span class="mm-logo-text">▶ MEETING MODE</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.35)">·</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.35)">BCS 3229 — The Terminus · Strata Council Meeting</span>
+      </div>
+      <div class="mm-timer">01:14:32</div>
+    </div>
+    <div class="mm-body">
+      <div class="mm-left">
+        <div class="mm-nav-hd">Agenda</div>
+        <div class="mm-nav-cat">Opening</div>
+        <div class="mm-nav-item"><div class="mm-check done">✓</div>Call to Order</div>
+        <div class="mm-nav-item"><div class="mm-check done">✓</div>Approve Agenda</div>
+        <div class="mm-nav-item"><div class="mm-check done">✓</div>Approve Minutes</div>
+        <div class="mm-nav-cat">Financial</div>
+        <div class="mm-nav-item"><div class="mm-check done">✓</div>Financial Report</div>
+        <div class="mm-nav-cat">New Business</div>
+        <div class="mm-nav-item active"><div class="mm-check active"></div>Roof Replacement</div>
+        <div class="mm-nav-item"><div class="mm-check"></div>Next Meeting Date</div>
+        <div class="mm-nav-cat">Admin</div>
+        <div class="mm-nav-item"><div class="mm-check"></div>Adjournment</div>
+      </div>
+      <div class="mm-centre">
+        <div class="mm-c-hd">
+          <div class="mm-c-cat">New Business</div>
+          <div class="mm-c-title">
+            Roof Replacement — Contractor Approval
+            <span class="mm-tag approval">For Approval</span>
+            <span class="mm-tag majority">Majority</span>
+          </div>
+        </div>
+        <div class="mm-c-body">
+          <div class="mm-section">
+            <div class="mm-section-hd">Financial Implications</div>
+            <p style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.7;font-weight:300">Total contract value $84,500 from CRF. Three quotes obtained. Lowest compliant bidder selected per bylaw requirements. Work to commence May 2026.</p>
+          </div>
+          <div class="mm-section">
+            <div class="mm-section-hd">Motion</div>
+            <div class="mm-motion-text">THAT the strata corporation approve the engagement of Apex Roofing Ltd. for replacement of the common property roof at a cost not to exceed $84,500, funded from the Contingency Reserve Fund.</div>
+          </div>
+          <div class="mm-section">
+            <div class="mm-section-hd">Minutes Summary</div>
+            <p style="font-size:12px;color:rgba(255,255,255,0.35);font-style:italic;line-height:1.6">Generated automatically after adjournment…</p>
+          </div>
+        </div>
+      </div>
+      <div class="mm-right">
+        <div class="mm-r-sec">
+          <div class="mm-r-lbl">Attachments</div>
+          <div class="att-item">📄 Apex_Roofing_Quote.pdf</div>
+          <div class="att-item">📄 CRF_Balance_2026.pdf</div>
+          <div class="att-item" style="color:rgba(255,255,255,0.25)">+ Add</div>
+        </div>
+        <div class="mm-ss-hd">
+          <div class="ss-dot"></div>
+          <span class="mm-ss-name">StrataSphere</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.25);margin-left:4px">PIPA-compliant</span>
+        </div>
+        <div class="mm-ss-msgs">
+          <div class="mm-ss-msg ai">Any previous roof repairs for BCS 3229?</div>
+          <div class="mm-ss-msg usr">What roof work was approved before?</div>
+          <div class="mm-ss-msg ai">Council approved emergency flashing repair ($4,200) in March 2024. No full replacement motions on record.</div>
+        </div>
+      </div>
+    </div>
+    <div class="mm-bot">
+      <div class="mm-bot-row1">
+        <div><div class="mm-bot-lbl">Resolution</div><div class="mm-bot-val">For Approval</div></div>
+        <div class="mm-bot-div"></div>
+        <div><div class="mm-bot-lbl">Decision Type</div><div class="mm-bot-val">Majority</div></div>
+        <div class="mm-bot-div"></div>
+        <div style="display:flex;align-items:center;gap:6px"><div class="mm-bot-lbl">MOVER</div><div class="mm-sel-mock">SL 004 ▾</div></div>
+        <div style="display:flex;align-items:center;gap:6px"><div class="mm-bot-lbl">SECONDER</div><div class="mm-sel-mock">SL 007 ▾</div></div>
+        <div class="mm-conf-btn">Confirm Decision</div>
+      </div>
+      <div class="mm-bot-row2">
+        <div class="mm-bot-lbl">Votes</div>
+        <div class="vote-grp"><span class="vote-lbl f">For</span><span class="vote-num f">5</span></div>
+        <div class="vote-grp"><span class="vote-lbl a">Against</span><span class="vote-num a">1</span></div>
+        <div class="vote-grp"><span class="vote-lbl ab">Abstain</span><span class="vote-num ab">0</span></div>
+        <div class="outcome-lbl">↑ PASSING (83%)</div>
+      </div>
+    </div>
+  </div>
+  <div class="mockup-cta">
+    <a href="https://app.neurata.ai" class="btn-pri">Run My First Meeting Free →</a>
+  </div>
+</section>
+
+<!-- SOLUTIONS -->
+<section class="solutions" id="solutions">
+  <div class="solutions-head">
+    <div>
+      <div class="eyebrow">What you get</div>
+      <h2>Everything you need.<br><span class="text-org">Nothing you don't.</span></h2>
+    </div>
+    <p class="section-sub">Built specifically for BC strata management. Not adapted from generic meeting software.</p>
+  </div>
+  <div class="solutions-grid">
+    <div class="sol-card">
+      <div class="sol-icon">📋</div>
+      <h3>Agenda Builder</h3>
+      <p>Upload an existing agenda or start from the standard BC strata template. Add items, attachments, and background notes in minutes. No more building from scratch every month.</p>
+      <span class="sol-outcome">→ 45 min saved per meeting prep</span>
+    </div>
+    <div class="sol-card">
+      <div class="sol-icon">▶</div>
+      <h3>Live Meeting Mode</h3>
+      <p>Run your meeting inside Neurata. Attendance, quorum verification, motions, votes — all captured in real time. Move through agenda items with one click.</p>
+      <span class="sol-outcome">→ Nothing falls through the cracks</span>
+    </div>
+    <div class="sol-card">
+      <div class="sol-icon">📄</div>
+      <h3>Instant Minutes</h3>
+      <p>Adjourn the meeting and minutes are generated automatically. Properly worded, SPA-compliant, ready to review. Edit inline and export as Word or PDF.</p>
+      <span class="sol-outcome">→ 2–3 hours back in your day</span>
+    </div>
+    <div class="sol-card">
+      <div class="sol-icon">🧠</div>
+      <h3>StrataSphere</h3>
+      <p>Every decision ever made, searchable in plain language. Ask anything about a corporation's history. The institutional memory that survives every council election.</p>
+      <span class="sol-outcome">→ Never start over again</span>
+    </div>
+    <div class="sol-card">
+      <div class="sol-icon">📁</div>
+      <h3>Document Library</h3>
+      <p>All documents organized by corporation — agendas, minutes, attachments, historic records. Searchable, always there when you need them.</p>
+      <span class="sol-outcome">→ One place, every building</span>
+    </div>
+    <div class="sol-card">
+      <div class="sol-icon">🏢</div>
+      <h3>Portfolio Dashboard</h3>
+      <p>Manage every corporation from one dashboard. Trial usage, meeting history, council composition — all visible at a glance. No more juggling spreadsheets.</p>
+      <span class="sol-outcome">→ Built for busy managers</span>
+    </div>
+  </div>
+  <div class="solutions-cta">
+    <a href="https://app.neurata.ai" class="btn-pri">Be More Organized →</a>
+  </div>
+</section>
+
+<!-- COMPLIANCE -->
+<section class="compliance">
+  <div class="compliance-inner">
+    <div>
+      <div class="eyebrow">Compliance & risk</div>
+      <h2>Your licence<br>is on the line.</h2>
+      <p class="section-sub">Managing Brokers are personally responsible for every strata manager in their brokerage. Neurata gives you the audit trail to prove everything was done correctly.</p>
+      <ul class="compliance-points">
+        <li><div class="cp-check"></div>Motions auto-formatted to BC Strata Property Act standards</li>
+        <li><div class="cp-check"></div>Quorum verified before the meeting proceeds</li>
+        <li><div class="cp-check"></div>Vote thresholds enforced — majority, ¾ resolution, unanimous</li>
+        <li><div class="cp-check"></div>Minutes distributed within the SPA s.35 30-day window</li>
+        <li><div class="cp-check"></div>Complete audit trail: who moved, who seconded, who voted</li>
+        <li><div class="cp-check"></div>PIPA-compliant — owners identified by strata lot only</li>
+      </ul>
+      <div class="compliance-cta">
+        <a href="https://app.neurata.ai" class="btn-pri">Protect My Brokerage →</a>
+      </div>
+    </div>
+    <div class="comp-photo">
+      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80" alt="Managing Broker confident with Neurata" onerror="this.style.background='#2a2826';this.removeAttribute('src')"/>
+      <div class="comp-badge">
+        <div class="num">100%</div>
+        <div class="lbl">SPA compliant</div>
+      </div>
+      <p class="photo-credit">Photo: <a href="https://unsplash.com/photos/1hHv-8Ki378" target="_blank" rel="noopener">Unsplash</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="pricing-head">
+    <div class="eyebrow">Simple pricing</div>
+    <h2>One price per building.<br><span class="text-org">No surprises.</span></h2>
+    <p class="section-sub">Billed to the strata corporation — a standard admin line item on any operating budget. Not another cost for your brokerage.</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="pricing-card featured">
+      <div class="pricing-badge">Most Popular</div>
+      <div class="pricing-name">Platform</div>
+      <div class="pricing-price">$30 <span>/ building / month</span></div>
+      <p class="pricing-desc">Everything you need to run proper meetings, produce compliant minutes, and build a permanent record.</p>
+      <ul class="pricing-features">
+        <li>Meeting Mode — agenda, live meeting, votes</li>
+        <li>Automatic minutes generation</li>
+        <li>Document library per corporation</li>
+        <li>Local StrataSphere — full decision history</li>
+        <li>Historic minutes upload</li>
+        <li>Council member portal</li>
+        <li>Unlimited meetings after trial</li>
+      </ul>
+      <a href="https://app.neurata.ai" class="btn-pri" style="display:block;text-align:center">Start Saving Time →</a>
+      <p class="pricing-note">2 meetings free · No credit card required</p>
+    </div>
+    <div class="pricing-card">
+      <div class="pricing-name">Global StrataSphere</div>
+      <div class="pricing-price">$2.50 <span>/ lot / month</span></div>
+      <p class="pricing-desc">Cross-portfolio intelligence for managing brokers and senior strata managers.</p>
+      <ul class="pricing-features">
+        <li>Query decisions across your entire portfolio</li>
+        <li>All data stripped of PII before aggregation</li>
+        <li>Identify patterns across buildings</li>
+        <li>Available as an add-on to Platform</li>
+      </ul>
+      <a href="mailto:info@neurata.ai" class="btn-outline" style="display:block;text-align:center">Contact Us →</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIAL -->
+<section class="testimonial">
+  <div class="t-quote">"</div>
+  <blockquote>The minutes used to take me the better part of a day. Now I adjourn the meeting and they're ready to review before I've poured a second coffee.</blockquote>
+  <p class="t-attr">Strata Manager, Kelowna BC &nbsp;·&nbsp; 18 buildings under management</p>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-final">
+  <div class="eyebrow" style="background:rgba(255,255,255,0.15);color:#fff;margin:0 auto 20px">Get Started Today</div>
+  <h2>Ready to get your<br>evenings back?</h2>
+  <p>Two free meetings. No credit card. Full access to every feature from day one.</p>
+  <a href="https://app.neurata.ai" class="btn-white">Start Saving Time Today →</a>
+  <p class="cta-final-note">No credit card required · Cancel anytime · Canadian data residency</p>
+</section>
+
+<footer>
+  <p>© 2026 Neurata · BC Strata Intelligence Platform · <a href="mailto:info@neurata.ai">info@neurata.ai</a></p>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Service</a>
+    <a href="https://app.neurata.ai">Sign In</a>
+  </div>
+</footer>
+
+</body>
+</html>
