@@ -1,13 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "has": [{ "type": "host", "value": "app.neurata.ai" }],
-      "destination": "/neurata.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/(.*)", "destination": "/neurata.html" }
   ]
 }
