@@ -1,5 +1,7 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/neurata.html" }
+    { "source": "/app", "destination": "/neurata.html" },
+    { "source": "/app/(.*)", "destination": "/neurata.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
