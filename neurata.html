@@ -1135,7 +1135,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div style="font-size:11px;color:var(--g4)" id="ag-modal-sub"></div>
       </div>
       <div class="br" style="gap:6px">
-        <button class="btn sm" onclick="agUploadClick()">📎 Upload Agenda</button>
+        <button class="btn sm" id="ag-upload-btn" onclick="agUploadClick()" style="display:none;">📎 Upload Agenda</button>
         <input type="file" id="ag-upload-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="agUploadAgenda(this.files[0])"/>
         <button class="mo-x" onclick="agClose()">×</button>
       </div>
@@ -1143,10 +1143,27 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="mo-bd" style="flex:1;overflow-y:auto;padding-top:8px">
       <!-- Starting options — shown when agenda is empty -->
       <div id="ag-start-opts" style="display:none;margin-bottom:16px">
-        <div style="display:flex;gap:8px;align-items:center;padding:12px;background:var(--g1);border-radius:8px">
-          <div style="font-size:13px;color:var(--ch2);flex:1">Start with a blank agenda or load the standard 10-category template:</div>
-          <button class="btn sm" onclick="agStartEmpty()">Start Empty</button>
-          <button class="btn sm pri" onclick="agStartTemplate()">Use Standard Template</button>
+        <div style="padding:8px 0 20px;text-align:center">
+          <div style="font-size:15px;font-weight:700;color:var(--ch);margin-bottom:6px;">How would you like to build this agenda?</div>
+          <div style="font-size:12px;color:var(--g4);">Choose a starting point — you can edit everything after.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px;">
+          <div class="ag-choice-card" onclick="agUploadClick()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--g2);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
+            <div style="font-size:28px;margin-bottom:10px;">📎</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Upload Agenda</div>
+            <div style="font-size:11px;color:var(--g4);line-height:1.5;">Import from an existing PDF, Word doc, or text file. AI will parse the categories and items automatically.</div>
+          </div>
+          <div class="ag-choice-card" onclick="agStartTemplate()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--org);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;position:relative;" onmouseover="this.style.background='var(--orgp)'" onmouseout="this.style.background='var(--wh)'">
+            <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--org);color:#fff;font-size:9px;font-weight:700;padding:2px 10px;border-radius:10px;letter-spacing:.05em;">RECOMMENDED</div>
+            <div style="font-size:28px;margin-bottom:10px;">📋</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Use Standard Template</div>
+            <div style="font-size:11px;color:var(--g4);line-height:1.5;">Start with the standard BC strata agenda structure. Includes all required categories and common items.</div>
+          </div>
+          <div class="ag-choice-card" onclick="agStartEmpty()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--g2);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
+            <div style="font-size:28px;margin-bottom:10px;">✏️</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Start from Scratch</div>
+            <div style="font-size:11px;color:var(--g4);line-height:1.5;">Build your own agenda from the ground up. Add categories and items manually.</div>
+          </div>
         </div>
       </div>
       <!-- Upload status -->
@@ -1630,6 +1647,8 @@ function agOpen(scId, mtgId) {
   document.getElementById('ag-modal-sub').textContent   = (sc_ ? sc_.plan + ' · ' : '') + mtg.date + (mtg.time ? ' at ' + mtg.time : '');
   // Show start options only if empty
   document.getElementById('ag-start-opts').style.display = AG.agenda.length === 0 ? '' : 'none';
+  var uploadBtn = document.getElementById('ag-upload-btn');
+  if (uploadBtn) uploadBtn.style.display = AG.agenda.length > 0 ? '' : 'none';
   agRender();
   openMo('mo-agenda');
 }
