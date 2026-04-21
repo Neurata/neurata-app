@@ -445,6 +445,136 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ss-dot:nth-child(3){animation-delay:.4s}
 @keyframes ssDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 
+
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE — 768px breakpoint (iPad portrait)
+   Target: strata managers running meetings on
+   tablets/small laptops beside their screens
+═══════════════════════════════════════════════ */
+
+/* ── Topbar ── */
+@media (max-width: 900px) {
+  #topbar { padding: 0 10px; gap: 6px; }
+  .t-logo { height: 22px; }
+  .t-nav { display: flex; overflow-x: auto; flex: 1; scrollbar-width: none; -ms-overflow-style: none; }
+  .t-nav::-webkit-scrollbar { display: none; }
+  .t-tab { padding: 5px 10px; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+}
+
+/* ── Page headers ── */
+@media (max-width: 768px) {
+  .ph { padding: 12px 14px 10px; }
+  .ph-row { flex-wrap: wrap; gap: 8px; }
+  .ph-row > div { min-width: 0; flex: 1; }
+  .ph-row .btn { font-size: 12px; padding: 6px 12px; white-space: nowrap; }
+  .pt { font-size: 16px; }
+  .pb { padding: 12px 14px; }
+}
+
+/* ── Cards and grids ── */
+@media (max-width: 768px) {
+  .card { border-radius: 7px; margin-bottom: 10px; }
+  .cb { padding: 12px 14px; }
+  .fr { grid-template-columns: 1fr !important; }
+  .dash-grid { grid-template-columns: 1fr !important; }
+  .sc-grid { grid-template-columns: 1fr !important; }
+  .stats-row { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── Tables ── */
+@media (max-width: 768px) {
+  .cm-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cm-table { min-width: 540px; }
+  .cm-table th, .cm-table td { padding: 7px 8px; font-size: 12px; }
+}
+
+/* ── Modals ── */
+@media (max-width: 768px) {
+  .mo-box { width: calc(100vw - 24px) !important; max-width: calc(100vw - 24px) !important; margin: 12px; max-height: calc(100vh - 40px); }
+  .mo-bd { padding: 14px; }
+  .mo-ft { padding: 12px 14px; }
+  .mo-hd { padding: 14px; }
+}
+
+/* ── SC detail tabs ── */
+@media (max-width: 768px) {
+  .sc-tabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; -ms-overflow-style: none; }
+  .sc-tabs::-webkit-scrollbar { display: none; }
+  .sc-tab { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; font-size: 12px; }
+  .sc-detail-back { font-size: 12px; }
+}
+
+/* ── Brokerage rep table ── */
+@media (max-width: 768px) {
+  .rep-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Dashboard SC cards ── */
+@media (max-width: 768px) {
+  .sc-card-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Form rows ── */
+@media (max-width: 768px) {
+  .cm-form-row { grid-template-columns: 1fr !important; }
+  .cm-form-row.full { grid-template-columns: 1fr !important; }
+}
+
+/* ══════════════════════════════════════════════
+   MEETING MODE RESPONSIVE
+   768px: hide right panel, agenda becomes drawer
+   480px: agenda drawer only, full-width centre
+══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .mm-L { width: 180px; min-width: 180px; }
+  .mm-R { width: 200px; min-width: 200px; }
+}
+
+@media (max-width: 768px) {
+  /* Hide right panel — accessible via SS button in topbar */
+  .mm-R { display: none; }
+  .mm-R.open { display: flex; position: absolute; right: 0; top: 0; bottom: 0; width: 260px; z-index: 50; box-shadow: -4px 0 20px rgba(0,0,0,0.15); }
+
+  /* Agenda panel becomes a slide-out drawer */
+  .mm-L { position: absolute; left: 0; top: 0; bottom: 0; z-index: 50; transform: translateX(-100%); transition: transform .2s ease; box-shadow: 4px 0 20px rgba(0,0,0,0.1); width: 220px; min-width: 220px; }
+  .mm-L.open { transform: translateX(0); }
+
+  /* Centre panel takes full width */
+  .mm-body { grid-template-columns: 1fr; }
+  .mm-C { width: 100%; }
+
+  /* Bottom bar wraps */
+  .mm-bot { height: auto; min-height: 50px; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
+  .mm-bdiv { display: none; }
+  .mm-mvrow { flex-wrap: wrap; }
+  .mm-conf { order: 10; width: 100%; text-align: center; }
+
+  /* Show agenda toggle button */
+  .mm-agenda-toggle { display: flex !important; }
+  .mm-ss-toggle { display: flex !important; }
+}
+
+@media (max-width: 480px) {
+  .mm-top { padding: 0 8px; gap: 6px; }
+  .mm-ti { font-size: 12px; }
+  .mm-tmr { font-size: 11px; padding: 3px 7px; }
+  .mm-adj { padding: 5px 10px; font-size: 11px; }
+  .mm-Cscroll { padding: 8px; }
+  .mm-nm { font-size: 13px; }
+  .mm-bot { padding: 6px 8px; }
+  .mm-dlbl { font-size: 9px; }
+  .mm-dval { font-size: 11px; }
+}
+
+/* Toggle buttons for agenda/SS on mobile — hidden on desktop */
+.mm-agenda-toggle { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); cursor: pointer; color: #fff; font-size: 14px; flex-shrink: 0; }
+.mm-ss-toggle { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); cursor: pointer; color: #fff; font-size: 14px; flex-shrink: 0; }
+
+/* Overlay for when drawer is open on mobile */
+.mm-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 40; }
+.mm-overlay.on { display: block; }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -797,6 +927,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <button class="btn sm" onclick="openAttendance()" id="mm-att-btn" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);margin-right:6px">👥 Attendance</button>
       <button class="mm-adj" onclick="adjournMtg()">Adjourn Meeting</button>
     </div>
+    <div class="mm-overlay" id="mm-overlay" onclick="closeMMPanels()"></div>
     <div class="mm-body">
       <div class="mm-L" style="display:flex;flex-direction:column">
         <div class="mm-Lhd">
@@ -3021,6 +3152,34 @@ function saveNextMeetingDate(id, val) {
   if(it) { it.nextMeetingDate = val; mmSyncToMtg(); }
 }
 
+// ── MEETING MODE RESPONSIVE PANEL TOGGLES ─────────────────────────
+function toggleMMPanel(panel) {
+  var left = document.querySelector('.mm-L');
+  var right = document.querySelector('.mm-R');
+  var overlay = document.getElementById('mm-overlay');
+  if (panel === 'agenda') {
+    var isOpen = left && left.classList.contains('open');
+    if (left) left.classList.toggle('open');
+    if (right) right.classList.remove('open');
+    if (overlay) overlay.classList.toggle('on', !isOpen);
+  } else {
+    var isOpenR = right && right.classList.contains('open');
+    if (right) right.classList.toggle('open');
+    if (left) left.classList.remove('open');
+    if (overlay) overlay.classList.toggle('on', !isOpenR);
+  }
+}
+
+function closeMMPanels() {
+  var left = document.querySelector('.mm-L');
+  var right = document.querySelector('.mm-R');
+  var overlay = document.getElementById('mm-overlay');
+  if (left) left.classList.remove('open');
+  if (right) right.classList.remove('open');
+  if (overlay) overlay.classList.remove('on');
+}
+
+
 function mmStartTimer() {
   if (MM.running) return;
   MM.running   = true;
@@ -4019,7 +4178,7 @@ function renderBrokerageRepList() {
     return (a.name||'').localeCompare(b.name||'');
   });
 
-  return '<table style="width:100%;border-collapse:collapse">'
+  return '<div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
     +'<thead><tr>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Name</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Title</th>'
