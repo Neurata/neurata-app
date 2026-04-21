@@ -5274,7 +5274,7 @@ function switchMtgTab(tab, el) {
 }
 
 function renderMinutesList(sc, el) {
-  var adjourned = (sc.meetings||[]).filter(function(m){return m.status==='ADJOURNED'||(m.minutesState&&m.minutes);});
+  var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
   if (!adjourned.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
       + '<div class="empty-h">No minutes yet</div>'
