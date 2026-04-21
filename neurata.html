@@ -780,7 +780,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <div class="t-nav" id="t-nav"><!-- rendered by role --></div>
   <div id="super-admin-bar" style="display:none;align-items:center;gap:4px;margin-right:8px"></div>
   <div class="t-right">
-    <span class="tag gy" id="user-role-badge" style="font-size:10px"></span>
     <div class="u-pill" onclick="toggleUserMenu()">
       <div class="u-av" id="u-av">?</div>
       <span class="u-nm" id="u-nm">—</span>
@@ -791,7 +790,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 <div class="user-menu" id="user-menu">
   <div class="um-head">
     <div class="um-name" id="menu-name"></div>
-    <div class="um-role" id="menu-role"></div>
     <div class="um-role" id="menu-lic"></div>
   </div>
   <div class="um-it" onclick="showPg('profile');toggleUserMenu(false);">👤 My Profile</div>
@@ -4976,14 +4974,12 @@ function switchSuperAdminRole(idx) {
   // Update topbar display
   var av = document.getElementById('u-av');
   var nm = document.getElementById('u-nm');
-  var rb = document.getElementById('user-role-badge');
   if (av) av.textContent = r.initials;
   if (nm) nm.textContent = r.name;
   if (rb) rb.textContent = r.role;
   var mn = document.getElementById('menu-name');
   var mr = document.getElementById('menu-role');
   if (mn) mn.textContent = r.name;
-  if (mr) mr.textContent = r.role;
   // Reset to fresh DEMO_SC so role-based visibility updates correctly
   APP.sc = JSON.parse(JSON.stringify(DEMO_SC));
   renderNav();
@@ -5024,12 +5020,11 @@ window.addEventListener('load', function() {
 
 function launchPlatform(){
   var u=APP.currentUser;
-  var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');var rb=document.getElementById('user-role-badge');
-  if(av){if(u.photoUrl){av.innerHTML='<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';}else{av.textContent=u.initials||'?';}}
+  var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');if(av){if(u.photoUrl){av.innerHTML='<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';}else{av.textContent=u.initials||'?';}}
   if(nm)nm.textContent=u.name||'—';
   if(rb)rb.textContent=u.role||'';
-  var mn=document.getElementById('menu-name');var mr=document.getElementById('menu-role');var ml=document.getElementById('menu-lic');
-  if(mn)mn.textContent=u.name||'';if(mr)mr.textContent=u.role||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
+  var mn=document.getElementById('menu-name');var ml=document.getElementById('menu-lic');
+  if(mn)mn.textContent=u.name||'';if(false)mr.textContent=u.role||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
