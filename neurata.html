@@ -5274,8 +5274,7 @@ function switchMtgTab(tab, el) {
 }
 
 function renderMinutesList(sc, el) {
-  var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
-  if (!adjourned.length) {
+var adjourned = (sc.meetings||[]).filter(function(m){return m.minutes != null && (m.status==='ADJOURNED'||m.minutesState);});  if (!adjourned.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
@@ -5290,7 +5289,7 @@ function renderMinutesList(sc, el) {
     html += '<div class="card fi" style="margin-bottom:10px">'
       +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-      +'<span class="tag '+((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
+      +'<span class="tag '+(((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
       +'<div class="cb"><div class="br">'
       +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
