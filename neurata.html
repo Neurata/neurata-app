@@ -605,6 +605,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .prof-field input:disabled{background:var(--g1);color:var(--g4);cursor:not-allowed;}
 .prof-field .prof-hint{font-size:10px;color:var(--g4);margin-top:3px;}
 .prof-pw-strength{height:3px;border-radius:2px;margin-top:5px;transition:all .2s;}
+.ag-cat-label{font-size:12px;font-weight:700;color:var(--ch);text-transform:uppercase;letter-spacing:.04em;flex:1;}
+.ag-it.drag-over{border-top:2.5px solid var(--org)!important;}
+.ag-cat-block.drag-over-cat{border-top:2.5px solid var(--org)!important;}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1135,12 +1138,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div style="font-size:11px;color:var(--g4)" id="ag-modal-sub"></div>
       </div>
       <div class="br" style="gap:6px">
-        <button class="btn sm" id="ag-upload-btn" onclick="agUploadClick()" style="display:none;">📎 Upload Agenda</button>
         <input type="file" id="ag-upload-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="agUploadAgenda(this.files[0])"/>
         <button class="mo-x" onclick="agClose()">×</button>
       </div>
     </div>
     <div class="mo-bd" style="flex:1;overflow-y:auto;padding-top:8px">
+      <div id="ag-meta-bar"></div>
       <!-- Starting options — shown when agenda is empty -->
       <div id="ag-start-opts" style="display:none;margin-bottom:16px">
         <div style="padding:8px 0 20px;text-align:center">
@@ -1175,7 +1178,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div id="ag-area"></div>
     </div>
     <div class="mo-ft" style="flex-shrink:0;justify-content:space-between">
-      <button class="btn sm" onclick="agAddCategory()" id="ag-add-cat-btn">+ Category</button>
+      
       <div class="br">
         <button class="btn" onclick="agClose()">Done</button>
         <button class="btn pri" onclick="agSaveAndClose()">Save Agenda</button>
@@ -1559,16 +1562,37 @@ var RTAG_SHORT = {
 var NEEDS_MOTION = ['FOR_DECISION','FOR_APPROVAL','FOR_RATIFICATION','FOR_DIRECTION'];
 
 var TEMPLATE_CATS = [
-  {name:'Call to Order',             items:['Call to Order']},
-  {name:'Approve Agenda',            items:['Approve Agenda']},
-  {name:'Approve Previous Minutes',  items:['Approve Previous Minutes']},
-  {name:'Financial Report',          items:['Review Financial Statements','Update on Receivables & CRF']},
-  {name:'Business Arising',          items:['Follow-up on Action Items']},
-  {name:'Correspondence & Hearings', items:['Review Correspondence']},
-  {name:'Committee Reports',         items:['Committee Updates']},
-  {name:'New Business',              items:['New Business Item']},
-  {name:'Next Meeting Date',         items:['Set Next Meeting Date']},
-  {name:'Adjournment',               items:['Adjournment']}
+  {name:'Call to Order',             items:[
+    {text:'Call to Order',           type:'FOR_INFORMATION', dt:null,       vt:null}
+  ]},
+  {name:'Approve Agenda',            items:[
+    {text:'Approve Agenda',          type:'FOR_APPROVAL',    dt:'MAJORITY', vt:'SHOW_OF_HANDS'}
+  ]},
+  {name:'Approve Previous Minutes',  items:[
+    {text:'Approve Previous Minutes',type:'FOR_APPROVAL',    dt:'MAJORITY', vt:'SHOW_OF_HANDS'}
+  ]},
+  {name:'Financial Report',          items:[
+    {text:'Review Financial Statements', type:'FOR_INFORMATION', dt:null,   vt:null},
+    {text:'Update on Receivables & CRF', type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]},
+  {name:'Business Arising',          items:[
+    {text:'Follow-up on Action Items',   type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]},
+  {name:'Correspondence & Hearings', items:[
+    {text:'Review Correspondence',       type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]},
+  {name:'Committee Reports',         items:[
+    {text:'Committee Updates',           type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]},
+  {name:'New Business',              items:[
+    {text:'New Business Item',           type:'FOR_APPROVAL',    dt:'MAJORITY', vt:'SHOW_OF_HANDS'}
+  ]},
+  {name:'Next Meeting Date',         items:[
+    {text:'Set Next Meeting Date',       type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]},
+  {name:'Adjournment',               items:[
+    {text:'Adjournment',                 type:'FOR_INFORMATION', dt:null,   vt:null}
+  ]}
 ];
 
 function mkItem(text, cat, overrides) {
@@ -1612,12 +1636,15 @@ function buildAgendaFromTemplate(type) {
   var agenda = [];
   cats.forEach(function(cat) {
     var catId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    cat.items.forEach(function(itemName) {
-      var isVote = needsMotionItems.indexOf(itemName) >= 0;
+    cat.items.forEach(function(item) {
+      var itemName = typeof item === 'string' ? item : item.text;
+      var itemType = typeof item === 'object' && item.type ? item.type : 'FOR_INFORMATION';
+      var itemDt   = typeof item === 'object' && item.dt   ? item.dt   : 'MAJORITY';
+      var needsM   = NEEDS_MOTION.indexOf(itemType) >= 0;
       agenda.push(mkItem(itemName, cat.name, {
         catId:  catId,
-        type:   isVote ? 'FOR_APPROVAL' : 'FOR_INFORMATION',
-        motion: isVote ? {text:'',dt:'MAJORITY',for:0,against:0,abstain:0,outcome:null,mover:'',sec:''} : null
+        type:   itemType,
+        motion: needsM ? {text:'',dt:itemDt,for:0,against:0,abstain:0,outcome:null,mover:'',sec:''} : null
       }));
     });
   });
@@ -1645,10 +1672,23 @@ function agOpen(scId, mtgId) {
   var typeLabels = {council:'Strata Council Meeting',agm:'AGM',sgm:'SGM',committee:'Committee Meeting'};
   document.getElementById('ag-modal-title').textContent = 'Agenda — ' + (typeLabels[mtg.type]||mtg.type);
   document.getElementById('ag-modal-sub').textContent   = (sc_ ? sc_.plan + ' · ' : '') + mtg.date + (mtg.time ? ' at ' + mtg.time : '');
+  // Render meeting metadata header
+  var metaEl = document.getElementById('ag-meta-bar');
+  if (metaEl && mtg) {
+    var typeLabels2 = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+    var fmtLabels = {InPerson:'In Person',Electronic:'Electronic',Hybrid:'Hybrid'};
+    var metaHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px 20px;padding:10px 14px;background:var(--g1);border-radius:7px;margin-bottom:12px;font-size:11px;">'
+      + (mtg.date ? '<span><span style="color:var(--g4);font-weight:600;">DATE</span> &nbsp;'+mtg.date+'</span>' : '')
+      + (mtg.time ? '<span><span style="color:var(--g4);font-weight:600;">TIME</span> &nbsp;'+mtg.time+'</span>' : '')
+      + '<span><span style="color:var(--g4);font-weight:600;">TYPE</span> &nbsp;'+(typeLabels2[mtg.type]||mtg.type||'—')+'</span>'
+      + (mtg.fmt  ? '<span><span style="color:var(--g4);font-weight:600;">FORMAT</span> &nbsp;'+(fmtLabels[mtg.fmt]||mtg.fmt)+'</span>' : '')
+      + (mtg.loc  ? '<span><span style="color:var(--g4);font-weight:600;">LOCATION</span> &nbsp;'+escHtml(mtg.loc)+'</span>' : '')
+      + (APP.currentUser&&APP.currentUser.name ? '<span><span style="color:var(--g4);font-weight:600;">MANAGER</span> &nbsp;'+escHtml(APP.currentUser.name)+'</span>' : '')
+      + '</div>';
+    metaEl.innerHTML = metaHtml;
+  }
   // Show start options only if empty
   document.getElementById('ag-start-opts').style.display = AG.agenda.length === 0 ? '' : 'none';
-  var uploadBtn = document.getElementById('ag-upload-btn');
-  if (uploadBtn) uploadBtn.style.display = AG.agenda.length > 0 ? '' : 'none';
   agRender();
   openMo('mo-agenda');
 }
@@ -1710,6 +1750,15 @@ function agAddItemToCat(catId) {
   agRender();
   // Auto-open editor for the new item
   setTimeout(function(){ agEditItem(newIt.id); }, 60);
+}
+
+function agEditCategoryName(catId, currentName) {
+  nPrompt('Edit category name:', currentName, function(val) {
+    if (val === null || val === undefined) return;
+    val = val.trim();
+    if (!val) return;
+    agRenameCategory(catId, val);
+  });
 }
 
 function agRenameCategory(catId, val) {
@@ -1814,9 +1863,13 @@ function agRender() {
   });
 
   if (AG.agenda.length === 0) {
-    area.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g4);font-size:13px">No agenda items yet. Use the buttons below to add categories and items.</div>';
+    area.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g4);font-size:13px">No agenda items yet. Add a category to get started.</div>';
     return;
   }
+  // +Category button at top
+  var topBar = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">'
+    + '<button class="btn sm" onclick="agAddCategory()">+ Category</button>'
+    + '</div>';
   if (agendaLocked) {
     var existingBanner = document.getElementById('ag-locked-banner');
     if (!existingBanner) {
@@ -1843,7 +1896,7 @@ function agRender() {
     catMap[it.catId].items.push(it);
   });
 
-  var html = '';
+  var html = topBar;
   cats.forEach(function(cat) {
     html += '<div class="ag-cat-block" data-catid="'+cat.id+'"'
       + ' ondragover="agDragOver(event,\''+cat.id+'\',\'cat\')"'
@@ -1867,7 +1920,6 @@ function agRender() {
         + ' ondragover="agDragOver(event,\''+it.id+'\',\'item\')"'
         + ' ondrop="agDrop(event,\''+it.id+'\',\'item\')">'
         + '<span class="ag-drag" title="Drag to reorder">⠿</span>'
-        + '<span class="ag-num">'+it.num+'</span>'
         + '<span class="ag-txt">'+escHtml(it.text)+'</span>'
         + (hasBg ? '<span title="Has details" style="color:var(--org);font-size:10px">●</span>' : '')
         + '<span class="ag-tag" style="background:'+color+';color:#fff">'+short+'</span>'
@@ -1879,7 +1931,7 @@ function agRender() {
         html += '<div class="ag-add-item" style="display:flex;gap:4px">';
     html += '<input id="qa_'+cat.id+'" placeholder="Add item…" style="flex:1" onkeydown="if(event.key===\'Enter\'){event.preventDefault();agQuickAdd(\''+cat.id+'\',this)}">';
     html += '<button class="btn xs pri" onclick="agQuickAdd(\''+cat.id+'\',document.getElementById(\'qa_'+cat.id+'\'))">Add</button>';
-    html += '</div>';
+    html += '</div></div></div>';
   });
 
   area.innerHTML = html;
@@ -1947,9 +1999,13 @@ function agUploadPdf(file, statusEl, areaEl) {
       statusEl.style.display = 'none';
       if (d.error) throw new Error(JSON.stringify(d.error));
       var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-      var m = txt.match(/\[[\s\S]*\]/);
-      if (!m) throw new Error('No JSON array in response');
-      var items = JSON.parse(m[0]);
+      // Strip markdown code fences
+      txt = txt.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+      // Find outermost JSON array
+      var start = txt.indexOf('[');
+      var end   = txt.lastIndexOf(']');
+      if (start < 0 || end < 0) throw new Error('No JSON array in response. Raw: '+txt.slice(0,200));
+      var items = JSON.parse(txt.slice(start, end+1));
       var catMap2 = {};
       AG.agenda = [];
       items.forEach(function(it) {
