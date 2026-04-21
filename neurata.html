@@ -4976,7 +4976,6 @@ function switchSuperAdminRole(idx) {
   var nm = document.getElementById('u-nm');
   if (av) av.textContent = r.initials;
   if (nm) nm.textContent = r.name;
-  if (rb) rb.textContent = r.role;
   var mn = document.getElementById('menu-name');
   var mr = document.getElementById('menu-role');
   if (mn) mn.textContent = r.name;
@@ -5022,7 +5021,6 @@ function launchPlatform(){
   var u=APP.currentUser;
   var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');if(av){if(u.photoUrl){av.innerHTML='<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';}else{av.textContent=u.initials||'?';}}
   if(nm)nm.textContent=u.name||'—';
-  if(rb)rb.textContent=u.role||'';
   var mn=document.getElementById('menu-name');var ml=document.getElementById('menu-lic');
   if(mn)mn.textContent=u.name||'';if(false)mr.textContent=u.role||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
   renderNav();
