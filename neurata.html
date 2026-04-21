@@ -3618,6 +3618,14 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   function bold(text)  { return '\\pard\\sb80\\sa40\\b\\fs22 '+esc(text)+'\\b0\\par'; }
   function meta(text)  { return '\\pard\\sb0\\sa30\\fs20\\cf2 '+esc(text)+'\\cf0\\par'; }
 
+  // ── BROKERAGE LETTERHEAD ───────────────────────────────────────────
+  if (APP.brokerage && APP.brokerage.name) {
+    r.push('\\pard\\qc\\sb0\\sa20\\b\\fs32 '+esc(APP.brokerage.name)+'\\b0\\par');
+    if (APP.brokerage.addr) r.push('\\pard\\qc\\sb0\\sa10\\fs18\\cf2 '+esc(APP.brokerage.addr)+'\\cf0\\par');
+    if (APP.brokerage.phone) r.push('\\pard\\qc\\sb0\\sa10\\fs18\\cf2 '+esc(APP.brokerage.phone)+'\\cf0\\par');
+    r.push('\\pard\\sb0\\sa80\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par');
+  }
+
   // ── NEURATA HEADER ──────────────────────────────────────────────────
   r.push('\\pard\\sb0\\sa40\\fs18\\cf2 Minutes created with Neurata.ai\\cf0\\par');
   if (state==='DRAFT') {
@@ -4113,6 +4121,37 @@ function setSS(m){
 // ══════════════════════════════════════════
 // BROKERAGE PAGE
 // ══════════════════════════════════════════
+// ── BROKERAGE LOGO ─────────────────────────────────────────────────
+function uploadBrokerageLogo(input) {
+  var file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { nAlert('Logo must be under 2MB.', 'File Too Large', 'warn'); return; }
+  var ext = file.name.split('.').pop().toLowerCase();
+  var path = 'logos/' + APP.brokerage.lic + '.' + ext;
+  getSupabase().storage.from('public-assets').upload(path, file, { upsert: true })
+    .then(function(r) {
+      if (r.error) { nAlert('Upload failed. Please try again.', 'Upload Error', 'warn'); return; }
+      var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+      return getSupabase().from('brokerages').update({ logo_url: url }).eq('bcfsa_lic', APP.brokerage.lic)
+        .then(function(r2) {
+          if (r2.error) { nAlert('Could not save logo URL.', 'Save Error', 'warn'); return; }
+          APP.brokerage.logoUrl = url;
+          renderBrokerage();
+          nAlert('Logo uploaded successfully.', 'Logo Saved', 'info');
+        });
+    });
+}
+
+function removeBrokerageLogo() {
+  getSupabase().from('brokerages').update({ logo_url: null }).eq('bcfsa_lic', APP.brokerage.lic)
+    .then(function(r) {
+      if (r.error) { nAlert('Could not remove logo.', 'Error', 'warn'); return; }
+      APP.brokerage.logoUrl = '';
+      renderBrokerage();
+    });
+}
+
+
 function renderBrokerage() {
   var el=document.getElementById('brokerage-body');if(!el)return;
   var u=APP.currentUser;
@@ -4126,7 +4165,7 @@ function renderBrokerage() {
     +(APP.brokerage.addr?'<div><span style="font-size:11px;color:var(--g4)">Address</span><div>'+APP.brokerage.addr+'</div></div>':'')
     +(APP.brokerage.phone?'<div><span style="font-size:11px;color:var(--g4)">Phone</span><div>'+APP.brokerage.phone+'</div></div>':'')
     +'</div></div></div>'
-    +(canSeeAll?renderRepList():'<div class="card"><div class="ch_"><div class="ct">👤 Representatives</div></div><div class="cb"><div class="al info" style="margin-bottom:0">Representative list is visible to Managing Brokers and Associate Brokers only.</div></div></div>')
+    +'</div>'+'<div class="card"><div class="ch_"><div class="ct">🎨 Branding</div><span class="tag gy">Minutes letterhead</span></div><div class="cb">'+'<div style="font-size:12px;color:var(--g4);margin-bottom:12px;">Your logo appears on exported minutes as a letterhead header.</div>'+(APP.brokerage.logoUrl  ?'<div style="margin-bottom:12px;"><img src="'+APP.brokerage.logoUrl+'" style="max-height:60px;max-width:200px;object-fit:contain;border:1px solid var(--g2);border-radius:5px;padding:8px;background:#fff;" /></div>'  :'<div style="width:200px;height:60px;border:1.5px dashed var(--g3);border-radius:5px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><span style="font-size:11px;color:var(--g4);">No logo uploaded</span></div>')+(role==='Managing Broker'  ?'<label class="btn sm" style="cursor:pointer;">Upload Logo<input type="file" accept="image/png,image/jpeg,image/svg+xml" style="display:none;" onchange="uploadBrokerageLogo(this)"></label>'   +(APP.brokerage.logoUrl?'<button class="btn sm" style="margin-left:6px;color:var(--red);" onclick="removeBrokerageLogo()">Remove</button>':'')  :'')+'</div></div>'+(canSeeAll?renderRepList():'<div class="card"><div class="ch_"><div class="ct">👤 Representatives</div></div><div class="cb"><div class="al info" style="margin-bottom:0">Representative list is visible to Managing Brokers and Associate Brokers only.</div></div></div>')
     +'</div>'
     +'<div>'
     +'<div class="card"><div class="ch_"><div class="ct">🏙 Strata Corporations</div><span class="tag gy">'+APP.sc.length+' connected</span></div><div style="padding:10px;display:flex;flex-direction:column;gap:7px">'
