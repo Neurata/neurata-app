@@ -3616,7 +3616,7 @@ function generateItemSummaries(agenda, callback) {
   itemsWithNotes.forEach(function(item) {
     fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:200,
-        system:'You are an expert secretary specializing in British Columbia Strata Property Act compliance and minute-taking for strata council meetings. Draft official, concise, and objective minutes based on the provided information. Use a professional tone, focusing on actions taken. Motions format: It was moved and seconded to [Action]. Motion Carried/Failed Unanimously/by Majority. All council decisions require a majority vote of council members present. Privacy: refer to strata lots by number (e.g. SL 102) never by name. Call to Order: The meeting was called to order at [Time]. Approval of Minutes: It was moved and seconded to approve the minutes of [Date] as circulated. Motion Carried. Financials: The Financial Report was reviewed. It was moved and seconded to accept the financial statements as presented. Motion Carried. Adjournment: It was moved and seconded to adjourn the meeting at [Time]. Motion Carried. Do NOT use markdown — no asterisks, no hashes, no dashes. Write in plain prose only.',
+        system:'You are an expert strata property manager writing official meeting minutes for British Columbia strata corporations. Follow these rules strictly:\n\nVOICE: Neutral, factual, procedural. Past tense only. Third person only (never \'we\').\n\nSENTENCE PATTERNS:\n- Discussion: \"The council reviewed [topic] and discussed [key considerations].\"\n- Information items: \"The council received the report for information.\"\n- Deferrals: \"The council deferred the item to a future meeting pending [reason].\"\n- Follow-up: \"The manager will [action] and report back to council.\"\n\nAVOID: \"talked about\", \"went over\", \"a lot of discussion\", \"everyone agreed\", \"good discussion\", any opinion or commentary.\n\nUSE: \"reviewed\", \"discussed\", \"considered\", \"received\".\n\nDo NOT write motion text — motions are captured separately. Write only the Background/Discussion sentence (1-2 sentences maximum). Do NOT use markdown. Plain prose only. Refer to owners by strata lot number only (e.g. SL 061), never by name.',
         messages:[{role:'user',content:'Agenda item: "'+item.text+'". Manager notes: '+item.notes+'. Write the Background/Discussion sentence.'}]})})
     .then(function(r){return r.json();})
     .then(function(d){
@@ -3789,9 +3789,10 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // Generate RTF — opens natively in Word, Pages, LibreOffice
   var r = [];
 
-  // RTF header — colour table: c1=blue, c2=grey, c3=green, c4=red, c5=amber
-  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}');
-  r.push('{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}');
+  // RTF header — style guide: Helvetica/Arial, 11pt body, 12pt headings
+  // Margins: 1" sides (1440 twips), 1.1" top/bottom (1584 twips)
+  // Line spacing: 1.15 (276 twips = 1.15 * 240)
+  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1440\\margr1440\\margt1584\\margb1584\\widowctrl\\ftnbj}');
 
   function esc(s) {
     return String(s||'')
@@ -3799,13 +3800,17 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       .replace(/[^\x00-\x7F]/g,function(c){return '\\u'+c.charCodeAt(0)+'?';});
   }
   // Heading: bold blue text + thin blue bottom border on a SEPARATE paragraph
+  // Style guide: headings 12pt Bold ALL CAPS, body 11pt, 1.15 line spacing
+  var SL = '\\sl276\\slmult1'; // 1.15 line spacing
   function heading(text) {
-    return '\\pard\\sb240\\sa0\\keepn\\b\\fs24\\cf1 '+esc(text.toUpperCase())+'\\b0\\cf0\\fs22\\par'
-      + '\\pard\\sb0\\sa80\\brdrb\\brdrs\\brdrw6\\brdrcf1 \\par';
+    return '\\pard\\sb240\\sa40\\keepn\\b\\fs24\\cf1 '+SL+' '+esc(text.toUpperCase())+'\\b0\\cf0\\par'
+      + '\\pard\\sb0\\sa60\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par';
   }
-  function body(text)  { return '\\pard\\sb0\\sa80\\fs22 '+esc(text)+'\\par'; }
-  function bold(text)  { return '\\pard\\sb80\\sa40\\b\\fs22 '+esc(text)+'\\b0\\par'; }
-  function meta(text)  { return '\\pard\\sb0\\sa30\\fs20\\cf2 '+esc(text)+'\\cf0\\par'; }
+  function body(text)   { return '\\pard\\sb0\\sa100\\fs22 '+SL+' '+esc(text)+'\\par'; }
+  function bold(text)   { return '\\pard\\sb80\\sa40\\b\\fs22 '+SL+' '+esc(text)+'\\b0\\par'; }
+  function meta(text)   { return '\\pard\\sb0\\sa30\\fs20\\cf2 '+SL+' '+esc(text)+'\\cf0\\par'; }
+  function motion(text) { return '\\pard\\li720\\sb40\\sa100\\i\\fs22 '+SL+' \\u8220\'\u201c?'+esc(text)+'\\u8221\'\u201d?\\i0\\par'; }
+  function result(text, carried) { return '\\pard\\sb0\\sa100\\b\\fs22\\cf'+(carried?'3':'4')+' '+SL+' '+esc(text)+'\\b0\\cf0\\par'; }
 
   // ── BROKERAGE LETTERHEAD ───────────────────────────────────────────
   if (APP.brokerage && APP.brokerage.name) {
@@ -3822,7 +3827,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   }
 
   // ── MEETING TITLE ───────────────────────────────────────────────────
-  r.push('\\pard\\sb80\\sa60\\b\\fs36\\cf1 '+esc(typeLabel.toUpperCase())+'\\b0\\cf0\\fs22\\par');
+  r.push('\\pard\\qc\\sb80\\sa60\\b\\fs28\\cf1 '+esc(typeLabel.toUpperCase())+'\\b0\\cf0\\fs22\\pard\\par');
 
   // ── STRATA CORPORATION ──────────────────────────────────────────────
   if (sc_) {
@@ -3874,34 +3879,42 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   cats.forEach(function(cat) {
     r.push(heading(cat.name));
     cat.items.forEach(function(it) {
-      // Skip Call to Order — handled in header
-      if ((it.text||'').toLowerCase().indexOf('call to order') >= 0) {
-        // Just include the attendance note
-        var ctoSummary = it.minutesSummary || ('The meeting was called to order at '+esc(actualStart)+'. Quorum confirmed.');
-        r.push(body(esc(ctoSummary)));
+      var itemLower2 = (it.text||'').toLowerCase();
+      // Call to Order
+      if (itemLower2.indexOf('call to order') >= 0) {
+        var ctoSummary = it.minutesSummary || ('The meeting was called to order at '+actualStart+'. Quorum was confirmed.');
+        r.push(body(ctoSummary));
         return;
       }
-      r.push(bold(esc(it.text)));
-      // Minutes summary ONLY (no motion text in minutes per item 11)
+      // Adjournment — handled after loop
+      if (itemLower2.indexOf('adjourn') >= 0) return;
+
+      r.push(bold(it.text));
+      // Background/Discussion summary
       var summary = it.minutesSummary || it.aiSummary || '';
-      if (summary) r.push(body(esc(summary)));
-      // Show vote result if any
+      if (summary) r.push(body(summary));
+      // Motion — italic, 0.5" indent per style guide
+      if (it.motion && it.motion.text) {
+        var movedBy = it.motion.mover ? 'Moved by '+it.motion.mover+(it.motion.sec?', seconded by '+it.motion.sec:'')+': ' : '';
+        r.push(body(movedBy));
+        r.push(motion('THAT '+it.motion.text.replace(/^THAT\s+/i,'')));
+      }
+      // Vote result
       if (it.done && it.motion && it.motion.outcome) {
-        var carried = it.motion.outcome==='CARRIED';
-        var voteStr = it.motion.outcome;
-        if (it.motion.for!==undefined) voteStr += ' ('+it.motion.for+' in favour, '+it.motion.against+' opposed, '+it.motion.abstain+' abstain)';
-        if (it.motion.mover) voteStr += '. Moved by '+it.motion.mover+(it.motion.sec?', seconded by '+it.motion.sec:'');
-        r.push('\\pard\\sb0\\sa40\\fs20\\cf'+(carried?'3':'4')+' '+esc(voteStr)+'\\cf0\\par');
+        var carried3 = it.motion.outcome === 'CARRIED';
+        var vStr2 = it.motion.outcome;
+        if (it.motion.for !== undefined) vStr2 += ' (' + it.motion.for + ' in favour, ' + it.motion.against + ' opposed, ' + it.motion.abstain + ' abstain)';
+        r.push(result(vStr2, carried3));
       }
       if (it.deferred) {
-        r.push('\\pard\\sb0\\sa40\\fs20\\cf2 Deferred to a future meeting.\\cf0\\par');
+        r.push(body('The council deferred the item to a future meeting.'));
       }
     });
   });
 
   // ── ADJOURNMENT ────────────────────────────────────────────────────────
   r.push(heading('Adjournment'));
-  r.push(body('There being no further business, the meeting was adjourned at '+esc(mtg.adjTime||'[time]')+'.'));
+  r.push(body('There being no further business, the meeting was adjourned at '+(mtg.adjTime||'[time]')+'.'));
 
   // ── SIGNATURES ────────────────────────────────────────────────────────
   r.push('\\pard\\sb480\\sa0\\fs20\\cf2 _________________________\\tab _________________________\\par');
