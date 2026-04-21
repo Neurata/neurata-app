@@ -4195,75 +4195,87 @@ function renderProfile() {
   var el = document.getElementById('profile-body'); if (!el) return;
   var u = APP.currentUser;
   var avatarHtml = u.photoUrl
-    ? '<img src="'+u.photoUrl+'" />'
-    : '<span>'+escHtml(u.initials||'?')+'</span>';
+    ? '<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />'
+    : '<span style="font-size:28px;font-weight:700;">'+escHtml(u.initials||'?')+'</span>';
 
   el.innerHTML = '<div class="prof-wrap">'
-    // Left: avatar card
+
+    // ── Left: Avatar card ──────────────────────────────────────────
     +'<div>'
     +'<div class="prof-avatar-card">'
     +'<div class="prof-av-wrap">'
-    +'<div class="prof-av" id="prof-av-circle">'+avatarHtml+'</div>'
-    +'<label class="prof-av-edit" title="Change photo"><span>✎</span>'
+    +'<div class="prof-av">'+avatarHtml+'</div>'
+    +'<label class="prof-av-edit" title="Change photo">✎'
     +'<input type="file" accept="image/png,image/jpeg" style="display:none" onchange="uploadProfilePhoto(this)"></label>'
     +'</div>'
     +'<div class="prof-name">'+escHtml(u.name||'—')+'</div>'
-    +'<span class="tag gy prof-role-tag">'+escHtml(u.role||'')+'</span>'
-    +'<div class="prof-lic-sm">BCFSA '+escHtml(u.lic||'—')+'</div>'
+    +'<div style="margin:4px 0 6px;"><span class="tag gy" style="font-size:10px;">'+escHtml(u.role||'')+'</span></div>'
+    +'<div class="prof-lic-sm">'+escHtml(u.brkName||'')+'</div>'
     +(u.photoUrl?'<button class="btn xs" style="margin-top:10px;color:var(--red);" onclick="removeProfilePhoto()">Remove photo</button>':'')
     +'</div>'
     +'</div>'
-    // Right: detail cards
+
+    // ── Right: Detail cards ────────────────────────────────────────
     +'<div>'
+
     // Identity card
     +'<div class="prof-card">'
-    +'<div class="prof-card-title">Identity</div>'
-    +'<div class="prof-field"><label>Full name</label>'
-    +'<input id="prof-name" type="text" value="'+escHtml(u.name||'')+'" placeholder="Your full name" />'
-    +'</div>'
+    +'<div class="prof-card-title">Profile</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+    +'<div class="prof-field"><label>Full Name</label>'
+    +'<input id="prof-name" type="text" value="'+escHtml(u.name||'')+'" placeholder="Your full name" /></div>'
+    +'<div class="prof-field"><label>Title</label>'
+    +'<input type="text" value="'+escHtml(u.title||u.role||'')+'" disabled /></div>'
     +'<div class="prof-field"><label>Email</label>'
-    +'<input type="email" value="'+escHtml(u.email||'')+'" disabled />'
-    +'<div class="prof-hint">Email is managed through your brokerage account</div>'
-    +'</div>'
+    +'<input type="email" value="'+escHtml(u.email||'')+'" disabled /></div>'
     +'<div class="prof-field"><label>BCFSA Licence</label>'
-    +'<input type="text" value="'+escHtml(u.lic||'')+'" disabled />'
+    +'<input type="text" value="'+escHtml(u.lic||'')+'" disabled /></div>'
+    +'<div class="prof-field"><label>Brokerage</label>'
+    +'<input type="text" value="'+escHtml(u.brkName||'')+'" disabled /></div>'
+    +'<div class="prof-field"><label>Brokerage Licence</label>'
+    +'<input type="text" value="'+escHtml(u.brkLic||'')+'" disabled /></div>'
+    +(u.licFor?'<div class="prof-field" style="grid-column:1/-1"><label>Licensed For</label><input type="text" value="'+escHtml(u.licFor)+'" disabled /></div>':'')
     +'</div>'
-    +'<div class="prof-field"><label>Role</label>'
-    +'<input type="text" value="'+escHtml(u.role||'')+'" disabled />'
-    +'</div>'
+    +'<div style="margin-top:14px;">'
     +'<button class="btn pri" onclick="saveProfileName()">Save Changes</button>'
+    +'<span style="font-size:11px;color:var(--g4);margin-left:10px;">Only your name can be edited — all other fields are from BCFSA.</span>'
     +'</div>'
+    +'</div>'
+
     // Password card
     +'<div class="prof-card">'
     +'<div class="prof-card-title">Change Password</div>'
-    +'<div class="prof-field"><label>New password</label>'
-    +'<input id="prof-pw1" type="password" placeholder="New password" oninput="checkProfPw()" />'
-    +'<div class="prof-pw-strength" id="prof-pw-bar"></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+    +'<div class="prof-field"><label>New Password</label>'
+    +'<input id="prof-pw1" type="password" placeholder="Min. 8 characters" oninput="checkProfPw()" />'
+    +'<div class="prof-pw-strength" id="prof-pw-bar" style="width:0;background:transparent;"></div>'
     +'</div>'
-    +'<div class="prof-field"><label>Confirm password</label>'
-    +'<input id="prof-pw2" type="password" placeholder="Confirm new password" oninput="checkProfPw()" />'
+    +'<div class="prof-field"><label>Confirm Password</label>'
+    +'<input id="prof-pw2" type="password" placeholder="Repeat new password" oninput="checkProfPw()" />'
+    +'</div>'
     +'</div>'
     +'<button class="btn pri" id="prof-pw-btn" onclick="saveProfilePassword()" disabled>Update Password</button>'
     +'</div>'
+
     +'</div>'
     +'</div>';
 }
 
 function checkProfPw() {
-  var pw1 = document.getElementById('prof-pw1').value;
-  var pw2 = document.getElementById('prof-pw2').value;
+  var pw1 = document.getElementById('prof-pw1'); if(!pw1) return;
+  var pw2 = document.getElementById('prof-pw2');
   var bar = document.getElementById('prof-pw-bar');
   var btn = document.getElementById('prof-pw-btn');
+  var val = pw1.value;
   var strength = 0;
-  if (pw1.length >= 8) strength++;
-  if (/[A-Z]/.test(pw1)) strength++;
-  if (/[0-9]/.test(pw1)) strength++;
-  if (/[^A-Za-z0-9]/.test(pw1)) strength++;
+  if (val.length >= 8) strength++;
+  if (/[A-Z]/.test(val)) strength++;
+  if (/[0-9]/.test(val)) strength++;
+  if (/[^A-Za-z0-9]/.test(val)) strength++;
   var colors = ['#ef4444','#f97316','#eab308','#22c55e'];
-  var widths = ['25%','50%','75%','100%'];
-  bar.style.background = pw1.length ? colors[strength-1]||'#ef4444' : 'transparent';
-  bar.style.width = pw1.length ? widths[strength-1]||'25%' : '0';
-  btn.disabled = !(pw1.length >= 8 && pw1 === pw2);
+  var widths  = ['25%','50%','75%','100%'];
+  if (bar) { bar.style.background = val.length ? (colors[strength-1]||'#ef4444') : 'transparent'; bar.style.width = val.length ? (widths[strength-1]||'25%') : '0'; }
+  if (btn) btn.disabled = !(val.length >= 8 && pw2 && val === pw2.value);
 }
 
 function saveProfileName() {
@@ -4717,6 +4729,8 @@ function loadUserProfile(userId) {
         initials:  u.full_name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase(),
         brkLic:    b.bcfsa_lic || '',
         brkName:   b.name || '',
+        licFor:    u.licensed_for || '',
+        title:     u.title || u.role || '',
         globalSS:  u.global_ss || false
       };
       APP.brokerage = {
@@ -5415,6 +5429,7 @@ function showPg(pg) {
   if (pg === 'stratasphere')  renderSS();
   if (pg === 'brokerage')     renderBrokerage();
   if (pg === 'billing')       renderBilling();
+  if (pg === 'profile')       renderProfile();
   if (pg === 'mm')            initMM();
   // Show/hide sidebar
   var sb = document.getElementById('sb');
