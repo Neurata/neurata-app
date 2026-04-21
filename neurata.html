@@ -830,7 +830,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="ps" id="mtg-sub">—</div>
       </div>
       <div class="br">
-        <button class="btn pri" onclick="openMo('mo-new-mtg')">+ New Meeting</button>
+        <button class="btn pri" onclick="openNewMtgModal()">+ New Meeting</button>
       </div>
     </div>
     <!-- Meeting tabs: Upcoming | Active | Past | Minutes | Documents -->
@@ -1180,7 +1180,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="mo-ft" style="flex-shrink:0;justify-content:space-between">
       
       <div class="br">
-        <button class="btn" onclick="agClose()">Done</button>
+        <button class="btn" onclick="agClose()">Cancel</button>
         <button class="btn pri" onclick="agSaveAndClose()">Save Agenda</button>
       </div>
     </div>
@@ -1668,10 +1668,12 @@ function agOpen(scId, mtgId) {
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(mtgId);});
   if (!mtg) return;
   AG.agenda = JSON.parse(JSON.stringify(mtg.agenda || []));
-  // Modal header
-  var typeLabels = {council:'Strata Council Meeting',agm:'AGM',sgm:'SGM',committee:'Committee Meeting'};
-  document.getElementById('ag-modal-title').textContent = 'Agenda — ' + (typeLabels[mtg.type]||mtg.type);
-  document.getElementById('ag-modal-sub').textContent   = (sc_ ? sc_.plan + ' · ' : '') + mtg.date + (mtg.time ? ' at ' + mtg.time : '');
+  // Modal header — SC plan + full meeting type
+  var typeLabels = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+  var titlePlan = sc_ ? sc_.plan + ' — ' : '';
+  document.getElementById('ag-modal-title').textContent = titlePlan + (typeLabels[mtg.type]||mtg.type) + ' — Agenda';
+  var subEl = document.getElementById('ag-modal-sub');
+  if (subEl) subEl.style.display = 'none';
   // Render meeting metadata header
   var metaEl = document.getElementById('ag-meta-bar');
   if (metaEl && mtg) {
@@ -1906,7 +1908,6 @@ function agRender() {
       + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'
       + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'
       + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'
-      + (agendaLocked?'':'<button class="btn xs" onclick="agAddItemToCat(\''+cat.id+'\')">+ Item</button>')
       + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
       + '</div>'
       + '<div class="ag-items">';
@@ -2242,6 +2243,28 @@ function eiSave() {
     }
   });
   closeMo('mo-edit-item');
+}
+
+
+function openNewMtgModal() {
+  // Reset all fields to defaults
+  var type = document.getElementById('nm-type');
+  var date = document.getElementById('nm-date');
+  var time = document.getElementById('nm-time');
+  var fmt  = document.getElementById('nm-fmt');
+  var loc  = document.getElementById('nm-loc');
+  if (type) type.value = 'council';
+  if (date) date.value = '';
+  if (time) time.value = '';
+  if (fmt)  fmt.value  = 'InPerson';
+  if (loc)  loc.value  = '';
+  // Reset edit state
+  NM._editMtgId = null;
+  NM._editScId  = null;
+  // Reset modal title
+  var title = document.getElementById('nm-modal-title');
+  if (title) title.textContent = 'Create Meeting';
+  openMo('mo-new-mtg');
 }
 
 
@@ -5651,7 +5674,7 @@ function selectSCMeeting(id) {
   setTimeout(function(){
     var tab = document.getElementById('mtgtab-meetings');
     if (tab) switchMtgTab('meetings', tab);
-    openMo('mo-new-mtg');
+    openNewMtgModal();
   }, 50);
 }
 
