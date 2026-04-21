@@ -1,4 +1,3 @@
-<!-- v2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,10 +23,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--org);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
 .spin-wh{border-color:rgba(255,255,255,.2);border-top-color:#fff}
+
 /* ── SCREENS ── */
 .screen{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 .screen.on{display:flex}
 #scr-platform{height:100vh}
+
 /* ── ONBOARDING ── */
 .ob-wrap{background:var(--ch);flex:1;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
 .ob-card{background:var(--wh);border-radius:14px;width:500px;max-width:100%;padding:36px;box-shadow:0 24px 64px rgba(0,0,0,.4)}
@@ -51,6 +52,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .parse-lbl{color:var(--g4);font-weight:500}.parse-val{font-weight:600;color:var(--ch);text-align:right;max-width:60%}
 .pw-rule{font-size:11px;color:var(--g4);display:flex;align-items:center;gap:6px;transition:color .15s;margin-top:3px}
 .pw-rule.ok{color:var(--grn)}
+
 /* ── PLATFORM ── */
 #topbar{height:50px;background:var(--ch);display:flex;align-items:center;padding:0 16px;flex-shrink:0;z-index:200}
 .t-logo{cursor:pointer;flex-shrink:0}
@@ -65,6 +67,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .u-pill{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.1);border-radius:20px;padding:4px 12px 4px 5px;cursor:pointer;position:relative}
 .u-av{width:26px;height:26px;border-radius:50%;background:var(--org);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
 .u-nm{font-size:12px;color:#fff;white-space:nowrap}
+
 #shell{display:flex;flex:1;overflow:hidden}
 #sb{width:214px;min-width:214px;background:var(--wh);border-right:1px solid var(--g2);display:flex;flex-direction:column;overflow-y:auto;transition:width .2s}
 #sb.hide{width:0;min-width:0;overflow:hidden}
@@ -81,12 +84,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .s-plan{background:var(--orgl);border:1px solid var(--org);border-radius:6px;padding:9px 11px}
 .s-plan-n{font-size:11px;font-weight:700;color:var(--orgd)}
 .s-plan-d{font-size:10px;color:var(--ch3);margin-top:2px;line-height:1.4}
+
 #main{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .pg{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0}.pg.on{display:flex}
 .ph{padding:16px 22px 13px;background:var(--wh);border-bottom:1px solid var(--g2);flex-shrink:0}
 .ph-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .pt{font-size:19px;font-weight:700}.ps{font-size:12px;color:var(--g4);margin-top:3px}
 .pb{padding:18px 22px;flex:1;overflow-y:auto}
+
 /* ── COMPONENTS ── */
 .card{background:var(--wh);border:1px solid var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px}
 .ch_{padding:11px 15px;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between}
@@ -138,11 +143,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .upz-ic{font-size:28px;margin-bottom:8px}.upz-t{font-size:13px;color:var(--ch3)}.upz-s{font-size:11px;color:var(--g4);margin-top:3px}
 .prog{height:5px;background:var(--g2);border-radius:3px;overflow:hidden}
 .prog-f{height:100%;border-radius:3px;transition:width .4s}
+
 /* ── EMPTY STATES ── */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;text-align:center;flex:1}
 .empty-ic{font-size:48px;margin-bottom:16px;opacity:.4}
 .empty-h{font-size:17px;font-weight:600;color:var(--ch);margin-bottom:8px}
 .empty-s{font-size:13px;color:var(--g4);max-width:360px;line-height:1.6;margin-bottom:20px}
+
 /* ── USER MENU ── */
 .user-menu{display:none;position:fixed;top:50px;right:16px;background:var(--wh);border:1px solid var(--g2);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:500;min-width:180px;overflow:hidden}
 .user-menu.open{display:block}
@@ -152,6 +159,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .um-it{padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--ch2)}
 .um-it:hover{background:var(--g1)}
 .um-it.danger{color:var(--red)}
+
 /* ── MEETING MODE ── */
 .mm-shell{display:flex;flex-direction:column;height:100%}
 .mm-top{height:46px;background:var(--ch);display:flex;align-items:center;padding:0 11px;gap:10px;flex-shrink:0}
@@ -236,6 +244,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-sel{border:1px solid var(--g3);border-radius:4px;padding:4px 8px;font-size:12px;font-family:inherit;color:var(--ch);background:var(--wh);min-width:120px;max-width:150px}
 .mm-conf{background:var(--red);color:#fff;border:none;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;font-family:inherit}
 .mm-conf:hover{background:var(--redd)}.mm-conf:disabled{background:var(--g3);cursor:not-allowed}
+
 /* ── MINUTES ── */
 .min-doc{font-size:12px;line-height:1.7;color:var(--ch)}
 .min-doc h1{font-size:13px;font-weight:700;text-align:center;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
@@ -248,6 +257,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .min-editable{border:1px dashed transparent;border-radius:3px;padding:2px 4px;cursor:text;transition:border-color .15s}
 .min-editable:hover{border-color:var(--org)}
 .min-editable:focus{outline:none;border-color:var(--org);background:var(--orgp)}
+
 /* ── AGENDA BUILDER ── */
 .ag-builder{display:flex;flex-direction:column;gap:0}
 .ag-cat-block{background:var(--wh);border:1px solid var(--g2);border-radius:7px;margin-bottom:8px;overflow:hidden}
@@ -316,6 +326,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .min-editable:focus{background:var(--g1);border-color:var(--org)}
 .min-sig{display:flex;gap:40px;margin-top:30px;padding-top:16px;border-top:1px solid var(--g2)}
 .min-sig-line{font-size:11px;color:var(--ch3);line-height:2}
+
 /* ── STRATASPHERE ── */
 .ss-hd{background:var(--ch);padding:14px 20px;flex-shrink:0}
 .ss-title{font-size:16px;font-weight:700;color:#fff}
@@ -332,15 +343,19 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ss-send{flex-shrink:0;background:var(--org);border:none;border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:17px;transition:background .15s;align-self:flex-end}
 .ss-send:hover{background:var(--redd)}
 .ss-hint{max-width:760px;margin:6px auto 0;font-size:11px;color:var(--g4);text-align:center}
+
 /* ── DRAG DROP INDICATOR ── */
 .ag-cat-block.drag-over { border-top: 2px solid var(--org); }
 .ag-it.drag-over { border-top: 2px solid var(--org); }
 .ag-cat-block[draggable]:active,.ag-it[draggable]:active { opacity:0.5; }
+
 .nav-cat{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);padding:10px 12px 3px;margin-top:8px;border-top:1px solid var(--g2)}
+
 .mm-vinput{width:42px;text-align:center;border:1px solid var(--g3);border-radius:4px;padding:3px 4px;font-size:13px;font-weight:700;font-family:inherit;outline:none;background:var(--wh)}
 .mm-vinput:focus{border-color:var(--org)}
 .mm-vbtn{width:22px;height:22px;border:1px solid var(--g3);border-radius:4px;background:var(--wh);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit;color:var(--ch2)}
 .mm-vbtn:hover{background:var(--g1);border-color:var(--ch2)}
+
 /* ── ATTENDANCE PANEL ── */
 .att-panel{padding:14px}
 .att-panel-hd{font-size:13px;font-weight:700;color:var(--ch);margin-bottom:4px}
@@ -357,6 +372,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .att-sl{padding:6px 10px;font-size:12px;font-weight:600;color:var(--ch);border-bottom:1px solid var(--g2);display:flex;align-items:center}
 .att-radio-cell{padding:4px 0;border-bottom:1px solid var(--g2);text-align:center;display:flex;align-items:center;justify-content:center}
 .att-radio-cell input[type=radio]{accent-color:var(--org);width:15px;height:15px;cursor:pointer}
+
 /* ── SC DETAIL VIEW ── */
 .sc-detail-hd{display:flex;align-items:center;gap:10px;padding:0 0 14px;border-bottom:1px solid var(--g2);margin-bottom:14px}
 .sc-detail-back{cursor:pointer;color:var(--g4);font-size:12px;display:flex;align-items:center;gap:4px}
@@ -371,6 +387,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .cm-table td{padding:8px 10px;font-size:13px;border-bottom:1px solid var(--g2);vertical-align:middle}
 .cm-table tr:hover td{background:var(--g1)}
 .cm-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:var(--orgp);color:var(--orgd)}
+
 /* ── CUSTOM DIALOGS (replace alert/confirm/prompt) ── */
 #cdlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px}
 #cdlg-overlay.open{display:flex}
@@ -387,6 +404,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 #cdlg-input{width:100%;border:1px solid var(--g3);border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--ch);box-sizing:border-box}
 #cdlg-input:focus{border-color:var(--org)}
 #cdlg-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:8px}
+
 .invite-corp-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--g2);cursor:pointer;user-select:none;transition:background .1s}
 .invite-corp-item:last-child{border-bottom:none}
 .invite-corp-item:hover{background:var(--g1)}
@@ -396,6 +414,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .invite-corp-info{flex:1;min-width:0}
 .invite-corp-plan{font-size:13px;font-weight:600;color:var(--ch)}
 .invite-corp-name{font-size:11px;color:var(--g4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 /* ── COUNCIL MEMBER MODAL ── */
 .cm-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 .cm-form-row.full{grid-template-columns:1fr}
@@ -405,6 +424,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .cm-select{width:100%;border:1px solid var(--g3);border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--ch);background:var(--wh);box-sizing:border-box}
 .cm-select:focus{border-color:var(--org)}
 .cm-select option:disabled{color:var(--g4)}
+
 /* ── STRATASPHERE CONVERSATION SIDEBAR ── */
 .ss-shell{display:flex;flex:1;overflow:hidden;min-height:0}
 .ss-convs{width:220px;flex-shrink:0;background:rgba(0,0,0,.18);border-right:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden}
@@ -424,11 +444,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ss-dot:nth-child(2){animation-delay:.2s}
 .ss-dot:nth-child(3){animation-delay:.4s}
 @keyframes ssDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+
+
 /* ═══════════════════════════════════════════════
    RESPONSIVE — 768px breakpoint (iPad portrait)
    Target: strata managers running meetings on
    tablets/small laptops beside their screens
 ═══════════════════════════════════════════════ */
+
 /* ── Topbar ── */
 @media (max-width: 900px) {
   #topbar { padding: 0 10px; gap: 6px; }
@@ -437,6 +461,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .t-nav::-webkit-scrollbar { display: none; }
   .t-tab { padding: 5px 10px; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
 }
+
 /* ── Page headers ── */
 @media (max-width: 768px) {
   .ph { padding: 12px 14px 10px; }
@@ -446,6 +471,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .pt { font-size: 16px; }
   .pb { padding: 12px 14px; }
 }
+
 /* ── Cards and grids ── */
 @media (max-width: 768px) {
   .card { border-radius: 7px; margin-bottom: 10px; }
@@ -455,12 +481,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .sc-grid { grid-template-columns: 1fr !important; }
   .stats-row { grid-template-columns: repeat(2, 1fr) !important; }
 }
+
 /* ── Tables ── */
 @media (max-width: 768px) {
   .cm-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .cm-table { min-width: 540px; }
   .cm-table th, .cm-table td { padding: 7px 8px; font-size: 12px; }
 }
+
 /* ── Modals ── */
 @media (max-width: 768px) {
   .mo-box { width: calc(100vw - 24px) !important; max-width: calc(100vw - 24px) !important; margin: 12px; max-height: calc(100vh - 40px); }
@@ -468,6 +496,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .mo-ft { padding: 12px 14px; }
   .mo-hd { padding: 14px; }
 }
+
 /* ── SC detail tabs ── */
 @media (max-width: 768px) {
   .sc-tabs { overflow-x: auto; flex-wrap: nowrap !important; scrollbar-width: none; -ms-overflow-style: none; }
@@ -475,19 +504,23 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .sc-tab { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; font-size: 12px; }
   .sc-detail-back { font-size: 12px; }
 }
+
 /* ── Brokerage rep table ── */
 @media (max-width: 768px) {
   .rep-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
 /* ── Dashboard SC cards ── */
 @media (max-width: 768px) {
   .sc-card-grid { grid-template-columns: 1fr !important; }
 }
+
 /* ── Form rows ── */
 @media (max-width: 768px) {
   .cm-form-row { grid-template-columns: 1fr !important; }
   .cm-form-row.full { grid-template-columns: 1fr !important; }
 }
+
 /* ══════════════════════════════════════════════
    MEETING MODE RESPONSIVE
    768px: hide right panel, agenda becomes drawer
@@ -497,25 +530,31 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .mm-L { width: 180px; min-width: 180px; }
   .mm-R { width: 200px; min-width: 200px; }
 }
+
 @media (max-width: 768px) {
   /* Hide right panel — accessible via SS button in topbar */
   .mm-R { display: none; }
   .mm-R.open { display: flex; position: absolute; right: 0; top: 0; bottom: 0; width: 260px; z-index: 50; box-shadow: -4px 0 20px rgba(0,0,0,0.15); }
+
   /* Agenda panel becomes a slide-out drawer */
   .mm-L { position: absolute; left: 0; top: 0; bottom: 0; z-index: 50; transform: translateX(-100%); transition: transform .2s ease; box-shadow: 4px 0 20px rgba(0,0,0,0.1); width: 220px; min-width: 220px; }
   .mm-L.open { transform: translateX(0); }
+
   /* Centre panel takes full width */
   .mm-body { grid-template-columns: 1fr; }
   .mm-C { width: 100%; }
+
   /* Bottom bar wraps */
   .mm-bot { height: auto; min-height: 50px; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
   .mm-bdiv { display: none; }
   .mm-mvrow { flex-wrap: wrap; }
   .mm-conf { order: 10; width: 100%; text-align: center; }
+
   /* Show agenda toggle button */
   .mm-agenda-toggle { display: flex !important; }
   .mm-ss-toggle { display: flex !important; }
 }
+
 @media (max-width: 480px) {
   .mm-top { padding: 0 8px; gap: 6px; }
   .mm-ti { font-size: 12px; }
@@ -527,15 +566,21 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .mm-dlbl { font-size: 9px; }
   .mm-dval { font-size: 11px; }
 }
+
 /* Toggle buttons for agenda/SS on mobile — hidden on desktop */
 .mm-agenda-toggle { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); cursor: pointer; color: #fff; font-size: 14px; flex-shrink: 0; }
 .mm-ss-toggle { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); cursor: pointer; color: #fff; font-size: 14px; flex-shrink: 0; }
+
 /* Overlay for when drawer is open on mobile */
 .mm-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 40; }
 .mm-overlay.on { display: block; }
+
+
+
 .mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
 .mtg-tab:hover{color:var(--ch)}
 .mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
+
 .mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
 .mtg-tab:hover{color:var(--ch)}
 .mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
@@ -543,6 +588,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
 <!-- ═══════ LOGIN ═══════ -->
 <div class="screen on" id="scr-login">
   <div class="ob-wrap">
@@ -574,6 +620,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 <!-- ═══════ ONBOARDING ═══════ -->
 <div class="screen" id="scr-onboard">
   <div class="ob-wrap">
@@ -683,6 +730,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 <!-- ═══════ INVITED ═══════ -->
 <div class="screen" id="scr-invited">
   <div class="ob-wrap">
@@ -702,6 +750,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
@@ -726,19 +775,23 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
   <div class="um-it danger" onclick="signOut()">↩ Sign Out</div>
 </div>
+
 <div id="shell">
 <div id="sb"></div>
 <div id="main">
+
 <!-- DASHBOARD -->
 <div class="pg" id="pg-dashboard">
   <div class="ph"><div class="ph-row"><div><div class="pt">Dashboard</div><div class="ps" id="dash-sub">—</div></div></div></div>
   <div class="pb" id="dash-body"></div>
 </div>
+
 <!-- STRATA CORPORATIONS -->
 <div class="pg" id="pg-strata">
   <div class="ph"><div class="ph-row"><div><div class="pt">Strata Corporations</div><div class="ps">Your managed strata corporations · Each is an independent, immutable entity</div></div><button class="btn pri" onclick="openAddSC()">+ Add Strata Corporation</button></div></div>
   <div class="pb" id="strata-body"></div>
 </div>
+
 <!-- MEETINGS (within a selected strata corp) -->
 <div class="pg" id="pg-meetings">
   <div class="ph">
@@ -754,12 +807,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <!-- Meeting tabs: Upcoming | Active | Past | Minutes | Documents -->
     <div style="display:flex;gap:0;margin-top:12px;border-bottom:1px solid var(--g2)">
       <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
+      <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
       <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
       <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
+
     </div>
   </div>
   <div class="pb" id="mtg-body"></div>
 </div>
+
 <!-- STRATASPHERE -->
 <div class="pg" id="pg-stratasphere" style="padding:0;overflow:hidden">
   <div class="ss-hd">
@@ -778,6 +834,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <path d="M130.91,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM143.51,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/>
     <path d="M157.61,46.6V15.8h-5.9v-4.8h16.9v4.8h-5.9v30.8h-5.1Z"/>
     <path d="M169.26,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM181.86,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/>
+    
     <path fill="#fff" d="M211.86,21.25h-5.1v-1.15c0-1.17-.27-2.17-.83-3.03-.55-.85-1.47-1.27-2.77-1.27-.7,0-1.27.13-1.7.4-.43.27-.78.6-1.05,1-.27.43-.45.92-.55,1.48-.1.55-.15,1.12-.15,1.72,0,.7.03,1.28.08,1.75s.17.88.38,1.25c.2.37.49.68.88.95.38.27.91.53,1.58.8l3.9,1.55c1.13.43,2.05.94,2.75,1.53s1.25,1.26,1.65,2.02c.37.8.62,1.71.75,2.73.13,1.02.2,2.17.2,3.47,0,1.5-.15,2.89-.45,4.18s-.78,2.38-1.45,3.27c-.7.93-1.62,1.67-2.75,2.2-1.13.53-2.52.8-4.15.8-1.23,0-2.38-.22-3.45-.65-1.07-.43-1.98-1.03-2.75-1.8-.77-.77-1.38-1.66-1.83-2.67-.45-1.02-.67-2.12-.67-3.33v-1.9h5.1v1.6c0,.93.28,1.78.83,2.53s1.47,1.12,2.77,1.12c.87,0,1.54-.12,2.03-.38.48-.25.86-.61,1.12-1.08.27-.47.42-1.03.47-1.67.05-.65.08-1.38.08-2.17,0-.93-.03-1.7-.1-2.3-.07-.6-.2-1.08-.4-1.45-.23-.37-.54-.67-.92-.9-.38-.23-.89-.48-1.53-.75l-3.65-1.5c-2.2-.9-3.67-2.09-4.42-3.58-.75-1.48-1.12-3.34-1.12-5.58,0-1.33.18-2.6.55-3.8.37-1.2.92-2.23,1.65-3.1.7-.87,1.59-1.56,2.68-2.08,1.08-.52,2.38-.78,3.88-.78,1.27,0,2.42.23,3.47.7s1.96,1.08,2.72,1.85c1.53,1.6,2.3,3.43,2.3,5.5v2.5Z"/>
     <path d="M219.11,46.6V11h7.65c1.4,0,2.63.18,3.7.55,1.07.37,2.03,1.02,2.9,1.95.87.93,1.47,2.03,1.8,3.28.33,1.25.5,2.94.5,5.08,0,1.6-.09,2.95-.28,4.05-.18,1.1-.58,2.13-1.17,3.1-.7,1.17-1.63,2.08-2.8,2.73-1.17.65-2.7.97-4.6.97h-2.6v13.9h-5.1ZM224.21,15.8v12.1h2.45c1.03,0,1.83-.15,2.4-.45s.98-.72,1.25-1.25c.27-.5.43-1.12.48-1.85s.08-1.55.08-2.45c0-.83-.02-1.62-.05-2.38s-.18-1.41-.45-1.97c-.27-.57-.67-1-1.2-1.3-.53-.3-1.3-.45-2.3-.45h-2.65Z"/>
     <path d="M242.91,46.6V11h5.1v15.25h6.3v-15.25h5.1v35.6h-5.1v-15.85h-6.3v15.85h-5.1Z"/>
@@ -829,17 +886,21 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
   </div>
+
 </div>
+
 <!-- BROKERAGE (MB + AB only) -->
 <div class="pg" id="pg-brokerage">
   <div class="ph"><div class="ph-row"><div><div class="pt">Brokerage</div><div class="ps">Account info, representatives, strata corporation connections</div></div><button class="btn" onclick="openMo('mo-invite-rep')">+ Invite Representative</button></div></div>
   <div class="pb" id="brokerage-body"></div>
 </div>
+
 <!-- BILLING (MB only) -->
 <div class="pg" id="pg-billing">
   <div class="ph"><div class="pt">Billing</div><div class="ps">Pre-Authorized Debit · Annual billing · Managing Broker only</div></div>
   <div class="pb" id="billing-body"></div>
 </div>
+
 <!-- MEETING MODE (full screen) -->
 <div class="pg" id="pg-mm" style="padding:0;overflow:hidden">
   <div class="mm-shell">
@@ -908,6 +969,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             </div>
             <div id="mm-atts"></div>
           </div>
+
         </div>
         <div class="mm-ai">
           <div class="mm-aihd"><div class="ai-dot"></div><div><div class="mm-aittl">StrataSphere</div><div class="mm-aisub">Context-aware · PIPA-compliant</div></div></div>
@@ -959,9 +1021,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 </div></div><!-- /main /shell -->
 </div><!-- /scr-platform -->
+
 <!-- ═══════ MODALS ═══════ -->
+
 <!-- Add Strata Corporation -->
 <div class="mo" id="mo-add-sc">
   <div class="mo-box">
@@ -1003,6 +1068,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="mo-ft"><button class="btn" onclick="closeMo('mo-add-sc')">Cancel</button><button class="btn pri" id="sc-create-btn" onclick="createSC()" style="display:none">Create Strata Corporation</button></div>
   </div>
 </div>
+
 <!-- New Meeting — just the basics -->
 <div class="mo" id="mo-new-mtg">
   <div class="mo-box" style="max-width:480px">
@@ -1033,6 +1099,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 <!-- Agenda Builder — full screen modal -->
 <div class="mo" id="mo-agenda">
   <div class="mo-box" style="max-width:820px;width:96vw;max-height:90vh;display:flex;flex-direction:column">
@@ -1073,7 +1140,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 </div>
+
 <!-- Agenda Item Editor (modal) -->
 <div class="mo" id="mo-edit-item">
   <div class="mo-box" style="max-width:600px">
@@ -1121,6 +1190,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="mo-ft"><button class="btn" onclick="closeMo('mo-edit-item')">Cancel</button><button class="btn pri" onclick="eiSave()">Save Item</button></div>
   </div>
 </div>
+
 <!-- Upload Historic Minutes -->
 <div class="mo" id="mo-historic-mins">
   <div class="mo-box" style="max-width:520px">
@@ -1154,6 +1224,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
+
+
+
 <!-- Launch Meeting Mode confirmation -->
 <div class="mo" id="mo-launch-confirm">
   <div class="mo-box" style="max-width:440px">
@@ -1168,6 +1242,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
 <!-- Minutes Modal -->
 <div class="mo" id="mo-minutes">
   <div class="mo-box xl">
@@ -1192,6 +1267,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
   </div>
 </div>
+
+
+
 <!-- Invite Representative -->
 <div class="mo" id="mo-invite-rep">
   <div class="mo-box">
@@ -1210,6 +1288,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="mo-ft"><button class="btn" onclick="closeMo('mo-invite-rep')">Cancel</button><button class="btn pri" onclick="sendInvite()">Send Invitation</button></div>
   </div>
 </div>
+
+
+
 <script>
 // ══════════════════════════════════════════
 // STORAGE
@@ -1225,12 +1306,15 @@ async function sv(k, v) {
     }
   } catch(e) {}
 }
+
 // No-op ld — data is loaded via loadUserSCs on login
 async function ld(k, d) { return d; }
+
 // Save a full SC object to Supabase
 async function sbSaveSC(sc) {
   if (!sc || !sc.plan) return;
   var db = getSupabase();
+
   // 1. Upsert the strata_corp row
   await db.from('strata_corps').upsert({
     plan_number:   sc.plan,
@@ -1240,6 +1324,7 @@ async function sbSaveSC(sc) {
     address:       sc.addr || '',
     is_subscribed: sc.mmStatus === 'ACTIVE'
   }, {onConflict: 'plan_number'});
+
   // 2. Upsert meetings
   if (sc.meetings && sc.meetings.length) {
     for (var i = 0; i < sc.meetings.length; i++) {
@@ -1262,6 +1347,7 @@ async function sbSaveSC(sc) {
       }, {onConflict: 'id', ignoreDuplicates: false});
     }
   }
+
   // 3. Upsert decisions
   if (sc.decisions && sc.decisions.length) {
     for (var j = 0; j < sc.decisions.length; j++) {
@@ -1282,6 +1368,7 @@ async function sbSaveSC(sc) {
       }, {onConflict: 'id', ignoreDuplicates: true});
     }
   }
+
   // 4. Upsert council members
   if (sc.councilMembers && sc.councilMembers.length) {
     for (var k2 = 0; k2 < sc.councilMembers.length; k2++) {
@@ -1297,12 +1384,14 @@ async function sbSaveSC(sc) {
     }
   }
 }
+
 // ══════════════════════════════════════════
 // CONFIGURATION
 // ══════════════════════════════════════════
 var WORKER_URL       = 'https://api.neurata.ai';
 var SUPABASE_URL      = 'https://sozghbobflcjrfsmewxv.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_KA_-dMzzaj3SA750GqL4Yg_hqIrCT8K';
+
 // Supabase client — initialised after the CDN library loads
 var _supabaseClient = null;
 function getSupabase() {
@@ -1311,6 +1400,7 @@ function getSupabase() {
   }
   return _supabaseClient;
 }
+
 // ══════════════════════════════════════════
 // APP STATE — starts empty
 // ══════════════════════════════════════════
@@ -1322,6 +1412,7 @@ var APP = {
   currentScId: null, // selected strata corp
   currentMtgId: null // selected meeting
 };
+
 // Returns only the SCs the current user is allowed to see
 function getVisibleSCs() {
   var role = APP.currentUser.role || '';
@@ -1348,6 +1439,7 @@ function getVisibleSCs() {
     return false;
   });
 }
+
 // Meeting Mode state
 var MM = {
   agenda:    [],  // [{id,num,cat,text,type,done,notes,aiSummary,motion,atts,isSub,isParent}]
@@ -1357,8 +1449,10 @@ var MM = {
   running:   false,
   interval:  null
 };
+
 var OB = {lic:'',repName:'',repLegalName:'',repRole:'',repLicFor:'',repExpiry:'',repDiscipline:'',
           brkLic:'',brkName:'',brkAddr:'',brkPhone:'',brkExists:false};
+
 // ══════════════════════════════════════════
 // AGENDA TEMPLATES
 // ══════════════════════════════════════════
@@ -1391,12 +1485,14 @@ var TPL = {
     {cat:'Administrative',   items:['Action Items','Adjournment']}
   ]
 };
+
 // ══════════════════════════════════════════
 // AGENDA DATA MODEL & BUILDER
 // ══════════════════════════════════════════
 // Each item: {id, catId, cat, num, text, type, background, financial,
 //             risks, motion:{text,dt,for,against,abstain,outcome,mover,sec},
 //             done, notes, aiSummary, atts:[{name,data,mime}]}
+
 var RTAG_COLORS = {
   FOR_INFORMATION:'#6c757d', FOR_DISCUSSION:'#0d6efd',
   FOR_DIRECTION:'#fd7e14',   FOR_DECISION:'#dc3545',
@@ -1408,6 +1504,7 @@ var RTAG_SHORT = {
   FOR_APPROVAL:'APPROVAL',   FOR_RATIFICATION:'RATIFY'
 };
 var NEEDS_MOTION = ['FOR_DECISION','FOR_APPROVAL','FOR_RATIFICATION','FOR_DIRECTION'];
+
 var TEMPLATE_CATS = [
   {name:'Call to Order',             items:['Call to Order']},
   {name:'Approve Agenda',            items:['Approve Agenda']},
@@ -1420,6 +1517,7 @@ var TEMPLATE_CATS = [
   {name:'Next Meeting Date',         items:['Set Next Meeting Date']},
   {name:'Adjournment',               items:['Adjournment']}
 ];
+
 function mkItem(text, cat, overrides) {
   var rt = (overrides && overrides.type) ? overrides.type : 'FOR_INFORMATION';
   var needsMotion = NEEDS_MOTION.indexOf(rt) >= 0;
@@ -1436,11 +1534,13 @@ function mkItem(text, cat, overrides) {
     atts:       []
   }, overrides || {});
 }
+
 function renumAgenda(agenda) {
   var n = 1;
   agenda.forEach(function(it){ it.num = n++; });
   return agenda;
 }
+
 function buildAgendaFromTemplate(type) {
   var cats = type === 'agm' ? [
     {name:'Call to Order',            items:['Call to Order']},
@@ -1453,6 +1553,7 @@ function buildAgendaFromTemplate(type) {
     {name:'Next Meeting Date',        items:['Set Next AGM Date']},
     {name:'Adjournment',              items:['Adjournment']}
   ] : TEMPLATE_CATS;
+
   var needsMotionItems = ['Approve Agenda','Approve Previous Minutes','Approve Previous AGM Minutes',
     'Approval of Operating Budget','Election of Chairperson','Strata Council Election','Motion(s) for Vote'];
   var agenda = [];
@@ -1469,6 +1570,7 @@ function buildAgendaFromTemplate(type) {
   });
   return renumAgenda(agenda);
 }
+
 // ── Agenda builder state ──────────────────────────────────────────────
 var AG = {
   agenda:     [],   // live working copy
@@ -1478,6 +1580,7 @@ var AG = {
   _dragId:    null,
   _dragOver:  null
 };
+
 function agOpen(scId, mtgId) {
   AG.scId  = scId;
   AG.mtgId = mtgId;
@@ -1494,9 +1597,11 @@ function agOpen(scId, mtgId) {
   agRender();
   openMo('mo-agenda');
 }
+
 function agClose() {
   closeMo('mo-agenda');
 }
+
 function agSaveAndClose() {
   var sc_ = APP.sc.find(function(s){return s.id===AG.scId;});
   if (!sc_) { closeMo('mo-agenda'); return; }
@@ -1513,11 +1618,13 @@ function agSaveAndClose() {
   }
   closeMo('mo-agenda');
 }
+
 function agStartEmpty() {
   AG.agenda = [];
   document.getElementById('ag-start-opts').style.display = 'none';
   agRender();
 }
+
 function agStartTemplate() {
   var sc_  = APP.sc.find(function(s){return s.id===AG.scId;});
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return m.id===AG.mtgId;});
@@ -1526,6 +1633,7 @@ function agStartTemplate() {
   document.getElementById('ag-start-opts').style.display = 'none';
   agRender();
 }
+
 function agAddCategory() {
   document.getElementById('ag-start-opts').style.display = 'none';
   var catId = 'c_' + Date.now();
@@ -1537,6 +1645,7 @@ function agAddCategory() {
     if (inp) { inp.focus(); inp.select(); }
   }, 60);
 }
+
 function agAddItemToCat(catId) {
   var catName = '';
   AG.agenda.forEach(function(it){ if(it.catId===catId) catName=it.cat; });
@@ -1547,18 +1656,22 @@ function agAddItemToCat(catId) {
   // Auto-open editor for the new item
   setTimeout(function(){ agEditItem(newIt.id); }, 60);
 }
+
 function agRenameCategory(catId, val) {
   AG.agenda.forEach(function(it){ if(it.catId===catId) it.cat = val; });
 }
+
 function agDeleteCategory(catId) {
   var count = AG.agenda.filter(function(it){return it.catId===catId;}).length;
   if (count > 0) { nConfirm('Delete this category and its '+count+' item(s)?', function(ok){ if(!ok) return; AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }, 'Delete Category', 'danger'); } else { AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }
 }
+
 function agDeleteItem(id) {
   AG.agenda = AG.agenda.filter(function(it){return it.id!==id;});
   renumAgenda(AG.agenda);
   agRender();
 }
+
 function agEditItem(id) {
   var it = AG.agenda.find(function(a){return a.id===id;});
   if (!it) return;
@@ -1571,6 +1684,7 @@ function agEditItem(id) {
   };
   eiOpen(it);
 }
+
 function agQuickAdd(catId, inp) {
   var text = inp.value.trim();
   if (!text) return;
@@ -1583,6 +1697,7 @@ function agQuickAdd(catId, inp) {
   agRender();
   setTimeout(function(){ agEditItem(newIt.id); }, 60);
 }
+
 // ── Drag and drop ─────────────────────────────────────────────────────
 function agDragStartCat(ev, catId) {
   AG._dragType = 'cat'; AG._dragId = catId;
@@ -1607,6 +1722,7 @@ function agDrop(ev, targetId, type) {
   ev.preventDefault();
   ev.stopPropagation();
   if (!AG._dragId || AG._dragId === targetId) { AG._dragId=null; return; }
+
   if (AG._dragType === 'cat' && type === 'cat') {
     // Reorder categories — move all items of dragged cat before target cat's items
     var draggedItems = AG.agenda.filter(function(it){return it.catId===AG._dragId;});
@@ -1631,14 +1747,17 @@ function agDrop(ev, targetId, type) {
   renumAgenda(AG.agenda);
   agRender();
 }
+
 function agRender() {
   var area = document.getElementById('ag-area');
   if (!area) return;
+
   // Check if agenda is locked (Approve Agenda motion has been carried)
   var agendaLocked = AG.agenda.some(function(it){
     return it.done && it.motion && it.motion.outcome==='CARRIED'
       && (it.text||'').toLowerCase().replace(/\s+/g,' ').indexOf('approve agenda') >= 0;
   });
+
   if (AG.agenda.length === 0) {
     area.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g4);font-size:13px">No agenda items yet. Use the buttons below to add categories and items.</div>';
     return;
@@ -1658,6 +1777,7 @@ function agRender() {
   }
   if(false){
   }
+
   // Group by catId preserving order
   var cats = [], catMap = {};
   AG.agenda.forEach(function(it){
@@ -1667,6 +1787,7 @@ function agRender() {
     }
     catMap[it.catId].items.push(it);
   });
+
   var html = '';
   cats.forEach(function(cat) {
     html += '<div class="ag-cat-block" data-catid="'+cat.id+'"'
@@ -1681,6 +1802,7 @@ function agRender() {
       + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
       + '</div>'
       + '<div class="ag-items">';
+
     cat.items.forEach(function(it) {
       var color = RTAG_COLORS[it.type] || '#999';
       var short = RTAG_SHORT[it.type] || it.type;
@@ -1698,27 +1820,33 @@ function agRender() {
         + '<button class="btn xs" onclick="agDeleteItem(\''+it.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
         + '</div>';
     });
+
         html += '<div class="ag-add-item" style="display:flex;gap:4px">';
     html += '<input id="qa_'+cat.id+'" placeholder="Add item…" style="flex:1" onkeydown="if(event.key===\'Enter\'){event.preventDefault();agQuickAdd(\''+cat.id+'\',this)}">';
     html += '<button class="btn xs pri" onclick="agQuickAdd(\''+cat.id+'\',document.getElementById(\'qa_'+cat.id+'\'))">Add</button>';
     html += '</div>';
   });
+
   area.innerHTML = html;
 }
+
 // ── Upload existing agenda ────────────────────────────────────────────
 function agUploadClick() {
   var inp = document.getElementById('ag-upload-input');
   if (inp) { inp.value = ''; inp.click(); }
 }
+
 function agUploadAgenda(file) {
   if (!file) return;
   var statusEl = document.getElementById('ag-upload-status');
   var areaEl   = document.getElementById('ag-area');
   statusEl.style.display = '';
   areaEl.innerHTML = '';
+
   var isPdf  = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   var isDocx = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
   var isTxt  = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
+
   if (isPdf) {
     agUploadPdf(file, statusEl, areaEl);
   } else if (isDocx) {
@@ -1732,6 +1860,7 @@ function agUploadAgenda(file) {
     nAlert('Please upload a PDF, Word document (.docx), or text file.');
   }
 }
+
 function agUploadPdf(file, statusEl, areaEl) {
   var reader = new FileReader();
   reader.onload = function(e) {
@@ -1792,6 +1921,7 @@ function agUploadPdf(file, statusEl, areaEl) {
   };
   reader.readAsDataURL(file);
 }
+
 // Extract text from DOCX using JSZip-free approach: read XML directly
 function agExtractDocxText(file, statusEl, areaEl) {
   var reader = new FileReader();
@@ -1842,6 +1972,7 @@ function agExtractDocxText(file, statusEl, areaEl) {
   };
   reader.readAsArrayBuffer(file);
 }
+
 function agSendTextToAI(text, statusEl, areaEl) {
   if (!text || text.trim().length < 20) {
     statusEl.style.display = 'none';
@@ -1853,6 +1984,7 @@ function agSendTextToAI(text, statusEl, areaEl) {
     + '[{"cat":"Category Name","text":"Item Title","type":"FOR_APPROVAL","background":"","financial":"","risks":"","motionText":""}]\n'
     + 'type must be one of: FOR_INFORMATION, FOR_DISCUSSION, FOR_DIRECTION, FOR_DECISION, FOR_APPROVAL, FOR_RATIFICATION\n'
     + 'Infer type from context. Include motionText if a motion is shown.\n\nAgenda text:\n' + text.slice(0, 8000);
+
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({model:'claude-sonnet-4-6', max_tokens:2000,
@@ -1890,8 +2022,10 @@ function agSendTextToAI(text, statusEl, areaEl) {
     agRender();
   });
 }
+
 // ── Keep NM namespace for saveMtg compatibility ───────────────────────
 var NM = { agenda: [], _editMtgId: null, _editScId: null };
+
 // Old nmRenderBuilder/nmStartTemplate stubs — redirect to AG
 function nmRenderBuilder(){}
 function nmStartTemplate(){ agStartTemplate(); }
@@ -1901,12 +2035,15 @@ function nmEditItem(id){ agEditItem(id); }
 function nmDeleteItem(id){ agDeleteItem(id); }
 function nmAddCategory(){ agAddCategory(); }
 function nmAddItemToCat(catId){ agAddItemToCat(catId); }
+
+
 // ══════════════════════════════════════════
 // AGENDA ITEM EDITOR (shared by builder + MM)
 // ══════════════════════════════════════════
 var _eiCallback = null;
 var _eiItemId   = null;
 var _eiAtts     = [];
+
 function eiOpen(it) {
   document.getElementById('ei-title').value  = it.text       || '';
   document.getElementById('ei-cat').value    = it.cat        || '';
@@ -1926,11 +2063,13 @@ function eiOpen(it) {
   if (inp) inp.value = '';
   openMo('mo-edit-item');
 }
+
 function eiToggleMotionFields(rt) {
   var show = NEEDS_MOTION.indexOf(rt) >= 0;
   document.getElementById('ei-motion-row').style.display = show ? '' : 'none';
   document.getElementById('ei-dtype-row').style.display  = show ? '' : 'none';
 }
+
 function eiAddAttachments(files) {
   var fileList = Array.from(files);
   fileList.forEach(function(f) {
@@ -1942,6 +2081,7 @@ function eiAddAttachments(files) {
     reader.readAsDataURL(f);
   });
 }
+
 function eiRenderAtts() {
   var el = document.getElementById('ei-att-list');
   if (!el) return;
@@ -1950,10 +2090,12 @@ function eiRenderAtts() {
       + '<button class="att-chip-rm" onclick="eiRemoveAtt('+i+')">×</button></span>';
   }).join('');
 }
+
 function eiRemoveAtt(i) {
   _eiAtts.splice(i, 1);
   eiRenderAtts();
 }
+
 function eiSave() {
   var title = document.getElementById('ei-title').value.trim();
   if (!title) { nAlert('Please enter a title for this agenda item.'); return; }
@@ -1990,6 +2132,8 @@ function eiSave() {
   });
   closeMo('mo-edit-item');
 }
+
+
 function saveMtg() {
   var type = document.getElementById('nm-type').value;
   var date = document.getElementById('nm-date').value;
@@ -1997,6 +2141,7 @@ function saveMtg() {
   var fmt  = document.getElementById('nm-fmt').value;
   var loc  = document.getElementById('nm-loc').value.trim();
   if (!date) { nAlert('Please select a meeting date.'); return; }
+
   // Handle edit of existing meeting metadata
   if (NM._editMtgId) {
     var sc2  = APP.sc.find(function(s){return s.id===NM._editScId;});
@@ -2048,13 +2193,19 @@ function saveMtg() {
   // Open agenda builder immediately
   agOpen(sc_.id, mtg.id);
 }
+
 // ══════════════════════════════════════════════════════════════════════
 // MEETING MODE (MM)
 // ══════════════════════════════════════════════════════════════════════
+
+
+
+
 // ══════════════════════════════════════════
 // MEETING MODE
 // ══════════════════════════════════════════
 var curItem = null;
+
 function initMM() {
   var sc  = APP.sc.find(function(s){return s.id===APP.currentScId;});
   var mtg = sc && sc.meetings ? sc.meetings.find(function(m){return String(m.id)===String(APP.currentMtgId);}) : null;
@@ -2100,19 +2251,26 @@ function initMM() {
     }, 30 * 60 * 1000);
   }
 }
+
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 function p2(n){return String(n).padStart(2,'0');}
+
 // ══════════════════════════════════════════
 // REGISTRATION & ATTENDANCE (Call to Order)
 // ══════════════════════════════════════════
+
 function isCallToOrderItem(it) {
   return it && (it.text||'').toLowerCase().indexOf('call to order') >= 0;
 }
+
 function renderAttendancePanel(it) {
   var el = document.getElementById('mm-item-detail') || document.getElementById('mm-ctr');
   if (!el) return;
+
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   if (!sc_) { el.innerHTML = '<div style="padding:20px;color:var(--g4)">No strata corporation found.</div>'; return; }
+
   var lots = sc_.lots || 20;
   var mtgObj = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
   var mtgTypeLocal = mtgObj ? mtgObj.type : 'council';
@@ -2129,6 +2287,7 @@ function renderAttendancePanel(it) {
   var slList = slMembers.length > 0
     ? slMembers.map(function(m){return m.sl;})
     : (function(){ var arr=[]; for(var i=1;i<=lots;i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
+
   // Meeting type determines quorum threshold
   var isGeneralMtg = (MM.agenda && MM.agenda.length > 0 &&
     (['agm','sgm'].indexOf(
@@ -2136,14 +2295,18 @@ function renderAttendancePanel(it) {
        (APP.sc.find(function(s){return s.id===MM.scId;})).meetings &&
        (APP.sc.find(function(s){return s.id===MM.scId;})).meetings.find(function(m){return String(m.id)===String(MM.mtgId);})||{type:'council'}).type
     ) >= 0));
+
   // Quorum: AGM/SGM = 1/3 of strata lots; Council = majority of council members
   var totalUnits = isGeneralMtg ? lots : slList.length;
   var quorumRequired = isGeneralMtg ? Math.ceil(lots / 3) : Math.ceil(slList.length / 2);
+
   // Load saved attendance
   var saved = it.attendance || {};
+
   // Count present
   var presentCount = slList.filter(function(sl){ return saved[sl] === 'present'; }).length;
   var hasQuorum = presentCount >= quorumRequired;
+
   // Build grid
   var rows = '';
   slList.forEach(function(sl) {
@@ -2157,15 +2320,18 @@ function renderAttendancePanel(it) {
       + '<div class="att-radio-cell"><input type="radio" name="att_'+sl+'" value="proxy"   '+(status==='proxy'?'checked':'')+' onchange="attMarkSL(\''+sl+'\',\'proxy\',\''+it.id+'\')"></div>'
       + '</div>';
   });
+
   var quorumClass = presentCount === 0 ? 'att-quorum-pending' : (hasQuorum ? 'att-quorum-met' : 'att-quorum-fail');
   var quorumText  = presentCount === 0
     ? 'Mark attendance to check quorum (' + quorumRequired + ' required)'
     : hasQuorum
       ? '✓ Quorum met — ' + presentCount + ' present of ' + quorumRequired + ' required'
       : '✗ Quorum not met — ' + presentCount + ' present, ' + quorumRequired + ' required';
+
   var typeLabel = isGeneralMtg
     ? '(AGM/SGM — requires 1/3 of ' + lots + ' strata lots = ' + quorumRequired + ')'
     : '(Council meeting — requires majority of ' + slList.length + ' council members = ' + quorumRequired + ')';
+
   var html = '<div class="att-panel">'
     + '<div class="att-panel-hd">Registration &amp; Attendance</div>'
     + '<div class="att-panel-sub">BC Strata Property Act — record attendance before calling the meeting to order. ' + typeLabel + '</div>'
@@ -2187,7 +2353,9 @@ function renderAttendancePanel(it) {
     + '<textarea class="mm-notes" data-itemid="'+it.id+'" onblur="saveMinSummary(this.dataset.itemid,this.value)" placeholder="e.g. The manager confirmed that quorum was achieved with X strata lots present…">'+(it.minutesSummary||it.aiSummary||'')+'</textarea>'
     + '</div></div>'
     + '</div>';
+
   el.innerHTML = html;
+
   // Update confirm button state
   var confBtn = document.getElementById('mm-confbtn');
   if (confBtn) {
@@ -2195,6 +2363,7 @@ function renderAttendancePanel(it) {
     confBtn.title = hasQuorum ? 'Confirm attendance and call meeting to order' : 'Cannot proceed — quorum not met';
   }
 }
+
 function attMarkSL(sl, status, itemId) {
   var it = MM.agenda.find(function(a){return a.id===itemId;});
   if (!it) return;
@@ -2207,6 +2376,7 @@ function attMarkSL(sl, status, itemId) {
   // Refresh quorum bar and confirm button without full re-render
   refreshQuorumBar(it);
 }
+
 function attMarkAll(itemId, status) {
   var it = MM.agenda.find(function(a){return a.id===itemId;});
   if (!it) return;
@@ -2219,10 +2389,12 @@ function attMarkAll(itemId, status) {
   renderAttendancePanel(it);
   mmSyncToMtg();
 }
+
 function refreshQuorumBar(it) {
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   var slList = (sc_ && sc_.councilSLs && sc_.councilSLs.length > 0) ? sc_.councilSLs
     : (function(){ var arr=[]; for(var i=1;i<=Math.min((sc_?sc_.lots:20),100);i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
+
   var mtgType = '';
   if (sc_ && sc_.meetings) {
     var m = sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
@@ -2233,6 +2405,7 @@ function refreshQuorumBar(it) {
   var quorumRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(slList.length/2);
   var presentCount = slList.filter(function(sl){ return it.attendance && it.attendance[sl]==='present'; }).length;
   var hasQuorum = presentCount >= quorumRequired;
+
   var bar = document.getElementById('att-quorum-bar');
   if (bar) {
     bar.className = 'att-quorum-bar ' + (presentCount===0 ? 'att-quorum-pending' : hasQuorum ? 'att-quorum-met' : 'att-quorum-fail');
@@ -2242,6 +2415,7 @@ function refreshQuorumBar(it) {
         ? '✓ Quorum met — '+presentCount+' present of '+quorumRequired+' required'
         : '✗ Quorum not met — '+presentCount+' present, '+quorumRequired+' required';
   }
+
   // Update mover/seconder dropdowns to only show present members
   MM.attendees = slList.filter(function(sl){ return it.attendance && it.attendance[sl]==='present'; });
   var opts = '<option value="">Select...</option>' + MM.attendees.map(function(sl){return '<option>'+sl+'</option>';}).join('');
@@ -2249,6 +2423,7 @@ function refreshQuorumBar(it) {
   var secdEl  = document.getElementById('mm-secd');
   if(moverEl) moverEl.innerHTML = opts;
   if(secdEl)  secdEl.innerHTML  = opts;
+
   // Lock/unlock confirm button
   var confBtn = document.getElementById('mm-confbtn');
   if (confBtn) {
@@ -2256,16 +2431,22 @@ function refreshQuorumBar(it) {
     confBtn.title = hasQuorum ? 'Confirm attendance and call meeting to order' : 'Cannot proceed — quorum not met';
   }
 }
+
+
 // ── COUNCIL DELEGATE INVITE ───────────────────────────────────────────
 // Council delegates are invited directly by name/email + council role
 // They get a 'Council Delegate' account scoped to their SC only
+
 var _delInviteScId = '';
+
 function openInviteDelegate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   _delInviteScId = scId;
+
   // Build the modal — pick from existing council members or enter new
   var members = (s.councilMembers||[]).filter(function(m){return m.isCouncil;});
   var alreadyDelegates = (s.delegates||[]).map(function(d){return d.uid;});
+
   var memberOptions = members.length
     ? '<div style="font-size:12px;color:var(--ch3);margin-bottom:8px">Quick-add from council:</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
@@ -2281,6 +2462,7 @@ function openInviteDelegate(scId) {
         }).join('')
       + '</div>'
     : '';
+
   var html = memberOptions
     + '<div class="cm-form-row">'
     + '<div><div class="cm-label">Full Name *</div><input class="cm-input" id="del-name" type="text" placeholder="e.g. Jane Smith"/></div>'
@@ -2297,10 +2479,12 @@ function openInviteDelegate(scId) {
     + '<option value="Member at Large">Member at Large</option>'
     + '</select></div></div>'
     + '<div class="al info" style="margin-top:12px;font-size:12px">An invitation will be sent to create a council portal account. The delegate will only have access to '+escHtml(s.plan)+' — '+escHtml(s.name)+'.</div>';
+
   document.getElementById('del-invite-scname').textContent = s.plan + ' — ' + s.name;
   document.getElementById('del-invite-body').innerHTML = html;
   openMo('mo-invite-delegate');
 }
+
 function prefillDelegateForm(name, email, role) {
   var nameEl  = document.getElementById('del-name');
   var emailEl = document.getElementById('del-email');
@@ -2314,6 +2498,7 @@ function prefillDelegateForm(name, email, role) {
     });
   }
 }
+
 function saveDelegate() {
   var scId  = _delInviteScId;
   var s     = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
@@ -2322,18 +2507,22 @@ function saveDelegate() {
   var role  = document.getElementById('del-role').value || 'Council Delegate';
   if (!name)  { nAlert('Please enter the delegate name.','Missing Name','warn'); return; }
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid email address.','Missing Email','warn'); return; }
+
   if (!s.delegates) s.delegates = [];
   if (!s.delegateIds) s.delegateIds = [];
+
   // Create a uid for this delegate
   var uid = 'del_' + scId + '_' + Date.now();
   s.delegates.push({uid:uid, name:name, email:email, councilRole:role, invitedAt:new Date().toISOString()});
   if (s.delegateIds.indexOf(uid) < 0) s.delegateIds.push(uid);
+
   sv('sc_'+s.id, s);
   closeMo('mo-invite-delegate');
   nAlert('Invitation sent to '+email+'. '+name+' will receive an email to create their council portal account.', 'Invite Sent ✓', 'success');
   _scDetailTab = 'reps';
   renderSCDetail(scId);
 }
+
 function removeDelegate(scId, uid) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var del = (s.delegates||[]).find(function(d){return d.uid===uid;});
@@ -2346,10 +2535,13 @@ function removeDelegate(scId, uid) {
     renderSCDetail(scId);
   }, 'Remove Delegate', 'danger');
 }
+
+
 function renderSCReps(s) {
   // Collect all users connected to this SC across all role types
   var allReps = APP.reps || [];
   var rows = [];
+
   // Helper: check if a lic/uid is connected to this SC
   function isConnected(lic, uid) {
     if (s.mgrLic && s.mgrLic === lic) return true;
@@ -2357,6 +2549,7 @@ function renderSCReps(s) {
     if (uid && s.delegateIds && s.delegateIds.indexOf(uid) >= 0) return true;
     return false;
   }
+
   // MB and AB — from APP.brokerage context (they see all SCs)
   // We flag them as brokerage-level rather than SC-specific
   var brokerageRoles = ['Managing Broker','Associate Broker'];
@@ -2367,6 +2560,7 @@ function renderSCReps(s) {
       rows.push({name:r.name, lic:r.lic, title:r.title||'Representative', scope:'Assigned', status:r.status||'Active'});
     }
   });
+
   // Council delegates from sc.delegateIds + sc.delegates[]
   var delegates = s.delegates || [];
   // Also add any raw delegateIds not in delegates array (legacy)
@@ -2383,12 +2577,14 @@ function renderSCReps(s) {
         title: d.councilRole||'Council Delegate', scope:'Council', status:'Active', uid:d.uid});
     }
   });
+
   var roleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Assistant':3,'Council Delegate':4};
   rows.sort(function(a,b){
     var ta = roleOrder[a.title] !== undefined ? roleOrder[a.title] : 5;
     var tb = roleOrder[b.title] !== undefined ? roleOrder[b.title] : 5;
     return ta - tb;
   });
+
   var role = APP.currentUser.role || '';
   var canInviteRep = role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant';
   var canInviteDel = canInviteRep; // REPs can invite council delegates to their SCs
@@ -2396,16 +2592,20 @@ function renderSCReps(s) {
     +(canInviteRep?'<button class="btn pri" onclick="openSCInviteRep(\''+s.id+'\')">+ Invite Representative</button>':'')
     +(canInviteDel?' <button class="btn pri" onclick="openInviteDelegate(\''+s.id+'\')">+ Invite Council Delegate</button>':'')
     +'</div>';
+
   if (!rows.length) {
     return html + '<div class="empty-state"><div class="empty-ic">👤</div>'
       +'<div class="empty-h">No representatives connected</div>'
       +'<div class="empty-s">Invite a representative from your brokerage or sync from BCFSA on the Brokerage page.</div></div>';
   }
+
   var scopeColors = {Brokerage:'var(--blu1,#dbeafe)', Assigned:'var(--orgp)', Council:'var(--grnl)'};
   var scopeLabels = {Brokerage:'Brokerage Access', Assigned:'Assigned', Council:'Council Delegate'};
+
   html += '<table class="cm-table"><thead><tr>'
     +'<th>Name</th><th>Title</th><th>Licence</th><th>Access</th><th>Status</th><th></th>'
     +'</tr></thead><tbody>';
+
   rows.forEach(function(r) {
     var scopeBg    = scopeColors[r.scope]  || 'var(--g1)';
     var scopeLabel = scopeLabels[r.scope]  || r.scope;
@@ -2418,9 +2618,11 @@ function renderSCReps(s) {
       +'<td>'+(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':''))+'</td>'
       +'</tr>';
   });
+
   html += '</tbody></table>';
   return html;
 }
+
 function removeRepFromSC(scId, lic) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   nConfirm('Remove this representative from '+s.plan+'?', function(ok){
@@ -2430,6 +2632,7 @@ function removeRepFromSC(scId, lic) {
     renderSCDetail(scId);
   }, 'Remove Representative', 'danger');
 }
+
 function openSCInviteRep(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   // Reuse the brokerage invite modal but scoped to this one SC
@@ -2464,7 +2667,9 @@ function openSCInviteRep(scId) {
   document.querySelector('#mo-invite-rep-corps .mo-ft .btn.pri').setAttribute('onclick','saveSCInviteRep(\''+scId+'\')');
   openMo('mo-invite-rep-corps');
 }
+
 var _inviteSingleScId = null;
+
 function scInviteToggleRep(el) {
   // Single-select for SC rep invite — deselect all others first
   document.querySelectorAll('#invite-corps-list .invite-corp-item').forEach(function(item){
@@ -2475,6 +2680,7 @@ function scInviteToggleRep(el) {
   var check = el.querySelector('.invite-corp-check'); if(check) check.textContent='✓';
   inviteUpdateCount();
 }
+
 function saveSCInviteRep(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var selected = document.querySelector('#invite-corps-list .invite-corp-item.selected');
@@ -2484,6 +2690,7 @@ function saveSCInviteRep(scId) {
   // Prompt for email
   openEmailInvite(scId, lic, name);
 }
+
 function openEmailInvite(scId, lic, name) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   closeMo('mo-invite-rep-corps');
@@ -2508,6 +2715,8 @@ function openEmailInvite(scId, lic, name) {
     renderSCDetail(scId);
   }, '', 'Email Address');
 }
+
+
 function renderMgmtStrataSphere(sc, el) {
   var scId = sc.id;
   // Ensure a conversation exists for this SC
@@ -2518,6 +2727,7 @@ function renderMgmtStrataSphere(sc, el) {
   var conv = SS.activeConv && SS.activeConv.scId === scId
     ? convs.find(function(c){return c.id===SS.activeConv.convId;})
     : convs[0] || null;
+
   // Build an inline SS chat panel scoped to this SC
   el.innerHTML = '<div style="display:flex;height:calc(100vh - 200px);min-height:400px;border:1px solid var(--g2);border-radius:8px;overflow:hidden">'
     // Left: conversation list
@@ -2549,6 +2759,7 @@ function renderMgmtStrataSphere(sc, el) {
     + '</div></div>'
     + '</div>';
 }
+
 function mgmtSsNewConv(scId) {
   if (!SS.convs[scId]) SS.convs[scId] = [];
   var conv = {id:'conv_'+Date.now(), title:'New conversation', msgs:[], scope:'local', ts:Date.now()};
@@ -2557,11 +2768,13 @@ function mgmtSsNewConv(scId) {
   var sc = APP.sc.find(function(s){return s.id===scId;});
   if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
 }
+
 function mgmtSsSelectConv(scId, convId) {
   SS.activeConv = {scId:scId, convId:convId};
   var sc = APP.sc.find(function(s){return s.id===scId;});
   if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
 }
+
 function mgmtSsSend(scId) {
   var inp = document.getElementById('mgmt-ss-in');
   var msg = (inp && inp.value.trim()) || '';
@@ -2601,6 +2814,8 @@ function mgmtSsSend(scId) {
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   });
 }
+
+
 function scAddDoc(scId, doc) {
   // doc: {name, data, mime, source, sourceLabel, date}
   var sc_ = APP.sc.find(function(s){return s.id===scId;});
@@ -2613,6 +2828,8 @@ function scAddDoc(scId, doc) {
   sc_.docs.push(doc);
   sv('sc_'+sc_.id, sc_);
 }
+
+
 function renderMmNav() {
   var html = '';
   // Group items by category, preserving order
@@ -2624,6 +2841,7 @@ function renderMmNav() {
     }
     catMap[it.catId].items.push(it);
   });
+
   cats.forEach(function(cat) {
     html += '<div class="nav-cat">'+escHtml(cat.name)+'</div>';
     cat.items.forEach(function(it, itemIdx) {
@@ -2639,6 +2857,7 @@ function renderMmNav() {
   });
   var el = document.getElementById('mm-nav'); if(el) el.innerHTML = html;
 }
+
 function setItem(id) {
   // Block leaving Call to Order if quorum not yet confirmed
   if (curItem && id !== curItem) {
@@ -2704,6 +2923,7 @@ function setItem(id) {
     document.getElementById('mm-outcome').style.color='var(--g4)';
   }
 }
+
 function renderCtr(it) {
   var h='';
   // Special: Registration & Attendance for Call to Order
@@ -2737,10 +2957,12 @@ function renderCtr(it) {
     +'<textarea class="mm-notes" id="notes'+it.id+'" onblur="saveNote(\''+it.id+'\',this.value)" placeholder="Private notes for this item...">'+( it.notes||'')+'</textarea></div></div>';
   var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
 }
+
 function mmSec(lbl,body,open){
   return '<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">'+lbl+'</span><span class="mm-stog">'+(open?'▼':'▶')+'</span></div>'
     +'<div class="mm-sbd" '+(open?'':'style="display:none"')+'>'+body+'</div></div>';
 }
+
 function voteSection(it){
   var m=it.motion, tot=m.for+m.against+m.abstain;
   var fp=tot?Math.round(m.for/tot*100):0, ap=tot?Math.round(m.against/tot*100):0, abp=tot?Math.round(m.abstain/tot*100):0;
@@ -2758,6 +2980,7 @@ function voteSection(it){
       :'<div style="font-size:12px;color:var(--g4);margin-top:8px;text-align:center">No votes recorded yet</div>')
     +'</div></div>';
 }
+
 function togSec(hd){var bd=hd.nextElementSibling,tg=hd.querySelector('.mm-stog');if(bd.style.display==='none'){bd.style.display='';if(tg)tg.textContent='▼';}else{bd.style.display='none';if(tg)tg.textContent='▶';}}
 function setVote(id, t, val) {
   var it = MM.agenda.find(function(a){return a.id===id;});
@@ -2770,6 +2993,7 @@ function setVote(id, t, val) {
   renderCtr(it);
   updOutcome(it);
 }
+
 function adjustVote(id, t, delta) {
   var it = MM.agenda.find(function(a){return a.id===id;});
   if (!it || !it.motion || it.done) return;
@@ -2779,6 +3003,7 @@ function adjustVote(id, t, delta) {
   var el = document.getElementById('mm-v'+t);
   if (el) el.value = Math.max(0, current + delta);
 }
+
 // Keep addVote for backward compat (called from voteSection buttons in centre panel)
 function addVote(id, t) { adjustVote(id, t, 1); }
 function saveNote(id,v){var it=MM.agenda.find(function(a){return a.id===id;});if(it)it.notes=v;}
@@ -2825,9 +3050,11 @@ function mmAiSend(){
   .then(function(d){var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();el.innerHTML+='<div class="mm-aimsg ai fi">'+(txt||'Unable to respond.')+'</div>';el.scrollTop=el.scrollHeight;})
   .catch(function(){el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';el.scrollTop=el.scrollHeight;});
 }
+
 function confirmDecision(){
   var it=MM.agenda.find(function(a){return a.id===curItem;});
   if(!it) return;
+
   if(it.motion){
     var mv  = document.getElementById('mm-mover').value;
     var secd= document.getElementById('mm-secd').value;
@@ -2864,6 +3091,7 @@ function confirmDecision(){
     }
   }
 }
+
 function _confirmDecisionProceed(it){
   it.done=true;
   // Lock attendance after Call to Order confirmation
@@ -2906,6 +3134,7 @@ function _confirmDecisionProceed(it){
   }
   mmAdvance();
 }
+
 function mmAdvance(){
   var idx=MM.agenda.findIndex(function(a){return a.id===curItem;});
   // Find next undone item
@@ -2917,14 +3146,17 @@ function mmAdvance(){
     nConfirm('All agenda items are complete. Adjourn the meeting now?', function(ok){ if(ok) adjournMtg(); }, 'Meeting Complete', 'success');
   }
 }
+
 function saveMinSummary(id, val) {
   var it = MM.agenda.find(function(a){return a.id===id;});
   if(it) { it.minutesSummary = val; mmSyncToMtg(); }
 }
+
 function saveNextMeetingDate(id, val) {
   var it = MM.agenda.find(function(a){return a.id===id;});
   if(it) { it.nextMeetingDate = val; mmSyncToMtg(); }
 }
+
 // ── MEETING MODE RESPONSIVE PANEL TOGGLES ─────────────────────────
 function toggleMMPanel(panel) {
   var left = document.querySelector('.mm-L');
@@ -2942,6 +3174,7 @@ function toggleMMPanel(panel) {
     if (overlay) overlay.classList.toggle('on', !isOpenR);
   }
 }
+
 function closeMMPanels() {
   var left = document.querySelector('.mm-L');
   var right = document.querySelector('.mm-R');
@@ -2950,6 +3183,8 @@ function closeMMPanels() {
   if (right) right.classList.remove('open');
   if (overlay) overlay.classList.remove('on');
 }
+
+
 function mmStartTimer() {
   if (MM.running) return;
   MM.running   = true;
@@ -2965,6 +3200,7 @@ function mmStartTimer() {
     var el=document.getElementById('mm-tmr'); if(el) el.textContent=p2(h)+':'+p2(m)+':'+p2(s);
   }, 1000);
 }
+
 function autoPopulateItem(it) {
   var txt = (it.text||'').toLowerCase();
   // Approve Agenda
@@ -2992,6 +3228,8 @@ function autoPopulateItem(it) {
     }
   }
 }
+
+
 function consensusItem() {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it) return;
@@ -3010,6 +3248,7 @@ function consensusItem() {
   }
   mmAdvance();
 }
+
 function unanimousVote() {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it || !it.motion) return;
@@ -3050,6 +3289,8 @@ function _unanimousProceed(it, mv, secd, presentCount) {
   var secdEl=document.getElementById('mm-secd');   if(secdEl)  secdEl.selectedIndex=0;
   setTimeout(function(){ mmAdvance(); }, 500);
 }
+
+
 function deferItem() {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it) return;
@@ -3081,6 +3322,8 @@ function _deferProceed(it) {
     nConfirm('All items have been addressed. Adjourn the meeting now?', function(ok){ if(ok) adjournMtg(); }, 'Meeting Complete', 'success');
   }
 }
+
+
 function mmSyncToMtg(){
   var sc_=APP.sc.find(function(s){return s.id===MM.scId;});
   var mtg=sc_&&sc_.meetings&&sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
@@ -3110,6 +3353,7 @@ function mmSyncToMtg(){
   });
   sv('sc_'+sc_.id, sc_);
 }
+
 // ══════════════════════════════════════════
 // ADJOURN & MINUTES
 // ══════════════════════════════════════════
@@ -3144,6 +3388,7 @@ function _adjournProceed() {
   // Generate minutes immediately
   setTimeout(function(){ generateMinutes(mtg, sc_); }, 300);
 }
+
 function generateMinutes(sc, mtg) {
   // Build minutes immediately from structured data,
   // then fire AI calls for each agenda item's notes → Background/Discussion
@@ -3166,6 +3411,7 @@ function generateMinutes(sc, mtg) {
     viewMinutes(sc.id, mtg.id);
   });
 }
+
 function formatEndTime(elapsed, startStr) {
   var parts = startStr.split(':');
   var startMins = parseInt(parts[0]||19)*60 + parseInt(parts[1]||0);
@@ -3173,6 +3419,7 @@ function formatEndTime(elapsed, startStr) {
   var h = Math.floor(endMins/60)%24, m = endMins%60;
   return p2(h)+':'+p2(m);
 }
+
 function generateItemSummaries(agenda, callback) {
   var itemsWithNotes = agenda.filter(function(a){return a.notes && a.notes.trim().length > 10;});
   if (!itemsWithNotes.length) { callback(); return; }
@@ -3193,6 +3440,7 @@ function generateItemSummaries(agenda, callback) {
     .finally(function(){ if(--pending===0)callback(); });
   });
 }
+
 function viewMinutes(scId, mtgId) {
   var sc  = APP.sc.find(function(s){return s.id===scId;});
   var mtg = sc && sc.meetings ? sc.meetings.find(function(m){return String(m.id)===String(mtgId);}) : null;
@@ -3201,6 +3449,8 @@ function viewMinutes(scId, mtgId) {
   APP.currentMtgId = mtgId;
   openMinutesModal(mtg, sc);
 }
+
+
 function openMinutesModal(mtg, sc_) {
   APP.currentMtgId = mtg.id;
   APP.currentScId  = sc_.id;
@@ -3215,6 +3465,7 @@ function openMinutesModal(mtg, sc_) {
   renderMinutesContent(mtg, sc_);
   openMo('mo-minutes');
 }
+
 function renderMinutesContent(mtg, sc_) {
   var el = document.getElementById('min-content'); if(!el) return;
   var agenda = mtg.agenda || [];
@@ -3278,6 +3529,7 @@ function renderMinutesContent(mtg, sc_) {
     +'<div class="min-sig-line">_________________________<br><span>Strata Manager</span></div></div>';
   el.innerHTML = html;
 }
+
 function minSaveEdit(el) {
   var id = el.dataset.itemid; var field = el.dataset.field || 'aiSummary'; var val = el.textContent;
   var sc_ = APP.sc.find(function(s){return s.id===APP.currentScId;}); if(!sc_) return;
@@ -3286,6 +3538,7 @@ function minSaveEdit(el) {
   it[field] = val;
   sv('sc_'+sc_.id, sc_);
 }
+
 function finalizeMinutes() {
   nConfirm('Are you sure you want to finalize these minutes?\n\nOnce finalized, the minutes will be locked and cannot be edited.', function(ok){
     if(!ok) return;
@@ -3305,8 +3558,10 @@ function _finalizeProceed() {
   renderMinutesContent(mtg, sc_);
   // Switch to Minutes tab so finalized minutes appear there
   closeMo('mo-minutes');
-  switchMtgTab('docs', document.getElementById('mtgtab-docs'));
+  switchMtgTab('minutes', document.getElementById('mtgtab-minutes'));
 }
+
+
 function exportMin(fmt, scId, mtgId) {
   var sc_  = scId  ? APP.sc.find(function(s){return s.id===scId;})  : APP.sc.find(function(s){return s.id===APP.currentScId;});
   var mtg  = mtgId ? (sc_&&sc_.meetings?sc_.meetings.find(function(m){return String(m.id)===String(mtgId);}):null)
@@ -3317,6 +3572,7 @@ function exportMin(fmt, scId, mtgId) {
     nAlert('Only finalised minutes can be exported as PDF. Please finalise the minutes first.');
     return;
   }
+
   var plan    = sc_ ? sc_.plan.replace(/\s+/g,'') : 'SC';
   var state   = mtg.minutesState || 'DRAFT';
   var date    = mtg.date || '';
@@ -3325,24 +3581,29 @@ function exportMin(fmt, scId, mtgId) {
   var mgr     = APP.currentUser ? APP.currentUser.name : '—';
   var mgrLic  = APP.currentUser && APP.currentUser.lic ? 'BCFSA Lic. ' + APP.currentUser.lic : '';
   var fname   = plan + '_' + (mtg.type||'council') + '_' + date + '_' + state;
+
   // Group agenda by category
   var cats = [], catMap2 = {};
   (mtg.agenda||[]).forEach(function(it){
     if(!catMap2[it.catId]){catMap2[it.catId]={name:it.cat,items:[]};cats.push(catMap2[it.catId]);}
     catMap2[it.catId].items.push(it);
   });
+
   if (fmt === 'docx') {
     exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname);
   } else if (fmt === 'pdf') {
     exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname);
   }
 }
+
 function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname) {
   // Generate RTF — opens natively in Word, Pages, LibreOffice
   var r = [];
+
   // RTF header — colour table: c1=blue, c2=grey, c3=green, c4=red, c5=amber
   r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}');
   r.push('{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}');
+
   function esc(s) {
     return String(s||'')
       .replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}')
@@ -3356,18 +3617,22 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   function body(text)  { return '\\pard\\sb0\\sa80\\fs22 '+esc(text)+'\\par'; }
   function bold(text)  { return '\\pard\\sb80\\sa40\\b\\fs22 '+esc(text)+'\\b0\\par'; }
   function meta(text)  { return '\\pard\\sb0\\sa30\\fs20\\cf2 '+esc(text)+'\\cf0\\par'; }
+
   // ── NEURATA HEADER ──────────────────────────────────────────────────
   r.push('\\pard\\sb0\\sa40\\fs18\\cf2 Minutes created with Neurata.ai\\cf0\\par');
   if (state==='DRAFT') {
     r.push('\\pard\\sb0\\sa80\\b\\fs20\\cf5 DRAFT \\u2014 Not yet approved by strata council\\b0\\cf0\\par');
   }
+
   // ── MEETING TITLE ───────────────────────────────────────────────────
   r.push('\\pard\\sb80\\sa60\\b\\fs36\\cf1 '+esc(typeLabel.toUpperCase())+'\\b0\\cf0\\fs22\\par');
+
   // ── STRATA CORPORATION ──────────────────────────────────────────────
   if (sc_) {
     r.push(bold('Strata Plan '+esc(sc_.plan)+(sc_.name?' \u2014 '+esc(sc_.name):'')));
     if (sc_.addr) r.push(meta(sc_.addr));
   }
+
   // ── DATE, TIME & LOCATION ────────────────────────────────────────────
   var actualStart = mtg.actualStartTime || mtg.time || '';
   var actualDate  = mtg.actualStartDate || date;
@@ -3375,8 +3640,10 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   r.push(meta('Called to Order: '+esc(actualStart)));
   r.push(meta('Adjourned: '+esc(mtg.adjTime||'')));
   if (mtg.fmt || mtg.loc) r.push(meta('Format: '+esc(mtg.fmt||''+(mtg.loc?' \u2014 '+mtg.loc:''))));
+
   // ── STRATA MANAGER ────────────────────────────────────────────────────
   r.push(meta('Strata Manager / Property Manager: '+esc(mgr)+(mgrLic?' \u2014 '+esc(mgrLic):'')));
+
   // ── ATTENDANCE ────────────────────────────────────────────────────────
   // Get from Call to Order item if available
   var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
@@ -3385,10 +3652,12 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   var regrets  = Object.keys(attendance).filter(function(k){return attendance[k]==='regrets';});
   var proxies  = Object.keys(attendance).filter(function(k){return attendance[k]==='proxy';});
   if (mtg.attendees && mtg.attendees.length && !present.length) present = mtg.attendees;
+
   r.push(heading('Attendance'));
   if (present.length)  r.push(meta('Present: '+present.join(', ')));
   if (regrets.length)  r.push(meta('Regrets: '+regrets.join(', ')));
   if (proxies.length)  r.push(meta('Proxies: '+proxies.join(', ')));
+
   // Quorum confirmation
   var sc_lots = sc_ ? sc_.lots : 20;
   var mtgType = (function(){
@@ -3398,9 +3667,12 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   var isGeneral = (mtgType==='agm'||mtgType==='sgm');
   var qRequired = isGeneral ? Math.ceil(sc_lots/3) : Math.ceil((sc_&&sc_.councilSLs?sc_.councilSLs.length:5)/2);
   r.push(meta('Quorum: '+present.length+' present. Required: '+qRequired+'. Quorum '+(present.length>=qRequired?'confirmed \u2713':'NOT MET \u2717')+'.'));
+
   // Chairperson / Secretary (from council members if available)
   r.push(meta('Property Manager: '+esc(mgr)));
+
   r.push('\\pard\\sb0\\sa80\\fs20\\cf2 \\par\\cf0');
+
   // ── AGENDA ITEMS BY CATEGORY ──────────────────────────────────────────
   cats.forEach(function(cat) {
     r.push(heading(cat.name));
@@ -3429,13 +3701,16 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       }
     });
   });
+
   // ── ADJOURNMENT ────────────────────────────────────────────────────────
   r.push(heading('Adjournment'));
   r.push(body('There being no further business, the meeting was adjourned at '+esc(mtg.adjTime||'[time]')+'.'));
+
   // ── SIGNATURES ────────────────────────────────────────────────────────
   r.push('\\pard\\sb480\\sa0\\fs20\\cf2 _________________________\\tab _________________________\\par');
   r.push('\\pard\\sb0\\sa20\\fs18\\cf2 Strata Council Secretary\\tab Strata Manager'+esc(mgrLic?' \u2014 '+mgrLic:'')+' \\cf0\\par');
   r.push('}');
+
   var rtf = r.join('\r\n');
   var blob = new Blob([rtf], {type:'application/rtf'});
   var a = document.createElement('a');
@@ -3445,6 +3720,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   a.click();
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
 }
+
+
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
@@ -3491,16 +3768,20 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname) {
   lines.push('<p>There being no further business, the meeting was adjourned at '+(mtg.adjTime||'[time]')+'.</p>');
   lines.push('<div class="sig"><br><br>_________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_________________________<br>Strata Council Secretary&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Strata Manager</div>');
   lines.push('</body></html>');
+
   var w = window.open('', '_blank', 'width=900,height=700');
   w.document.write(lines.join('\n'));
   w.document.close();
   w.focus();
   setTimeout(function(){ w.print(); }, 600);
 }
+
+
 function distributeMinutes() {
   // Placeholder — email distribution via Postmark in production
   nAlert('Minutes distribution will be available once email is configured.', 'Coming Soon', 'info');
 }
+
 // ══════════════════════════════════════════
 // EDIT AGENDA (in Meeting Mode)
 // ══════════════════════════════════════════
@@ -3517,30 +3798,37 @@ function renderEditAgenda() {
 }
 function mvAg(i,d){var ni=i+d;if(ni<0||ni>=MM.agenda.length||MM.agenda[ni].done||MM.agenda[i].done)return;var tmp=MM.agenda[i];MM.agenda[i]=MM.agenda[ni];MM.agenda[ni]=tmp;renderEditAgenda();renderMmNav();}
 function addAgItem(){nPrompt('New agenda item:', function(t){if(!t)return;MM.agenda.push({id:Date.now(),num:String(MM.agenda.length+1),cat:'New Business',text:t,type:'FOR_INFORMATION',done:false,notes:'',aiSummary:'',motion:null,atts:[]}, '', 'Add Item');});renderEditAgenda();renderMmNav();}
+
 // ══════════════════════════════════════════
 // UPLOAD PREVIOUS MINUTES
 // ══════════════════════════════════════════
+
 // ── StrataSphere conversation state ──────────────────────────────────
 var SS = {
   convs: {},        // {scId: [{id, title, msgs:[{role,text}], scope, ts}]}
   activeConv: null, // {scId, convId}
   scope: 'local'
 };
+
 function ssGetScId() {
   return APP.currentScId || (getVisibleSCs()[0] && getVisibleSCs()[0].id);
 }
+
 // ══════════════════════════════════════════
 // PII SANITISATION FOR GLOBAL STRATASPHERE
 // PIPA compliant — strips all personal identifiers before cross-corp aggregation
 // ══════════════════════════════════════════
+
 function stripPII(decisions) {
   // Regex patterns for common PII
   var emailRe    = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
   var phoneRe    = /(\+?1[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g;
   var slRe       = /\bSL\s*\d{1,4}\b/gi;   // preserve SL numbers — these are allowed
+
   return decisions.map(function(d) {
     // Deep clone to avoid mutating original
     var clean = JSON.parse(JSON.stringify(d));
+
     // Fields that may contain PII: motion text, mover, sec, text
     // Replace mover/seconder with their SL number if it looks like a name (not an SL)
     function cleanPerson(val) {
@@ -3550,8 +3838,10 @@ function stripPII(decisions) {
       // Otherwise redact — replace with [Council Member]
       return '[Council Member]';
     }
+
     clean.mover = cleanPerson(clean.mover);
     clean.sec   = cleanPerson(clean.sec);
+
     // Scrub motion text and item text of emails, phones, and proper names
     function scrubText(txt) {
       if (!txt) return txt;
@@ -3571,13 +3861,17 @@ function stripPII(decisions) {
           return '[name redacted]';
         });
     }
+
     clean.text   = scrubText(clean.text);
     clean.motion = scrubText(clean.motion);
+
     // Remove any raw votes object names if present
     delete clean.recorded; // timestamp not needed for global context
+
     return clean;
   });
 }
+
 // Wrapper used by all global SS queries
 function ssGetScDecisionsSafe(scId, scope) {
   var raw = ssGetScDecisions(scId, scope);
@@ -3586,6 +3880,8 @@ function ssGetScDecisionsSafe(scId, scope) {
   }
   return raw; // local: no stripping, manager has lawful access
 }
+
+
 function ssGetScDecisions(scId, scope) {
   if (scope === 'global') {
     var all = [];
@@ -3595,14 +3891,17 @@ function ssGetScDecisions(scId, scope) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   return (s && s.decisions) ? s.decisions.map(function(d){return Object.assign({},d,{scPlan:s.plan});}) : [];
 }
+
 function renderSS() {
   // Update SC indicator
   var scId = ssGetScId();
   var sc_ = scId ? APP.sc.find(function(s){return s.id===scId;}) : null;
   var indEl = document.getElementById('ss-sc-indicator');
   if (indEl) indEl.textContent = sc_ ? sc_.plan + ' — ' + sc_.name : 'No corporation selected';
+
   // Render conversation list for current SC
   ssRenderConvList();
+
   // Load active conversation or show welcome
   if (SS.activeConv && SS.activeConv.scId === scId) {
     ssRenderMessages();
@@ -3621,6 +3920,7 @@ function renderSS() {
     }
   }
 }
+
 function ssRenderConvList() {
   var el = document.getElementById('ss-convs-list');
   if (!el) return;
@@ -3639,6 +3939,7 @@ function ssRenderConvList() {
       + '</div>';
   }).join('');
 }
+
 function ssRenderMessages() {
   var el = document.getElementById('ss-msgs');
   if (!el || !SS.activeConv) return;
@@ -3657,6 +3958,7 @@ function ssRenderMessages() {
   }).join('');
   el.scrollTop = el.scrollHeight;
 }
+
 function ssFormatResponse(text) {
   // Strip markdown: **, *, #, --, -- style decorators
   return escHtml(text
@@ -3669,6 +3971,7 @@ function ssFormatResponse(text) {
     .trim()
   ).replace(/\n/g, '<br>').replace(/• /g, '&bull; ');
 }
+
 function ssNewConv() {
   var scId = ssGetScId();
   if (!scId) { nAlert('Please select a strata corporation first.', 'No Corp Selected', 'warn'); return; }
@@ -3686,11 +3989,13 @@ function ssNewConv() {
   var msgs = document.getElementById('ss-msgs');
   if (msgs) msgs.innerHTML = '<div class="ss-msg ss-ai"><strong>StrataSphere</strong> — What would you like to know?</div>';
 }
+
 function ssSelectConv(scId, convId) {
   SS.activeConv = {scId: scId, convId: convId};
   ssRenderConvList();
   ssRenderMessages();
 }
+
 function ssDeleteConv(scId, convId) {
   if (!SS.convs[scId]) return;
   SS.convs[scId] = SS.convs[scId].filter(function(c){return c.id!==convId;});
@@ -3700,42 +4005,51 @@ function ssDeleteConv(scId, convId) {
   ssRenderConvList();
   ssRenderMessages();
 }
+
 function ssSend() {
   var inp = document.getElementById('ss-in');
   var msg = inp.value.trim();
   if (!msg) return;
   inp.value = ''; inp.style.height = 'auto';
+
   var scId = ssGetScId();
   if (!scId) { nAlert('Please select a strata corporation first.', 'No Corp', 'warn'); return; }
+
   // Create conversation if none active
   if (!SS.activeConv || SS.activeConv.scId !== scId) {
     ssNewConv();
   }
+
   var convId = SS.activeConv.convId;
   var conv = (SS.convs[scId]||[]).find(function(c){return c.id===convId;});
   if (!conv) return;
+
   // Add user message
   conv.msgs.push({role:'user', text:msg});
   // Title = first message (truncated)
   if (conv.title === 'New conversation') conv.title = msg.slice(0,40) + (msg.length>40?'…':'');
   ssRenderMessages();
+
   // Show typing indicator
   var msgs = document.getElementById('ss-msgs');
   var typingId = 'ss-typing-' + Date.now();
   msgs.innerHTML += '<div id="'+typingId+'" class="ss-typing"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div></div>';
   msgs.scrollTop = msgs.scrollHeight;
+
   // Build context from THIS SC's decisions only (local) or all (global)
   var dec = ssGetScDecisionsSafe(scId, conv.scope);
   var sc_ = APP.sc.find(function(s){return s.id===scId;});
   var context = dec.length
     ? (conv.scope==='global'?'Global':'Local')+' decision ledger: '+dec.length+' decisions'+(sc_?' for '+sc_.plan+' and managed portfolio':'')+'.'
     : 'No decisions in the decision ledger yet for '+(sc_?sc_.plan:'this corporation')+'.';
+
   // Build message history for multi-turn
   var history = conv.msgs.slice(-10).map(function(m){
     return {role: m.role==='user'?'user':'assistant', content: m.text};
   });
   // Remove last user msg from history (we send it as the final message)
   var lastUser = history.pop();
+
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -3768,6 +4082,8 @@ function ssSend() {
     ssRenderMessages();
   });
 }
+
+
 function setSS(m){
   if (m === 'global') {
     // Check if Global StrataSphere subscription is active
@@ -3793,6 +4109,7 @@ function setSS(m){
   if(m==='local'){lb.style.background='var(--org)';lb.style.color='#fff';lb.style.fontWeight='600';gb.style.background='none';gb.style.color='rgba(255,255,255,.6)';gb.style.fontWeight='500';}
   else{gb.style.background='var(--org)';gb.style.color='#fff';gb.style.fontWeight='600';lb.style.background='none';lb.style.color='rgba(255,255,255,.6)';lb.style.fontWeight='500';}
 }
+
 // ══════════════════════════════════════════
 // BROKERAGE PAGE
 // ══════════════════════════════════════════
@@ -3851,9 +4168,12 @@ function toggleRepActive(lic, isCurrentlyActive) {
     isCurrentlyActive ? 'danger' : 'info'
   );
 }
+
+
 function renderBrokerageRepList() {
   var reps = APP.reps || [];
   if (!reps.length) return '<div style="color:var(--g4);font-size:12px;padding:8px">No representatives loaded. Click Sync from BCFSA to fetch.</div>';
+
   // Sort: MB first, then AB, then others alphabetically by title then name
   var titleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Property Manager':2,'Assistant':3,'Council Delegate':4};
   var sorted = reps.slice().sort(function(a,b){
@@ -3862,7 +4182,8 @@ function renderBrokerageRepList() {
     if(ta!==tb) return ta-tb;
     return (a.name||'').localeCompare(b.name||'');
   });
-  return '<div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">'
+
+  return '<div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
     +'<thead><tr>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Name</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Title</th>'
@@ -3905,16 +4226,20 @@ function renderBrokerageRepList() {
         +'</td></tr>';
     }).join('')+'</tbody></table>';
 }
+
 // Current rep being invited
 var _inviteRepLic  = '';
 var _inviteRepName = '';
+
 function openInviteModal(lic, name) {
   _inviteRepLic  = lic;
   _inviteRepName = name;
   var scList = APP.sc;
   if (!scList.length) { nAlert('No strata corporations in this brokerage.', 'No Corps', 'warn'); return; }
+
   document.getElementById('invite-modal-title').textContent = 'Invite: ' + name;
   document.getElementById('invite-modal-sub').textContent   = 'BCFSA Licence ' + lic + ' · Select strata corporations to assign';
+
   var html = '';
   scList.forEach(function(s) {
     var assigned = s.mgrLic === lic || (s.repIds && s.repIds.indexOf(lic) >= 0);
@@ -3931,17 +4256,20 @@ function openInviteModal(lic, name) {
   inviteUpdateCount();
   openMo('mo-invite-rep-corps');
 }
+
 function inviteToggleCorp(el) {
   el.classList.toggle('selected');
   var check = el.querySelector('.invite-corp-check');
   if (check) check.textContent = el.classList.contains('selected') ? '✓' : '';
   inviteUpdateCount();
 }
+
 function inviteUpdateCount() {
   var selected = document.querySelectorAll('#invite-corps-list .invite-corp-item.selected');
   var countEl  = document.getElementById('invite-select-count');
   if (countEl) countEl.textContent = selected.length + ' selected';
 }
+
 function inviteSelectAll() {
   document.querySelectorAll('#invite-corps-list .invite-corp-item').forEach(function(el) {
     el.classList.add('selected');
@@ -3949,6 +4277,7 @@ function inviteSelectAll() {
   });
   inviteUpdateCount();
 }
+
 function inviteSelectNone() {
   document.querySelectorAll('#invite-corps-list .invite-corp-item').forEach(function(el) {
     el.classList.remove('selected');
@@ -3956,6 +4285,7 @@ function inviteSelectNone() {
   });
   inviteUpdateCount();
 }
+
 function saveInviteCorps() {
   var lic  = _inviteRepLic;
   var selected = new Set();
@@ -3980,6 +4310,8 @@ function saveInviteCorps() {
     nAlert(_inviteRepName+' has been assigned to '+selected.size+' corporation(s) and an invitation sent to '+email.trim()+'.','Invite Sent ✓','success');
   }, '', 'Email Address');
 }
+
+
 function syncBrokerageReps() {
   var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
   if (!brkLic) { nAlert('No brokerage licence found.'); return; }
@@ -3997,6 +4329,8 @@ function syncBrokerageReps() {
     nAlert('Sync failed: '+err.message);
   });
 }
+
+
 function renderRepList(){
   return '<div class="card"><div class="ch_"><div class="ct">👤 Representatives</div><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div>'
     +'<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Licence</th><th>Licensed For</th></tr></thead>'
@@ -4004,6 +4338,7 @@ function renderRepList(){
     +'</table></div>';
 }
 function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The representative will receive an email to set up their account. Their BCFSA licence will be verified on account creation.');}
+
 // ══════════════════════════════════════════
 // BILLING PAGE
 // ══════════════════════════════════════════
@@ -4033,6 +4368,7 @@ function renderBilling() {
     +'</tbody></table></div>';
   el.innerHTML=html;
 }
+
 // ══════════════════════════════════════════
 // AUTH & SESSION
 // ══════════════════════════════════════════
@@ -4051,6 +4387,7 @@ function doLogin(){
     return;
   }
   if (btn) { btn.disabled=true; btn.textContent='Signing in…'; }
+
   getSupabase().auth.signInWithPassword({email: email, password: pw})
     .then(function(result) {
       if (result.error) {
@@ -4066,6 +4403,7 @@ function doLogin(){
       if (errEl) { errEl.style.display=''; errEl.textContent='Sign in failed. Please try again.'; }
     });
 }
+
 // ── PASSWORD RESET ────────────────────────────────────────────────────
 function showNewPasswordPrompt() {
   // Show a dialog to set the new password
@@ -4099,6 +4437,8 @@ function showNewPasswordPrompt() {
     }
   });
 }
+
+
 function showForgotPassword() {
   _dlgShow({
     type: 'info',
@@ -4127,6 +4467,8 @@ function showForgotPassword() {
     }
   });
 }
+
+
 function loadUserProfile(userId) {
   getSupabase()
     .from('users')
@@ -4165,14 +4507,17 @@ function loadUserProfile(userId) {
       loadUserSCs(userId);
     });
 }
+
 function loadUserSCs(userId) {
   var role = APP.currentUser.role;
   var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
   var db = getSupabase();
+
   // Step 1: Load strata corps
   var scQuery = isAdmin
     ? db.from('strata_corps').select('*').eq('brokerage_id', APP.brokerage.lic)
     : db.from('sc_users').select('strata_corps(*)').eq('user_id', userId);
+
   scQuery.then(function(result) {
     if (result.error) { launchPlatform(); return; }
     var rows = result.data || [];
@@ -4197,8 +4542,11 @@ function loadUserSCs(userId) {
         delegateIds: []
       };
     }).filter(Boolean);
+
     if (!scList.length) { APP.sc = []; launchPlatform(); return; }
+
     var planNumbers = scList.map(function(s){return s.plan;});
+
     // Step 2: Load meetings, decisions, council members in parallel
     Promise.all([
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
@@ -4210,6 +4558,7 @@ function loadUserSCs(userId) {
       var decisions  = (results[1].data || []);
       var council    = (results[2].data || []);
       var documents  = (results[3].data || []);
+
       // Map everything back onto the SC objects
       scList.forEach(function(sc) {
         // Meetings
@@ -4233,6 +4582,7 @@ function loadUserSCs(userId) {
               minutes:        m.minutes_content || null
             };
           });
+
         // Decisions
         sc.decisions = decisions
           .filter(function(d){return d.sc_id === sc.plan;})
@@ -4250,6 +4600,7 @@ function loadUserSCs(userId) {
               source:  d.source
             };
           });
+
         // Council members
         sc.councilMembers = council
           .filter(function(c){return c.sc_id === sc.plan;})
@@ -4265,6 +4616,7 @@ function loadUserSCs(userId) {
         sc.councilSLs = sc.councilMembers
           .filter(function(m){return m.isCouncil;})
           .map(function(m){return m.sl;});
+
         // Documents (metadata only — files in Storage)
         sc.docs = documents
           .filter(function(d){return d.sc_id === sc.plan;})
@@ -4278,6 +4630,7 @@ function loadUserSCs(userId) {
             };
           });
       });
+
       APP.sc = scList;
       launchPlatform();
     }).catch(function() {
@@ -4287,6 +4640,7 @@ function loadUserSCs(userId) {
     });
   });
 }
+
 function signOut(){
   toggleUserMenu(false);
   getSupabase().auth.signOut().then(function(){
@@ -4304,9 +4658,11 @@ function signOut(){
 }
 function toggleUserMenu(force){var menu=document.getElementById('user-menu');if(!menu)return;if(force===false){menu.classList.remove('open');return;}menu.classList.toggle('open');}
 document.addEventListener('click',function(e){var pill=document.querySelector('.u-pill');var menu=document.getElementById('user-menu');if(menu&&pill&&!pill.contains(e.target)&&!menu.contains(e.target))menu.classList.remove('open');});
+
 // ══════════════════════════════════════════
 // AUTO-RESTORE SESSION & SUPER ADMIN
 // ══════════════════════════════════════════
+
 // Pre-populated demo data for Super Admin
 var DEMO_SC = [
   {id:'sc_demo_1', plan:'BCS 3229', name:'The Terminus', lots:50, addr:'28-38 Water St, Vancouver BC',
@@ -4333,6 +4689,7 @@ var DEMO_BROKERAGE = {
   name:'Associated Property Management (2001) Ltd.',
   lic:'X025017', addr:'#1-1441 St. Paul St, Kelowna BC', phone:'(250) 712-0025'
 };
+
 var SUPER_ADMIN_ROLES = [
   {role:'Managing Broker',    name:'Jeremy',  lic:'183255', initials:'MB',   label:'MB'},
   {role:'Associate Broker',   name:'Jeremy',  lic:'181412', initials:'AB',   label:'AB'},
@@ -4340,6 +4697,7 @@ var SUPER_ADMIN_ROLES = [
   {role:'Assistant',          name:'Jeremy',  lic:'183255', initials:'ASST', label:'ASST'},
   {role:'Council Delegate',   name:'Jeremy',  lic:'del_demo', uid:'del_demo', initials:'DEL', label:'DEL'}
 ];
+
 function superAdminLogin(roleIdx) {
   var r = SUPER_ADMIN_ROLES[roleIdx || 0];
   if (!r) r = SUPER_ADMIN_ROLES[0];
@@ -4356,6 +4714,7 @@ function superAdminLogin(roleIdx) {
   launchPlatform();
   renderSuperAdminBar();
 }
+
 function renderSuperAdminBar() {
   var bar = document.getElementById('super-admin-bar');
   if (!bar) return;
@@ -4369,6 +4728,7 @@ function renderSuperAdminBar() {
           + '</button>';
       }).join('');
 }
+
 function switchSuperAdminRole(idx) {
   var r = SUPER_ADMIN_ROLES[idx];
   APP.currentUser = Object.assign({}, APP.currentUser, {
@@ -4393,6 +4753,7 @@ function switchSuperAdminRole(idx) {
   renderSuperAdminBar();
   showPg('dashboard');
 }
+
 // Auto-restore saved session on page load
 window.addEventListener('load', function() {
   // Restore Supabase session if one exists
@@ -4404,6 +4765,7 @@ window.addEventListener('load', function() {
   }).catch(function(){
     // No session or error — stay on login screen
   });
+
   // Listen for auth state changes (handles token refresh, sign out from another tab)
   getSupabase().auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_OUT') {
@@ -4421,6 +4783,8 @@ window.addEventListener('load', function() {
     }
   });
 });
+
+
 function launchPlatform(){
   var u=APP.currentUser;
   var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');var rb=document.getElementById('user-role-badge');
@@ -4436,9 +4800,39 @@ function launchPlatform(){
   sv('currentUser', APP.currentUser);
   if (APP.brokerage && APP.brokerage.lic) sv('brokerage', APP.brokerage);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ══════════════════════════════════════════
 // ONBOARDING FUNCTIONS
 // ══════════════════════════════════════════
+
 function renderMeetings() {
   var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : getVisibleSCs()[0];
   if (!sc && getVisibleSCs().length>0) sc = getVisibleSCs()[0];
@@ -4465,6 +4859,7 @@ function renderMeetings() {
   else if (currentMtgTab === 'docs') renderDocsList(sc, el);
   else if (currentMtgTab === 'stratasphere') renderMgmtStrataSphere(sc, el);
 }
+
 function renderDash() {
   var el = document.getElementById('dash-body');
   var sub = document.getElementById('dash-sub');
@@ -4522,6 +4917,7 @@ function renderDash() {
   }
   el.innerHTML = html;
 }
+
 function renderStrata() {
   var el = document.getElementById('strata-body');
   if (!el) return;
@@ -4561,19 +4957,24 @@ function renderStrata() {
   html += '</div>';
   el.innerHTML = html;
 }
+
 var _scDetailTab = 'overview';
+
 function openSCDetail(scId) {
   APP.currentScId = scId;
   _scDetailTab = 'overview';
   renderSCDetail(scId);
 }
+
 function renderSCDetail(scId) {
   var el = document.getElementById('strata-body');
   if (!el) return;
   var s = APP.sc.find(function(x){return x.id===scId;});
   if (!s) { renderStrata(); return; }
+
   var tabs = ['overview','council','lots','reps'];
   var tabLabels = {overview:'Overview', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
+
   var html = '<div class="sc-detail-hd">'
     +'<span class="sc-detail-back" onclick="renderStrata()">← All Corporations</span>'
     +'<div style="flex:1"><div style="font-size:16px;font-weight:700">'+s.plan+' — '+s.name+'</div>'
@@ -4581,12 +4982,14 @@ function renderSCDetail(scId) {
     +'</div>'
     +'<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>'
     +'</div>';
+
   // Tabs
   html += '<div class="sc-tabs">';
   tabs.forEach(function(t) {
     html += '<div class="sc-tab'+(_scDetailTab===t?' on':'')+'" onclick="scDetailTab(\''+scId+'\',\''+t+'\')">'+tabLabels[t]+'</div>';
   });
   html += '</div>';
+
   // Tab content
   if (_scDetailTab === 'overview') {
     html += renderSCOverview(s);
@@ -4597,12 +5000,15 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
   }
+
   el.innerHTML = html;
 }
+
 function scDetailTab(scId, tab) {
   _scDetailTab = tab;
   renderSCDetail(scId);
 }
+
 function renderSCOverview(s) {
   var mtgCount = (s.meetings||[]).length;
   var decCount = (s.decisions||[]).length;
@@ -4622,19 +5028,23 @@ function renderSCOverview(s) {
     +'<div style="margin-top:10px">'+statusTag+'</div>'
     +'</div></div>';
 }
+
 function renderCouncilMembers(s) {
   var members = s.councilMembers || [];
   var html = '<div class="br" style="margin-bottom:12px">'
     +'<button class="btn sm pri" onclick="openAddCouncilMember(\''+s.id+'\')">+ Add Council Member</button>'
     +'</div>';
+
   if (!members.length) {
     return html + '<div class="empty-state"><div class="empty-ic">👥</div>'
       +'<div class="empty-h">No council members added yet</div>'
       +'<div class="empty-s">Add strata council members to track attendance, movers, and seconders in Meeting Mode.</div></div>';
   }
+
   html += '<table class="cm-table"><thead><tr>'
     +'<th>Strata Lot</th><th>Name</th><th>Email</th><th>Council Role</th><th></th>'
     +'</tr></thead><tbody>';
+
   members.forEach(function(m, idx) {
     html += '<tr>'
       +'<td><strong>'+escHtml(m.sl||'—')+'</strong></td>'
@@ -4648,11 +5058,13 @@ function renderCouncilMembers(s) {
   html += '</tbody></table>';
   return html;
 }
+
 function renderLotsPlan(s) {
   var lots = s.lots || 20;
   var members = s.councilMembers || [];
   var memberMap = {};
   members.forEach(function(m){ if(m.sl) memberMap[m.sl] = m; });
+
   var html = '<div style="font-size:12px;color:var(--g4);margin-bottom:10px">'
     +(lots)+' strata lots · Click any lot to assign owner information'
     +'</div>';
@@ -4670,8 +5082,10 @@ function renderLotsPlan(s) {
   html += '</div>';
   return html;
 }
+
 var _cmScId = '';
 var _cmExistingIdx = -1;
+
 function openAddCouncilMember(scId, sl) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   if(!s.councilMembers) s.councilMembers=[];
@@ -4679,9 +5093,11 @@ function openAddCouncilMember(scId, sl) {
   var lots = s.lots || 20;
   var existing = sl ? s.councilMembers.find(function(m){return m.sl===sl;}) : null;
   _cmExistingIdx = existing ? s.councilMembers.indexOf(existing) : -1;
+
   document.getElementById('cm-modal-title').textContent = existing ? 'Edit Council Member' : 'Add Council Member';
   document.getElementById('cm-name').value  = existing ? existing.name  : '';
   document.getElementById('cm-email').value = existing ? existing.email : '';
+
   // Build SL dropdown — grey out lots already assigned to other members
   var takenSLs = s.councilMembers
     .filter(function(m,i){return i!==_cmExistingIdx;})
@@ -4699,6 +5115,7 @@ function openAddCouncilMember(scId, sl) {
     else if(!existing && sl===slVal) opt.selected=true;
     slSel.appendChild(opt);
   }
+
   // Build role dropdown — grey out roles already taken by other council members
   var takenRoles = s.councilMembers
     .filter(function(m,i){return i!==_cmExistingIdx && m.isCouncil;})
@@ -4711,8 +5128,10 @@ function openAddCouncilMember(scId, sl) {
     if(existing && existing.role===opt.value) opt.selected=true;
   });
   if(!existing) roleSel.value='';
+
   openMo('mo-council-member');
 }
+
 function saveCouncilMember() {
   var s = APP.sc.find(function(x){return x.id===_cmScId;}); if(!s) return;
   var name  = document.getElementById('cm-name').value.trim();
@@ -4734,11 +5153,14 @@ function saveCouncilMember() {
   closeMo('mo-council-member');
   renderSCDetail(_cmScId);
 }
+
+
 function editCouncilMember(scId, idx) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   if (!s || !s.councilMembers || !s.councilMembers[idx]) return;
   openAddCouncilMember(scId, s.councilMembers[idx].sl);
 }
+
 function removeCouncilMember(scId, idx) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   if (!s || !s.councilMembers) return;
@@ -4751,6 +5173,9 @@ function removeCouncilMember(scId, idx) {
     renderSCDetail(scId);
   }, 'Remove Member', 'danger');
 }
+
+
+
 function showPg(pg) {
   document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});
   document.querySelectorAll('.t-tab').forEach(function(t){t.classList.remove('on');});
@@ -4773,6 +5198,8 @@ function showPg(pg) {
   if (pg === 'mm') { sb.classList.add('hide'); }
   else { sb.classList.remove('hide'); }
 }
+
+
 var ROLE_TABS = {
   'Managing Broker':  ['dashboard','strata','brokerage','billing'],
   'Associate Broker': ['dashboard','strata','brokerage'],
@@ -4785,6 +5212,8 @@ var TAB_LABELS = {
   dashboard:'Dashboard', strata:'Strata Corps', meetings:'Meetings',
   stratasphere:'StrataSphere', brokerage:'Brokerage', billing:'Billing'
 };
+
+
 function renderNav() {
   var role = APP.currentUser.role || 'default';
   var tabs = ROLE_TABS[role] || ROLE_TABS['default'];
@@ -4794,6 +5223,7 @@ function renderNav() {
     return '<button class="t-tab" id="tab-'+t+'" onclick="showPg(\''+t+'\')">' + TAB_LABELS[t] + '</button>';
   }).join('') + '<button class="t-tab mm" id="tab-mm" onclick="showPg(\'mm\')" style="display:none">▶ Meeting Mode</button>';
 }
+
 function showLaunchConfirm(scId, mtgId) {
   var sc  = APP.sc.find(function(s){return s.id===scId;});
   var mtg = sc && sc.meetings ? sc.meetings.find(function(m){return String(m.id)===String(mtgId);}) : null;
@@ -4818,6 +5248,7 @@ function showLaunchConfirm(scId, mtgId) {
   APP.currentMtgId = mtgId;
   openMo('mo-launch-confirm');
 }
+
 function doLaunchMM() {
   closeMo('mo-launch-confirm');
   var sc  = APP.sc.find(function(s){return s.id===APP.currentScId;});
@@ -4834,12 +5265,14 @@ function doLaunchMM() {
   if (mmTab) mmTab.style.display = '';
   showPg('mm');
 }
+
 function switchMtgTab(tab, el) {
   currentMtgTab = tab;
   document.querySelectorAll('.mtg-tab').forEach(function(b){b.classList.remove('on');});
   if (el) el.classList.add('on');
   renderMeetings();
 }
+
 function renderMinutesList(sc, el) {
   var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
   if (!adjourned.length) {
@@ -4866,6 +5299,7 @@ function renderMinutesList(sc, el) {
   });
   el.innerHTML = html;
 }
+
 function renderSidebar(activePg) {
   var sb = document.getElementById('sb');
   if (!sb) return;
@@ -4896,10 +5330,12 @@ function renderSidebar(activePg) {
   }
   sb.innerHTML = html;
 }
+
 function selectSC(id) {
   APP.currentScId = id;
   showPg('meetings');
 }
+
 function selectSCMeeting(id) {
   APP.currentScId = id;
   // Always land on the Meetings tab and open new meeting modal
@@ -4912,6 +5348,7 @@ function selectSCMeeting(id) {
     openMo('mo-new-mtg');
   }, 50);
 }
+
 function renderLedger(sc, el) {
   var dec = (sc.decisions || []).slice().reverse(); // most recent first
   if (!dec.length) {
@@ -4946,29 +5383,8 @@ function renderLedger(sc, el) {
   html += '</tbody></table>';
   el.innerHTML = html;
 }
+
 function renderDocsList(sc, el) {
-  // Show adjourned meetings with minutes at the top
-  var minutedMeetings = (sc.meetings||[]).filter(function(m){
-    return m.minutes != null;
-  });
-  var minsHtml = '';
-  if (minutedMeetings.length) {
-    minsHtml += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:8px">Minutes</div>';
-    minutedMeetings.forEach(function(m) {
-      var isFinal = m.minutes && m.minutes.status === 'FINAL';
-      var status = (m.minutes && m.minutes.status) || 'Draft';
-      minsHtml += '<div class="card fi" style="margin-bottom:8px">'
-        +'<div class="ch_"><div><div style="font-size:13px;font-weight:600">'+(m.type||'')+'  —  '+(m.date||'')+'</div>'
-        +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-        +'<span class="tag '+(isFinal?'grn':'amb')+'">'+status+'</span></div>'
-        +'<div class="cb"><div class="br">'
-        +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
-        +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
-        +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
-        +'</div></div></div>';
-    });
-    minsHtml += '</div>';
-  }
   // Primary: sc.docs central store
   var docs = (sc.docs || []).slice().reverse(); // newest first
   // Fallback: also pick up any agenda atts not yet in sc.docs
@@ -4990,11 +5406,13 @@ function renderDocsList(sc, el) {
       });
     });
   });
+
   // Always show upload button + doc list
   var scIdForDoc = sc.id;
   var uploadBar = '<div style="margin-top:12px;text-align:center">'
     + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
     + '</div>';
+
   if (!docs.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📎</div>'
       + '<div class="empty-h">No documents yet</div>'
@@ -5005,6 +5423,7 @@ function renderDocsList(sc, el) {
   }
   el.innerHTML = uploadBar + '<div id="docs-list"></div>';
   el = document.getElementById('docs-list');
+
   var html = '';
   docs.forEach(function(doc) {
     var ext  = (doc.name || '').split('.').pop().toLowerCase();
@@ -5023,6 +5442,7 @@ function renderDocsList(sc, el) {
   });
   if (el) el.innerHTML = html;
 }
+
 function scUploadDoc(scId) {
   var inp = document.createElement('input');
   inp.type = 'file';
@@ -5050,6 +5470,7 @@ function scUploadDoc(scId) {
   };
   inp.click();
 }
+
 function downloadDoc(btn) {
   var href = btn.dataset.href;
   var name = btn.dataset.name;
@@ -5057,11 +5478,13 @@ function downloadDoc(btn) {
   var a = document.createElement('a');
   a.href = href; a.download = name; a.click();
 }
+
 function showScr(id) {
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
   var el = document.getElementById(id);
   if (el) el.classList.add('on');
 }
+
 function scShowUpload(){
   document.getElementById('sc-upload-zone').style.display='';
   document.getElementById('sc-fields').style.display='none';
@@ -5069,12 +5492,14 @@ function scShowUpload(){
   document.getElementById('sc-manual-link').style.display='';
   document.getElementById('sc-warn').style.display='none';
 }
+
 function scShowFields(parsed){
   document.getElementById('sc-upload-zone').style.display='none';
   document.getElementById('sc-fields').style.display='';
   document.getElementById('sc-create-btn').style.display='';
   document.getElementById('sc-manual-link').style.display='none';
 }
+
 function createSC() {
   var plan = document.getElementById('sc-plan').value.trim().toUpperCase();
   var name = document.getElementById('sc-name').value.trim();
@@ -5132,6 +5557,7 @@ function createSC() {
   document.getElementById('sc-addr').value='';
   showPg('meetings');
 }
+
 function openAddSC() {
   // Reset modal state
   var ids = ['sc-upload-zone','sc-upz','sc-parse-status','sc-fields','sc-create-btn',
@@ -5151,6 +5577,7 @@ function openAddSC() {
   var fi  = document.getElementById('sc-pdf-input'); if(fi) fi.value='';
   openMo('mo-add-sc');
 }
+
 function openHistoricMins() {
   var sc_ = APP.sc.find(function(s){return s.id===APP.currentScId;});
   if(!sc_){nAlert('Please select a strata corporation first.');return;}
@@ -5165,6 +5592,7 @@ function openHistoricMins() {
 }
 var _hmDecisions=[];
 var _hmUploadedFile=null;
+
 function hmSave() {
   var sc_=APP.sc.find(function(s){return s.id===APP.currentScId;}); if(!sc_) return;
   if(!sc_.decisions) sc_.decisions=[];
@@ -5188,9 +5616,11 @@ function hmSave() {
   closeMo('mo-historic-mins');
   nAlert(_hmDecisions.length+' decision(s) added to the decision ledger and document saved.');
 }
+
 function mmConfirmDecisionPrompt() {
   confirmDecision();
 }
+
 function mmAddCategory() {
   nPrompt('New category name:', function(name){
   if (!name || !name.trim()) return;
@@ -5212,6 +5642,7 @@ function mmAddCategory() {
   eiOpen(newIt);
   }, 'New Category');
 }
+
 function mmAddItem() {
   var curIt  = MM.agenda.find(function(a){return a.id===curItem;});
   var catId  = curIt ? curIt.catId   : (MM.agenda.length ? MM.agenda[MM.agenda.length-1].catId  : 'c_'+Date.now());
@@ -5240,6 +5671,7 @@ function mmAddItem() {
   };
   eiOpen(newIt);
 }
+
 function mmEditCurrentItem() {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it) return;
@@ -5254,6 +5686,8 @@ function mmEditCurrentItem() {
   };
   eiOpen(it);
 }
+
+
 function scHandleFile(file){
   if(!file) return;
   if(file.type !== 'application/pdf'){ nAlert('Please upload a PDF file.'); return; }
@@ -5266,6 +5700,7 @@ function scHandleFile(file){
   };
   reader.readAsDataURL(file);
 }
+
 function scParsePlan(b64, filename){
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -5317,6 +5752,7 @@ function scParsePlan(b64, filename){
     scShowFields();
       });
 }
+
 function hmHandleFile(file) {
   if(!file) return;
   var sc_=APP.sc.find(function(s){return s.id===APP.currentScId;}); if(!sc_) return;
@@ -5389,6 +5825,8 @@ function hmHandleFile(file) {
   reader.readAsDataURL(file);
 }
 var currentMtgTab = 'meetings';
+
+
 function renderMeetingsList(sc, el) {
   var mtgs = sc.meetings || [];
   if (mtgs.length === 0) {
@@ -5441,6 +5879,8 @@ function renderMeetingsList(sc, el) {
   });
   el.innerHTML = html;
 }
+
+
 function editMeeting(scId, mtgId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;});
   if (!sc_) return;
@@ -5449,6 +5889,7 @@ function editMeeting(scId, mtgId) {
   if (mtg.status === 'DRAFT') { agOpen(scId, mtgId); return; }
   nAlert('Only draft meetings can be edited.');
 }
+
 function resumeMM(scId, mtgId) {
   APP.currentScId  = scId;
   APP.currentMtgId = mtgId;
@@ -5457,6 +5898,7 @@ function resumeMM(scId, mtgId) {
   if (mmTab) mmTab.style.display = '';
   showPg('mm');
 }
+
 function mmAddAttachments(files) {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it) return;
@@ -5487,6 +5929,7 @@ function mmAddAttachments(files) {
     if(inp) inp.value = '';
   }, 100);
 }
+
 // ══════════════════════════════════════════
 // ATTENDANCE
 // ══════════════════════════════════════════
@@ -5499,6 +5942,7 @@ function openAttendance() {
   var slList = sc_.councilSLs && sc_.councilSLs.length > 0
     ? sc_.councilSLs
     : (function(){ var arr=[]; for(var i=1;i<=Math.min(lots,50);i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
+
   var present = MM.attendees || [];
   var html = '';
   slList.forEach(function(sl) {
@@ -5513,6 +5957,7 @@ function openAttendance() {
   attUpdate();
   openMo('mo-attendance');
 }
+
 function attUpdate() {
   var boxes = document.querySelectorAll('#att-sl-list input[type=checkbox]');
   var present = [];
@@ -5544,6 +5989,7 @@ function attUpdate() {
     ? '✓ Quorum achieved — meeting may proceed'
     : '✗ Quorum not met — meeting cannot proceed';
 }
+
 function attSelectAll() {
   document.querySelectorAll('#att-sl-list input[type=checkbox]').forEach(function(b){ b.checked=true; });
   attUpdate();
@@ -5552,6 +5998,7 @@ function attSelectNone() {
   document.querySelectorAll('#att-sl-list input[type=checkbox]').forEach(function(b){ b.checked=false; });
   attUpdate();
 }
+
 function saveAttendance() {
   var boxes = document.querySelectorAll('#att-sl-list input[type=checkbox]');
   var present = [];
@@ -5566,21 +6013,27 @@ function saveAttendance() {
   var btn = document.getElementById('mm-att-btn');
   if(btn) btn.textContent = '👥 ' + present.length + ' Present';
 }
+
+
 // ══════════════════════════════════════════
 // CUSTOM DIALOG ENGINE
 // Replaces native nAlert(), confirm(), prompt()
 // ══════════════════════════════════════════
+
 var _dlgQueue = [];
 var _dlgActive = false;
+
 function _dlgShow(opts) {
   // opts: {type, title, msg, icon, buttons:[{label,style,value}], input, inputDefault, inputPlaceholder, cb}
   _dlgQueue.push(opts);
   if (!_dlgActive) _dlgNext();
 }
+
 function _dlgNext() {
   if (!_dlgQueue.length) { _dlgActive = false; return; }
   _dlgActive = true;
   var o = _dlgQueue.shift();
+
   var overlay = document.getElementById('cdlg-overlay');
   var iconEl  = document.getElementById('cdlg-icon');
   var titleEl = document.getElementById('cdlg-title');
@@ -5588,6 +6041,7 @@ function _dlgNext() {
   var inputWrap = document.getElementById('cdlg-input-wrap');
   var inputEl = document.getElementById('cdlg-input');
   var ft      = document.getElementById('cdlg-ft');
+
   // Icon
   var iconMap = {info:'ℹ',warn:'⚠',danger:'⚠',success:'✓',question:'?'};
   iconEl.textContent = o.icon || iconMap[o.type||'info'] || 'ℹ';
@@ -5595,9 +6049,11 @@ function _dlgNext() {
   // Apply id back (className replaced it)
   iconEl.id = 'cdlg-icon';
   iconEl.className   = (o.type||'info');
+
   titleEl.textContent = o.title || '';
   titleEl.style.display = o.title ? '' : 'none';
   msgEl.textContent = o.msg || '';
+
   // Input
   if (o.input) {
     inputWrap.style.display = '';
@@ -5609,6 +6065,7 @@ function _dlgNext() {
     inputWrap.style.display = 'none';
     inputEl.value = '';
   }
+
   // Buttons
   ft.innerHTML = '';
   (o.buttons || [{label:'OK', style:'pri', value:true}]).forEach(function(btn) {
@@ -5625,6 +6082,7 @@ function _dlgNext() {
     };
     ft.appendChild(b);
   });
+
   // Enter key submits first primary button
   inputEl.onkeydown = function(e) {
     if (e.key === 'Enter') {
@@ -5637,9 +6095,12 @@ function _dlgNext() {
       else { overlay.classList.remove('open'); _dlgActive=false; if(o.cb) o.cb(null); setTimeout(_dlgNext,50); }
     }
   };
+
   overlay.classList.add('open');
 }
+
 // ── Replacement functions ──────────────────────────────────────────────
+
 function nAlert(msg, title, type) {
   _dlgShow({
     type: type || 'info',
@@ -5648,6 +6109,7 @@ function nAlert(msg, title, type) {
     buttons: [{label:'OK', style:'pri', value:true}]
   });
 }
+
 function nConfirm(msg, cb, title, type) {
   _dlgShow({
     type: type || 'question',
@@ -5660,6 +6122,7 @@ function nConfirm(msg, cb, title, type) {
     cb: cb
   });
 }
+
 function nPrompt(msg, cb, defaultVal, title) {
   _dlgShow({
     type: 'info',
@@ -5674,21 +6137,26 @@ function nPrompt(msg, cb, defaultVal, title) {
     cb: cb
   });
 }
+
+
 function obGoStep(n){
   document.querySelectorAll('.ob-step').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('ob-s'+n);if(el)el.classList.add('on');
   for(var i=1;i<=4;i++){var s=document.getElementById('stp-'+i);if(!s)continue;s.className='ob-flow-step'+(i<n?' done':i===n?' active':'');}
   if(n===3){var nf=document.getElementById('ob-fullname');if(nf&&OB.repName)nf.value=OB.repName;}
 }
+
 // ── BCFSA proxy URL ──────────────────────────────────────────────────────────
 // Deploy bcfsa-proxy/worker.js to Cloudflare Workers, then replace this URL.
 var BCFSA_PROXY = WORKER_URL; // alias for onboarding flow
+
 function obVerifyLicence(){
   var lic = document.getElementById('ob-lic').value.trim().toUpperCase();
   if(!lic || lic.length < 4){ nAlert('Please enter your BCFSA licence number.'); return; }
   var btn = document.getElementById('ob-verify-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spin spin-wh"></span> Verifying…';
+
   // Call the Cloudflare Worker which scrapes BCFSA directly — no Anthropic API needed
   fetch(WORKER_URL+'/?lic=' + encodeURIComponent(lic))
     .then(function(r){
@@ -5698,8 +6166,10 @@ function obVerifyLicence(){
     .then(function(d){
       btn.disabled = false;
       btn.innerHTML = 'Verify with BCFSA →';
+
       if(d.error)   { obVerifyError(btn, 'BCFSA lookup unavailable. Please try again.'); return; }
       if(d.notFound){ obVerifyError(btn, 'Licence number ' + lic + ' was not found in the BCFSA registry.'); return; }
+
       OB.lic           = lic;
       OB.repName       = d.knownAs      || d.name           || '';
       OB.repLegalName  = d.name         || '';
@@ -5712,6 +6182,7 @@ function obVerifyLicence(){
       OB.brkAddr       = d.brkAddress   || d.businessAddress || '';
       OB.brkPhone      = d.brkPhone     || d.businessPhone   || '';
       OB.brkExists     = false;
+
       var dn = OB.repName + (d.name && d.knownAs && d.name !== d.knownAs ? ' (' + d.name + ')' : '');
       document.getElementById('ob-rep-name').innerHTML     = dn + (OB.repDiscipline ? ' <span style="font-size:10px;color:var(--red)">⚠ Discipline on record</span>' : '');
       document.getElementById('ob-rep-lic').textContent    = lic;
@@ -5732,11 +6203,15 @@ function obVerifyLicence(){
       obVerifyError(btn, 'Verification failed. Please try again.');
           });
 }
+
+
 function obFetchBrokerage(){
   // No longer needed separately — businessAddress comes from the licencee page.
   // Kept as a no-op for compatibility.
   obGoStep(2);
 }
+
+
 function obVerifyError(btn,msg){
   btn.disabled=false;btn.innerHTML='Verify with BCFSA \u2192';
   var el=document.getElementById('ob-s1');
@@ -5745,6 +6220,7 @@ function obVerifyError(btn,msg){
   var err=document.createElement('div');err.className='al red_';err.style.marginBottom='10px';err.textContent=msg;
   btn.parentNode.insertBefore(err,btn);
 }
+
 function obPwCheck(){
   var pw=(document.getElementById('ob-pw')||{}).value||'';
   var pw2=(document.getElementById('ob-pw2')||{}).value||'';
@@ -5753,6 +6229,7 @@ function obPwCheck(){
   sr('rule-len',rules.len);sr('rule-cap',rules.cap);sr('rule-num',rules.num);sr('rule-spec',rules.spec);sr('rule-match',rules.match);
   var nb=document.getElementById('ob-s3-next');if(nb)nb.disabled=!(rules.len&&rules.cap&&rules.num&&rules.spec&&rules.match);
 }
+
 function obStep3Next(){
   var email=(document.getElementById('ob-email')||{}).value.trim();
   if(!email||email.indexOf('@')<0){nAlert('Please enter a valid brokerage email address.');return;}
@@ -5762,14 +6239,17 @@ function obStep3Next(){
   if(pw!==pw2){nAlert('Passwords do not match.');return;}
   obGoStep(4);
 }
+
 function obToggleCreateBtn(){var btn=document.getElementById('ob-create-btn');if(btn)btn.disabled=!document.getElementById('ob-ck1').checked;}
 function invToggleCreateBtn(){var btn=document.getElementById('inv-create-btn');if(btn)btn.disabled=!document.getElementById('inv-ck1').checked;}
+
 function obComplete(){
   if(!document.getElementById('ob-ck1').checked){nAlert('Please agree to the Terms of Service.');return;}
   var email = (document.getElementById('ob-email')||{}).value||'';
   var pw    = (document.getElementById('ob-pw')||{}).value||'';
   var btn   = document.getElementById('ob-create-btn');
   if(btn){btn.disabled=true;btn.textContent='Creating account…';}
+
   // Step 1: Create Supabase Auth account
   getSupabase().auth.signUp({email: email, password: pw})
     .then(function(result) {
@@ -5779,6 +6259,7 @@ function obComplete(){
         return;
       }
       var userId = result.data.user.id;
+
       // Step 2: Upsert brokerage record
       return getSupabase().from('brokerages').upsert({
         bcfsa_lic:           OB.brkLic,
@@ -5825,6 +6306,7 @@ function obComplete(){
       nAlert('Account creation failed. Please try again.', 'Error', 'warn');
     });
 }
+
 function obInviteComplete(){
   if(!document.getElementById('inv-ck1').checked){nAlert('Please agree to the Terms of Service.');return;}
   var lic=(document.getElementById('inv-lic')||{}).value.trim();
@@ -5867,15 +6349,21 @@ function obInviteComplete(){
         nAlert('Could not verify licence. Please check your connection and try again.');
   });
 }
+
+
+
+
 // ══════════════════════════════════════════
 // MODALS
 // ══════════════════════════════════════════
 function openMo(id){document.getElementById(id)?.classList.add('open');if(id==='mo-edit-agenda')renderEditAgenda();}
 function closeMo(id){document.getElementById(id)?.classList.remove('open');}
 document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
+
 // ══════════════════════════════════════════
 // INIT — restore session on load
 // ══════════════════════════════════════════
+
 async function init(){
   // Wire backdrop-click close for any modals added after script load
   document.querySelectorAll('.mo').forEach(function(m){
@@ -5925,6 +6413,8 @@ init();
     </div>
   </div>
 </div>
+
+
 <!-- ── CUSTOM DIALOG ── -->
 <div id="cdlg-overlay">
   <div id="cdlg-box">
@@ -5941,6 +6431,8 @@ init();
     <div id="cdlg-ft"></div>
   </div>
 </div>
+
+
 <!-- Invite Rep to Corps Modal -->
 <div class="mo" id="mo-invite-rep-corps">
   <div class="mo-box" style="max-width:520px">
@@ -5972,6 +6464,8 @@ init();
     </div>
   </div>
 </div>
+
+
 <!-- Add/Edit Council Member Modal -->
 <div class="mo" id="mo-council-member">
   <div class="mo-box" style="max-width:480px">
@@ -6014,6 +6508,8 @@ init();
     </div>
   </div>
 </div>
+
+
 <!-- Invite Council Delegate Modal -->
 <div class="mo" id="mo-invite-delegate">
   <div class="mo-box" style="max-width:500px">
@@ -6031,6 +6527,7 @@ init();
     </div>
   </div>
 </div>
+
+
 </body>
 </html>
-bust2
