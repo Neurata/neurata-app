@@ -610,6 +610,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ag-cat-block.drag-over-cat{border-top:2.5px solid var(--org)!important;}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 </head>
 <body>
 
@@ -2495,17 +2496,7 @@ function renderAttendancePanel(it) {
     + '<div class="att-panel-hd">Registration &amp; Attendance</div>'
     + '<div class="att-panel-sub">BC Strata Property Act — record attendance before calling the meeting to order. ' + typeLabel + '</div>'
     + '<div class="att-quorum-bar ' + quorumClass + '" id="att-quorum-bar">' + quorumText + '</div>'    + '<button class="btn pri" style="width:100%;margin-bottom:12px;font-size:13px" onclick="mmCallToOrder()" id="cto-btn">☎ Call to Order</button>'
-    + '<div style="display:flex;gap:6px;margin-bottom:10px">'
-    + '<button class="btn sm" onclick="attMarkAll(\''+it.id+'\',\'present\')">All Present</button>'
-    + '<button class="btn sm" onclick="attMarkAll(\''+it.id+'\',\'\')">Clear All</button>'
-    + '</div>'
-    + '<div class="att-grid">'
-    + '<div class="att-grid-hd">Strata Lot / Member</div>'
-    + '<div class="att-grid-hd center">Present</div>'
-    + '<div class="att-grid-hd center">Regrets</div>'
-    + '<div class="att-grid-hd center">Proxy</div>'
-    + rows
-    + '</div>'
+    + '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">'    + '<button class="btn sm pri" onclick="attMarkAll(\''+it.id+'\',\'present\')">All Present</button>'    + '<button class="btn sm" onclick="attMarkAll(\''+it.id+'\',\'\')">Clear All</button>'    + '<button class="btn sm" style="margin-left:auto" id="att-toggle-btn" onclick="var w=document.getElementById(\'att-grid-wrap\');if(w){var isOpen=w.style.display!==\'none\';w.style.display=isOpen?\'none\':\'\';this.textContent=isOpen?\'Show Lots ▾\':\'Hide Lots ▴\';}">Show Lots ▾</button>'    + '</div>'    + '<div id="att-grid-wrap" style="display:none">'    + '<div class="att-grid">'    + '<div class="att-grid-hd">Strata Lot / Member</div>'    + '<div class="att-grid-hd center">Present</div>'    + '<div class="att-grid-hd center">Regrets</div>'    + '<div class="att-grid-hd center">Proxy</div>'    + rows    + '</div></div>'
     // Minutes summary and notes still available
     + '<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">Minutes Summary</span><span class="mm-stog">▶</span></div>'
     + '<div class="mm-sbd" style="display:none">'
@@ -2642,10 +2633,19 @@ function openInviteDelegate(scId) {
       + '</div>'
     : '';
 
+  // Build SL options
+  var delSlOpts = '<option value="">Select strata lot...</option>';
+  for (var dsi = 1; dsi <= (s.lots||20); dsi++) {
+    var dslVal = 'SL' + String(dsi).padStart(3,'0');
+    delSlOpts += '<option value="'+dslVal+'">'+dslVal+'</option>';
+  }
   var html = memberOptions
     + '<div class="cm-form-row">'
     + '<div><div class="cm-label">Full Name *</div><input class="cm-input" id="del-name" type="text" placeholder="e.g. Jane Smith"/></div>'
     + '<div><div class="cm-label">Email *</div><input class="cm-input" id="del-email" type="email" placeholder="jane@example.com"/></div>'
+    + '</div>'
+    + '<div class="cm-form-row">'
+    + '<div><div class="cm-label">Strata Lot *</div><select class="cm-select" id="del-sl">'+delSlOpts+'</select></div>'
     + '</div>'
     + '<div class="cm-form-row full">'
     + '<div><div class="cm-label">Council Role</div>'
@@ -3680,16 +3680,17 @@ function renderMinutesContent(mtg, sc_) {
     html += '<div class="min-section-hd">'+escHtml((cat.name||'').toUpperCase())+'</div>';
     cat.items.forEach(function(it){
       html += '<div class="min-item">';
-      html += '<div class="min-item-title">'+it.num+'. '+escHtml(it.text)+'</div>';
-      // Background/Discussion — editable if draft
+      html += '<div class="min-item-title">'+escHtml(it.text)+'</div>';
+      // Background/Discussion — always show in draft, editable
       var summary = it.minutesSummary || it.aiSummary || '';
-      if(summary){
-        html += '<div class="min-field-lbl">Background / Discussion</div>';
-        if(!isFinal){
+      var isSpecialItem = (it.text||'').toLowerCase().match(/call to order|adjourn/);
+      if (!isSpecialItem) {
+        html += '<div class="min-field-lbl">Discussion / Summary</div>';
+        if (!isFinal) {
           html += '<div class="min-editable" contenteditable="true" data-id="'+it.id+'" data-field="aiSummary"'
-            +' onblur="minSaveEdit(this)" data-itemid="'+it.id+'">'
-            +escHtml(summary)+'</div>';
-        } else {
+            +' onblur="minSaveEdit(this)" data-itemid="'+it.id+'" style="min-height:28px">'
+            +(summary ? escHtml(summary) : '<span style="color:var(--g4);font-style:italic">Add discussion notes…</span>')+' </div>';
+        } else if (summary) {
           html += '<div class="min-para">'+escHtml(summary)+'</div>';
         }
       }
@@ -4890,6 +4891,31 @@ function renderBilling() {
   el.innerHTML=html;
 }
 
+function billingSelectMethod(method) {
+  APP.brokerage = APP.brokerage || {};
+  APP.brokerage.payMethod = method;
+  var acssTab  = document.getElementById('pay-tab-acss');
+  var cardTab  = document.getElementById('pay-tab-card');
+  var acssForm = document.getElementById('pay-form-acss');
+  var cardForm = document.getElementById('pay-form-card');
+  if (acssTab)  { acssTab.style.background  = method==='acss' ? 'var(--ch)' : 'var(--wh)'; acssTab.style.color  = method==='acss' ? '#fff' : 'var(--ch3)'; }
+  if (cardTab)  { cardTab.style.background  = method==='card' ? 'var(--ch)' : 'var(--wh)'; cardTab.style.color  = method==='card' ? '#fff' : 'var(--ch3)'; }
+  if (acssForm) acssForm.style.display = method==='acss' ? 'block' : 'none';
+  if (cardForm) cardForm.style.display = method==='card' ? 'block' : 'none';
+}
+
+function billingSubmit(method) {
+  nAlert('Payment setup will be connected to Stripe. This is a placeholder for the Stripe integration.', 'Coming Soon', 'info');
+}
+
+function billingSubmitContact() {
+  var email = document.getElementById('bill-email') ? document.getElementById('bill-email').value.trim() : '';
+  if (!email) { nAlert('Please enter a billing email.', 'Required', 'warn'); return; }
+  nAlert('Billing contact updated.', 'Saved', 'info');
+}
+
+
+
 // ══════════════════════════════════════════
 // AUTH & SESSION
 // ══════════════════════════════════════════
@@ -5021,11 +5047,13 @@ function loadUserProfile(userId) {
         globalSS:  u.global_ss || false
       };
       APP.brokerage = {
-        name:  b.name || '',
-        lic:   b.bcfsa_lic || '',
-        addr:  b.address || '',
-        phone: b.phone || '',
-        city:  b.city || ''
+        name:    b.name || '',
+        lic:     b.bcfsa_lic || '',
+        addr:    b.address || '',
+        phone:   b.phone || '',
+        city:    b.city || '',
+        logoUrl: b.logo_url || '',
+        docs:    b.docs || []
       };
       // Load strata corps for this user
       loadUserSCs(userId);
