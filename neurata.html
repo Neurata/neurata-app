@@ -1194,7 +1194,7 @@ async function sbSaveSC(sc) {
     for (var i = 0; i < sc.meetings.length; i++) {
       var mtg = sc.meetings[i];
       await db.from('meetings').upsert({
-        id:           typeof mtg.id === 'string' && mtg.id.length > 20 ? mtg.id : undefined,
+        id:           typeof mtg.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mtg.id) ? mtg.id : undefined,
         sc_id:        sc.plan,
         type:         mtg.type,
         date:         mtg.date,
