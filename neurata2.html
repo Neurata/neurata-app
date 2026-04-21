@@ -807,7 +807,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <!-- Meeting tabs: Upcoming | Active | Past | Minutes | Documents -->
     <div style="display:flex;gap:0;margin-top:12px;border-bottom:1px solid var(--g2)">
       <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
-      <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
       <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
       <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
 
@@ -3558,7 +3557,7 @@ function _finalizeProceed() {
   renderMinutesContent(mtg, sc_);
   // Switch to Minutes tab so finalized minutes appear there
   closeMo('mo-minutes');
-  switchMtgTab('minutes', document.getElementById('mtgtab-minutes'));
+  switchMtgTab('docs', document.getElementById('mtgtab-docs'));
 }
 
 
@@ -5274,7 +5273,8 @@ function switchMtgTab(tab, el) {
 }
 
 function renderMinutesList(sc, el) {
-var adjourned = (sc.meetings||[]).filter(function(m){return m.minutes != null && (m.status==='ADJOURNED'||m.minutesState);});  if (!adjourned.length) {
+  var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
+  if (!adjourned.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
@@ -5289,7 +5289,7 @@ var adjourned = (sc.meetings||[]).filter(function(m){return m.minutes != null &&
     html += '<div class="card fi" style="margin-bottom:10px">'
       +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-      +'<span class="tag '+(((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
+      +'<span class="tag '+((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
       +'<div class="cb"><div class="br">'
       +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
@@ -5384,6 +5384,29 @@ function renderLedger(sc, el) {
 }
 
 function renderDocsList(sc, el) {
+  // Show adjourned meetings with minutes at the top
+  var minutedMeetings = (sc.meetings||[]).filter(function(m){
+    return m.minutes != null;
+  });
+  var minsHtml = '';
+  if (minutedMeetings.length) {
+    minsHtml += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:8px">Minutes</div>';
+    minutedMeetings.forEach(function(m) {
+      var isFinal = m.minutes && m.minutes.status === 'FINAL';
+      var status = (m.minutes && m.minutes.status) || 'Draft';
+      minsHtml += '<div class="card fi" style="margin-bottom:8px">'
+        +'<div class="ch_"><div><div style="font-size:13px;font-weight:600">'+(m.type||'')+'  —  '+(m.date||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
+        +'<span class="tag '+(isFinal?'grn':'amb')+'">'+status+'</span></div>'
+        +'<div class="cb"><div class="br">'
+        +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
+        +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
+        +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
+        +'</div></div></div>';
+    });
+    minsHtml += '</div>';
+  }
+
   // Primary: sc.docs central store
   var docs = (sc.docs || []).slice().reverse(); // newest first
   // Fallback: also pick up any agenda atts not yet in sc.docs
