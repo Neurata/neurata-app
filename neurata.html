@@ -5290,11 +5290,11 @@ function renderMinutesList(sc, el) {
     html += '<div class="card fi" style="margin-bottom:10px">'
       +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-      +'<span class="tag '+(m.minutes.status==='FINAL'?'grn':'amb')+'">'+m.minutes.status+'</span></div>'
+      +'<span class="tag '+((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
       +'<div class="cb"><div class="br">'
       +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
-      +(m.minutes.status==='FINAL'?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
+      +((m.minutes&&m.minutes.status==='FINAL')?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
       +'</div></div></div>';
   });
   el.innerHTML = html;
