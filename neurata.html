@@ -4166,7 +4166,7 @@ function uploadBrokerageLogo(input) {
   var path = 'logos/' + APP.brokerage.lic + '.' + ext;
   getSupabase().storage.from('public-assets').upload(path, file, { upsert: true })
     .then(function(r) {
-      if (r.error) { nAlert('Upload failed. Please try again.', 'Upload Error', 'warn'); return; }
+      if (r.error) { nAlert('Upload failed: '+(r.error.message||'unknown error'), 'Upload Error', 'warn'); return; }
       var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
       return getSupabase().from('brokerages').update({ logo_url: url }).eq('bcfsa_lic', APP.brokerage.lic)
         .then(function(r2) {
@@ -4312,10 +4312,10 @@ function uploadProfilePhoto(input) {
   if (file.size > 2 * 1024 * 1024) { nAlert('Photo must be under 2MB.','File Too Large','warn'); return; }
   var ext = file.name.split('.').pop().toLowerCase();
   var path = 'avatars/'+APP.currentUser.id+'.'+ext;
-  getSupabase().storage.from('public-assets').upload(path, file, { upsert: true })
+  getSupabase().storage.from('user-assets').upload(path, file, { upsert: true })
     .then(function(r) {
-      if (r.error) { nAlert('Upload failed. Please try again.','Error','warn'); return; }
-      var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+      if (r.error) { nAlert('Upload failed: '+(r.error.message||'unknown error'),'Error','warn'); return; }
+      var url = getSupabase().storage.from('user-assets').getPublicUrl(path).data.publicUrl;
       return getSupabase().from('users').update({ photo_url: url }).eq('id', APP.currentUser.id)
         .then(function(r2) {
           if (r2.error) { nAlert('Could not save photo.','Error','warn'); return; }
