@@ -575,6 +575,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.3); z-index: 40; }
 .mm-overlay.on { display: block; }
 
+
+
+.mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
+.mtg-tab:hover{color:var(--ch)}
+.mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
+
+.mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
+.mtg-tab:hover{color:var(--ch)}
+.mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1280,11 +1289,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
-<style>
-.mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
-.mtg-tab:hover{color:var(--ch)}
-.mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
-</style>
+
 
 <script>
 // ══════════════════════════════════════════
