@@ -2035,7 +2035,6 @@ function saveMtg() {
   sc_.meetings.push(mtg);
   // Save to Supabase
   getSupabase().from('meetings').insert({
-    id:       mtg.id.toString(),
     sc_id:    sc_.id,
     type:     mtg.type,
     date:     mtg.date,
@@ -2044,8 +2043,13 @@ function saveMtg() {
     location: mtg.loc || null,
     status:   'DRAFT',
     agenda:   []
-  }).then(function(r){
-    if(r.error) nAlert('Could not save meeting to database. Please try again.','Save Error','warn');
+  }).select('id').single().then(function(r){
+    if(r.error) {
+      nAlert('Could not save meeting to database. Please try again.','Save Error','warn');
+    } else if (r.data && r.data.id) {
+      // Update in-memory meeting id to match the Supabase UUID
+      mtg.id = r.data.id;
+    }
   });
   NM.agenda = [];
   closeMo('mo-new-mtg');
