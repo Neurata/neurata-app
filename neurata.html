@@ -4865,54 +4865,125 @@ function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The repr
 // BILLING PAGE
 // ══════════════════════════════════════════
 function renderBilling() {
-  var el=document.getElementById('billing-body');if(!el)return;
-  var sc=APP.sc||[];
-  var totalLots=(sc.length?sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0):0);
-  var activeSubs=sc.filter(function(s){return s.mmStatus==='ACTIVE';}).length;
-  var needsPAD=sc.some(function(s){return s.adjCount>=2&&s.mmStatus!=='ACTIVE';});
-  var html=(needsPAD?'<div class="al warn" style="margin-bottom:14px"><strong>Action required:</strong> One or more strata corporations have completed their trial. Set up Pre-Authorized Debit to activate Meeting Mode subscriptions.</div>':'')
-    +'<div class="g2">'
-    +'<div class="card"><div class="ch_"><div class="ct">Pre-Authorized Debit (ACSS)</div><span class="tag '+(false?'grn':'amb')+'">'+(false?'Active':'Not set up')+'</span></div><div class="cb">'
-    +'<div class="al info" style="margin-bottom:12px">Billing is managed via Stripe Pre-Authorized Debit (ACSS). Annual invoicing based on active strata lots and subscriptions.</div>'
-    +'<button class="btn pri full">Set Up Pre-Authorized Debit</button>'
-    +'<div style="font-size:11px;color:var(--g4);text-align:center;margin-top:8px">Powered by Stripe · Secure bank account authorization</div>'
-    +'</div></div>'
-    +'<div class="card"><div class="ch_"><div class="ct">Subscription Summary</div></div><div class="cb">'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'
-    +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--g2)"><span style="color:var(--ch3)">Platform ('+sc.length+' corps × $'+PRICING.perBuilding+'/mo)</span><strong>$'+(sc.length*PRICING.perBuilding*12).toLocaleString()+'/yr</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--g2)"><span style="color:var(--ch3)">Meeting Mode ('+activeSubs+' subscribed)</span><strong>$'+(activeSubs*PRICING.perLotSS*12).toLocaleString()+'/yr</strong></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:8px 0"><span style="font-weight:700">Total (estimated annual)</span><strong style="color:var(--org)">$'+((sc.length*PRICING.perBuilding*12 + activeSubs*PRICING.perLotSS*12)).toLocaleString()+'</strong></div>'
-    +'</div></div></div>'
-    +'</div>'
-    +'<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">Strata Corporation Status</div></div>'
-    +'<table class="tbl"><thead><tr><th>Corp</th><th>Lots</th><th>Trial</th><th>Status</th><th>Monthly</th></tr></thead><tbody>'
-    +(sc.length?sc.map(function(s){return'<tr><td><strong>'+s.plan+'</strong> '+s.name+'</td><td>'+s.lots+'</td><td>'+s.adjCount+'/2</td><td><span class="tag '+(s.mmStatus==='ACTIVE'?'grn':s.adjCount>=2?'red':'gy')+'">'+( s.mmStatus==='ACTIVE'?'Active':s.adjCount>=2?'Trial complete':'In trial')+'</span></td><td>'+(s.mmStatus==='ACTIVE'?'$'+PRICING.perBuilding+'/mo':'—')+'</td></tr>';}).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--g4);padding:16px">No strata corporations yet</td></tr>')
-    +'</tbody></table></div>';
-  el.innerHTML=html;
+  var el=document.getElementById('billing-body'); if(!el) return;
+  var sc = APP.sc||[];
+  var totalLots = sc.length ? sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0) : 0;
+  var activeSubs = sc.filter(function(s){return s.mmStatus==='ACTIVE';}).length;
+  var needsSetup = sc.some(function(s){return (s.adjCount||0)>=PRICING.trialMeetings && s.mmStatus!=='ACTIVE';});
+  var isActive = APP.brokerage && APP.brokerage.subscriptionStatus === 'active';
+  var payMethod = (APP.brokerage && APP.brokerage.payMethod) || 'acss';
+  var html = '';
+  if (needsSetup && !isActive) {
+    html += '<div class="al warn" style="margin-bottom:16px"><strong>Action required:</strong> One or more strata corporations have reached their trial limit. Set up a payment method to continue using Meeting Mode.</div>';
+  }
+  html += '<div class="g2">';
+
+  // ── Left: Payment method ─────────────────────────────────────────────
+  html += '<div>';
+  html += '<div class="card" style="margin-bottom:14px">';
+  html += '<div class="ch_"><div class="ct">Payment Method</div><span class="tag '+(isActive?'grn':'amb')+'">'+(isActive?'Active':'Not set up')+'</span></div>';
+  html += '<div class="cb">';
+  // Toggle tabs
+  html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px;">';
+  html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+';">&#127974; Pre-Authorized Debit<br><span style="font-size:10px;font-weight:400;opacity:.7">Recommended · Canadian bank account</span></button>';
+  html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+';">&#128179; Credit Card<br><span style="font-size:10px;font-weight:400;opacity:.7">Visa, Mastercard, Amex</span></button>';
+  html += '</div>';
+  // ACSS form
+  html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
+  html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px;">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
+  html += '<div class="fr fr2">';
+  html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
+  html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
+  html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 00152" maxlength="5" id="acss-transit"/></div>';
+  html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
+  html += '</div>';
+  html += '<div class="al info" style="margin:10px 0;font-size:11px;">You will receive a pre-authorization mandate to confirm before any charges are made.</div>';
+  html += '<button class="btn pri" onclick="billingSubmit(\'acss\')" style="width:100%">Authorize Pre-Authorized Debit &#8594;</button>';
+  html += '<div style="font-size:10px;color:var(--g4);text-align:center;margin-top:8px;">Powered by Stripe &middot; Secure bank account authorization</div>';
+  html += '</div>';
+  // Card form
+  html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">';
+  html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px;">Pay monthly by credit card. Invoices sent to your brokerage email at the start of each billing period.</div>';
+  html += '<div class="fr fr2">';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Cardholder Name</label><input type="text" placeholder="As it appears on the card" id="card-name"/></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Card Number</label><input type="text" placeholder="&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull;" maxlength="19" id="card-num" oninput="fmtCardNum(this)"/></div>';
+  html += '<div class="fg"><label>Expiry (MM / YY)</label><input type="text" placeholder="MM / YY" maxlength="7" id="card-exp" oninput="fmtCardExp(this)"/></div>';
+  html += '<div class="fg"><label>CVC</label><input type="text" placeholder="&bull;&bull;&bull;" maxlength="4" id="card-cvc"/></div>';
+  html += '<div class="fg"><label>Postal Code</label><input type="text" placeholder="e.g. V6B 1A1" id="card-postal" style="max-width:160px"/></div>';
+  html += '</div>';
+  html += '<button class="btn pri" onclick="billingSubmit(\'card\')" style="width:100%;margin-top:12px">Save Card &amp; Activate &#8594;</button>';
+  html += '<div style="font-size:10px;color:var(--g4);text-align:center;margin-top:8px;">Powered by Stripe &middot; Card details never stored on Neurata servers</div>';
+  html += '</div>';
+  html += '</div></div>';
+  // Billing contact
+  html += '<div class="card">';
+  html += '<div class="ch_"><div class="ct">Billing Contact</div></div>';
+  html += '<div class="cb"><div class="fr fr2">';
+  html += '<div class="fg"><label>Billing Email</label><input type="email" placeholder="invoices@yourbrokerage.com" id="bill-email" value="'+(APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
+  html += '<div class="fg"><label>Company Name</label><input type="text" placeholder="Brokerage legal name" id="bill-name" value="'+(APP.brokerage&&APP.brokerage.name||'')+'"/></div>';
+  html += '</div><button class="btn" onclick="billingSubmitContact()" style="margin-top:8px">Update Billing Contact</button></div></div>';
+  html += '</div>';
+
+  // ── Right: Summary ───────────────────────────────────────────────────
+  html += '<div>';
+  html += '<div class="card" style="margin-bottom:14px">';
+  html += '<div class="ch_"><div class="ct">Subscription Summary</div></div>';
+  html += '<div class="cb"><div style="display:flex;flex-direction:column;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--g2)"><div><div style="font-size:13px;">Platform</div><div style="font-size:11px;color:var(--g4)">'+sc.length+' corps &times; $'+PRICING.perBuilding+'/mo</div></div><strong>$'+(sc.length*PRICING.perBuilding*12).toLocaleString()+'/yr</strong></div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--g2)"><div><div style="font-size:13px;">StrataSphere</div><div style="font-size:11px;color:var(--g4)">'+totalLots+' lots &times; $'+PRICING.perLotSS+'/mo</div></div><strong>$'+(totalLots*PRICING.perLotSS*12).toFixed(0)+'/yr</strong></div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0"><span style="font-weight:700">Estimated Annual</span><strong style="color:var(--org);font-size:16px">$'+((sc.length*PRICING.perBuilding*12)+(totalLots*PRICING.perLotSS*12)).toFixed(0)+'/yr</strong></div>';
+  html += '</div></div></div>';
+  // SC status
+  html += '<div class="card">';
+  html += '<div class="ch_"><div class="ct">Strata Corporation Status</div></div>';
+  html += '<table class="tbl"><thead><tr><th>Corporation</th><th>Lots</th><th>Trial</th><th>Status</th></tr></thead><tbody>';
+  if (sc.length) {
+    sc.forEach(function(s) {
+      var pct = Math.min(((s.adjCount||0)/PRICING.trialMeetings)*100,100);
+      var tag = s.mmStatus==='ACTIVE' ? '<span class="tag grn">Active</span>'
+        : (s.adjCount||0)>=PRICING.trialMeetings ? '<span class="tag red">Trial complete</span>'
+        : '<span class="tag gy">In trial</span>';
+      html += '<tr>'
+        +'<td><strong>'+escHtml(s.plan)+'</strong> <span style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+'</span></td>'
+        +'<td>'+s.lots+'</td>'
+        +'<td><div style="display:flex;align-items:center;gap:6px"><div style="width:56px;height:4px;background:var(--g2);border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(pct>=100?'var(--red)':'var(--org)')+'"></div></div><span style="font-size:11px;color:var(--g4)">'+(s.adjCount||0)+'/'+PRICING.trialMeetings+'</span></div></td>'
+        +'<td>'+tag+'</td>'
+        +'</tr>';
+    });
+  } else {
+    html += '<tr><td colspan="4" style="text-align:center;color:var(--g4);padding:16px">No strata corporations yet</td></tr>';
+  }
+  html += '</tbody></table></div>';
+  html += '</div>';
+  html += '</div>';
+  el.innerHTML = html;
 }
+
+function fmtCardNum(el){var v=el.value.replace(/[^0-9]/g,"").replace(/(.{4})/g,"$1 ").trim();el.value=v;}
+function fmtCardExp(el){var v=el.value.replace(/[^0-9]/g,"");if(v.length>2)v=v.slice(0,2)+" / "+v.slice(2,4);el.value=v;}
 
 function billingSelectMethod(method) {
   APP.brokerage = APP.brokerage || {};
   APP.brokerage.payMethod = method;
-  var acssTab  = document.getElementById('pay-tab-acss');
-  var cardTab  = document.getElementById('pay-tab-card');
-  var acssForm = document.getElementById('pay-form-acss');
-  var cardForm = document.getElementById('pay-form-card');
-  if (acssTab)  { acssTab.style.background  = method==='acss' ? 'var(--ch)' : 'var(--wh)'; acssTab.style.color  = method==='acss' ? '#fff' : 'var(--ch3)'; }
-  if (cardTab)  { cardTab.style.background  = method==='card' ? 'var(--ch)' : 'var(--wh)'; cardTab.style.color  = method==='card' ? '#fff' : 'var(--ch3)'; }
-  if (acssForm) acssForm.style.display = method==='acss' ? 'block' : 'none';
-  if (cardForm) cardForm.style.display = method==='card' ? 'block' : 'none';
+  var tabs = {acss: document.getElementById('pay-tab-acss'), card: document.getElementById('pay-tab-card')};
+  var forms = {acss: document.getElementById('pay-form-acss'), card: document.getElementById('pay-form-card')};
+  ['acss','card'].forEach(function(m) {
+    if (tabs[m])  { tabs[m].style.background  = method===m ? 'var(--ch)' : 'var(--wh)'; tabs[m].style.color  = method===m ? '#fff' : 'var(--ch3)'; }
+    if (forms[m]) forms[m].style.display = method===m ? 'block' : 'none';
+  });
 }
 
 function billingSubmit(method) {
-  nAlert('Payment setup will be connected to Stripe. This is a placeholder for the Stripe integration.', 'Coming Soon', 'info');
+  nAlert('Payment setup will be connected to Stripe shortly. This is a placeholder.', 'Coming Soon', 'info');
 }
 
 function billingSubmitContact() {
-  var email = document.getElementById('bill-email') ? document.getElementById('bill-email').value.trim() : '';
-  if (!email) { nAlert('Please enter a billing email.', 'Required', 'warn'); return; }
+  var email = document.getElementById('bill-email');
+  if (!email || !email.value.trim()) { nAlert('Please enter a billing email.', 'Required', 'warn'); return; }
   nAlert('Billing contact updated.', 'Saved', 'info');
 }
+
+
 
 
 
