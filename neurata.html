@@ -584,6 +584,27 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
 .mtg-tab:hover{color:var(--ch)}
 .mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
+
+/* ── PROFILE PAGE ── */
+.prof-wrap{display:grid;grid-template-columns:260px 1fr;gap:20px;max-width:860px;}
+@media(max-width:768px){.prof-wrap{grid-template-columns:1fr;}}
+.prof-avatar-card{background:var(--wh);border:1px solid var(--g2);border-radius:10px;padding:24px;text-align:center;}
+.prof-av-wrap{position:relative;display:inline-block;margin-bottom:14px;}
+.prof-av{width:90px;height:90px;border-radius:50%;background:var(--ch);color:#fff;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;}
+.prof-av img{width:100%;height:100%;object-fit:cover;}
+.prof-av-edit{position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:var(--org);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;}
+.prof-name{font-size:15px;font-weight:700;color:var(--ch);margin-bottom:3px;}
+.prof-role-tag{display:inline-block;margin-bottom:6px;}
+.prof-lic-sm{font-size:11px;color:var(--g4);}
+.prof-card{background:var(--wh);border:1px solid var(--g2);border-radius:10px;padding:20px 22px;margin-bottom:14px;}
+.prof-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:14px;}
+.prof-field{margin-bottom:14px;}
+.prof-field label{display:block;font-size:11px;font-weight:600;color:var(--g4);margin-bottom:4px;}
+.prof-field input{width:100%;border:1px solid var(--g3);border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;color:var(--ch);background:var(--wh);}
+.prof-field input:focus{outline:none;border-color:var(--org);}
+.prof-field input:disabled{background:var(--g1);color:var(--g4);cursor:not-allowed;}
+.prof-field .prof-hint{font-size:10px;color:var(--g4);margin-top:3px;}
+.prof-pw-strength{height:3px;border-radius:2px;margin-top:5px;transition:all .2s;}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -773,12 +794,19 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="um-role" id="menu-role"></div>
     <div class="um-role" id="menu-lic"></div>
   </div>
+  <div class="um-it" onclick="showPg('profile');toggleUserMenu(false);">👤 My Profile</div>
   <div class="um-it danger" onclick="signOut()">↩ Sign Out</div>
 </div>
 
 <div id="shell">
 <div id="sb"></div>
 <div id="main">
+
+<!-- PROFILE -->
+<div class="pg" id="pg-profile">
+  <div class="ph"><div class="ph-row"><div><div class="pt">My Profile</div><div class="ps">Account details, photo, and password</div></div></div></div>
+  <div class="pb" id="profile-body"></div>
+</div>
 
 <!-- DASHBOARD -->
 <div class="pg" id="pg-dashboard">
@@ -4162,6 +4190,153 @@ function removeBrokerageLogo() {
 }
 
 
+// ── PROFILE PAGE ───────────────────────────────────────────────────
+function renderProfile() {
+  var el = document.getElementById('profile-body'); if (!el) return;
+  var u = APP.currentUser;
+  var avatarHtml = u.photoUrl
+    ? '<img src="'+u.photoUrl+'" />'
+    : '<span>'+escHtml(u.initials||'?')+'</span>';
+
+  el.innerHTML = '<div class="prof-wrap">'
+    // Left: avatar card
+    +'<div>'
+    +'<div class="prof-avatar-card">'
+    +'<div class="prof-av-wrap">'
+    +'<div class="prof-av" id="prof-av-circle">'+avatarHtml+'</div>'
+    +'<label class="prof-av-edit" title="Change photo"><span>✎</span>'
+    +'<input type="file" accept="image/png,image/jpeg" style="display:none" onchange="uploadProfilePhoto(this)"></label>'
+    +'</div>'
+    +'<div class="prof-name">'+escHtml(u.name||'—')+'</div>'
+    +'<span class="tag gy prof-role-tag">'+escHtml(u.role||'')+'</span>'
+    +'<div class="prof-lic-sm">BCFSA '+escHtml(u.lic||'—')+'</div>'
+    +(u.photoUrl?'<button class="btn xs" style="margin-top:10px;color:var(--red);" onclick="removeProfilePhoto()">Remove photo</button>':'')
+    +'</div>'
+    +'</div>'
+    // Right: detail cards
+    +'<div>'
+    // Identity card
+    +'<div class="prof-card">'
+    +'<div class="prof-card-title">Identity</div>'
+    +'<div class="prof-field"><label>Full name</label>'
+    +'<input id="prof-name" type="text" value="'+escHtml(u.name||'')+'" placeholder="Your full name" />'
+    +'</div>'
+    +'<div class="prof-field"><label>Email</label>'
+    +'<input type="email" value="'+escHtml(u.email||'')+'" disabled />'
+    +'<div class="prof-hint">Email is managed through your brokerage account</div>'
+    +'</div>'
+    +'<div class="prof-field"><label>BCFSA Licence</label>'
+    +'<input type="text" value="'+escHtml(u.lic||'')+'" disabled />'
+    +'</div>'
+    +'<div class="prof-field"><label>Role</label>'
+    +'<input type="text" value="'+escHtml(u.role||'')+'" disabled />'
+    +'</div>'
+    +'<button class="btn pri" onclick="saveProfileName()">Save Changes</button>'
+    +'</div>'
+    // Password card
+    +'<div class="prof-card">'
+    +'<div class="prof-card-title">Change Password</div>'
+    +'<div class="prof-field"><label>New password</label>'
+    +'<input id="prof-pw1" type="password" placeholder="New password" oninput="checkProfPw()" />'
+    +'<div class="prof-pw-strength" id="prof-pw-bar"></div>'
+    +'</div>'
+    +'<div class="prof-field"><label>Confirm password</label>'
+    +'<input id="prof-pw2" type="password" placeholder="Confirm new password" oninput="checkProfPw()" />'
+    +'</div>'
+    +'<button class="btn pri" id="prof-pw-btn" onclick="saveProfilePassword()" disabled>Update Password</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+}
+
+function checkProfPw() {
+  var pw1 = document.getElementById('prof-pw1').value;
+  var pw2 = document.getElementById('prof-pw2').value;
+  var bar = document.getElementById('prof-pw-bar');
+  var btn = document.getElementById('prof-pw-btn');
+  var strength = 0;
+  if (pw1.length >= 8) strength++;
+  if (/[A-Z]/.test(pw1)) strength++;
+  if (/[0-9]/.test(pw1)) strength++;
+  if (/[^A-Za-z0-9]/.test(pw1)) strength++;
+  var colors = ['#ef4444','#f97316','#eab308','#22c55e'];
+  var widths = ['25%','50%','75%','100%'];
+  bar.style.background = pw1.length ? colors[strength-1]||'#ef4444' : 'transparent';
+  bar.style.width = pw1.length ? widths[strength-1]||'25%' : '0';
+  btn.disabled = !(pw1.length >= 8 && pw1 === pw2);
+}
+
+function saveProfileName() {
+  var name = document.getElementById('prof-name').value.trim();
+  if (!name) { nAlert('Please enter your name.','Name Required','warn'); return; }
+  getSupabase().from('users').update({ full_name: name }).eq('id', APP.currentUser.id)
+    .then(function(r) {
+      if (r.error) { nAlert('Could not save name. Please try again.','Error','warn'); return; }
+      APP.currentUser.name = name;
+      APP.currentUser.initials = name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+      var nm = document.getElementById('u-nm');
+      var av = document.getElementById('u-av');
+      var mn = document.getElementById('menu-name');
+      if (nm) nm.textContent = name;
+      if (av && !APP.currentUser.photoUrl) av.textContent = APP.currentUser.initials;
+      if (mn) mn.textContent = name;
+      nAlert('Name updated successfully.','Saved','info');
+    });
+}
+
+function saveProfilePassword() {
+  var pw = document.getElementById('prof-pw1').value;
+  if (pw.length < 8) { nAlert('Password must be at least 8 characters.','Too Short','warn'); return; }
+  getSupabase().auth.updateUser({ password: pw }).then(function(r) {
+    if (r.error) { nAlert('Could not update password: '+r.error.message,'Error','warn'); return; }
+    document.getElementById('prof-pw1').value = '';
+    document.getElementById('prof-pw2').value = '';
+    document.getElementById('prof-pw-bar').style.width = '0';
+    document.getElementById('prof-pw-btn').disabled = true;
+    nAlert('Password updated successfully.','Password Changed','info');
+  });
+}
+
+function uploadProfilePhoto(input) {
+  var file = input.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { nAlert('Photo must be under 2MB.','File Too Large','warn'); return; }
+  var ext = file.name.split('.').pop().toLowerCase();
+  var path = 'avatars/'+APP.currentUser.id+'.'+ext;
+  getSupabase().storage.from('public-assets').upload(path, file, { upsert: true })
+    .then(function(r) {
+      if (r.error) { nAlert('Upload failed. Please try again.','Error','warn'); return; }
+      var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+      return getSupabase().from('users').update({ photo_url: url }).eq('id', APP.currentUser.id)
+        .then(function(r2) {
+          if (r2.error) { nAlert('Could not save photo.','Error','warn'); return; }
+          APP.currentUser.photoUrl = url;
+          updateTopbarAvatar();
+          renderProfile();
+        });
+    });
+}
+
+function removeProfilePhoto() {
+  getSupabase().from('users').update({ photo_url: null }).eq('id', APP.currentUser.id)
+    .then(function(r) {
+      if (r.error) { nAlert('Could not remove photo.','Error','warn'); return; }
+      APP.currentUser.photoUrl = null;
+      updateTopbarAvatar();
+      renderProfile();
+    });
+}
+
+function updateTopbarAvatar() {
+  var av = document.getElementById('u-av');
+  if (!av) return;
+  if (APP.currentUser.photoUrl) {
+    av.innerHTML = '<img src="'+APP.currentUser.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';
+  } else {
+    av.textContent = APP.currentUser.initials || '?';
+  }
+}
+
+
 function renderBrokerage() {
   var el=document.getElementById('brokerage-body');if(!el)return;
   var u=APP.currentUser;
@@ -4219,7 +4394,7 @@ function toggleRepActive(lic, isCurrentlyActive) {
 
 function renderBrokerageRepList() {
   var reps = APP.reps || [];
-  if (!reps.length) return '<div style="color:var(--g4);font-size:12px;padding:8px">No representatives loaded. Click Sync from BCFSA to fetch.</div>';
+  if (!reps.length) return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div></div><div class="cb"><div style="color:var(--g4);font-size:12px;">No representatives loaded. Click Sync from BCFSA to fetch.</div></div></div>';
 
   // Sort: MB first, then AB, then others alphabetically by title then name
   var titleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Property Manager':2,'Assistant':3,'Council Delegate':4};
@@ -4230,7 +4405,7 @@ function renderBrokerageRepList() {
     return (a.name||'').localeCompare(b.name||'');
   });
 
-  return '<div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
+  return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div><div class="cb"><div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
     +'<thead><tr>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Name</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Title</th>'
@@ -4242,7 +4417,7 @@ function renderBrokerageRepList() {
     + sorted.map(function(r){
       var isBrokerageWide = r.title==='Managing Broker'||r.title==='Associate Broker';
       // Find all SCs this rep is connected to via any mechanism
-      var assigned = APP.sc.filter(function(s){
+      var assigned = (APP.sc||[]).filter(function(s){
         return s.mgrLic===r.lic
           || s.mgr===r.name
           || (s.repIds&&s.repIds.indexOf(r.lic)>=0)
@@ -4271,7 +4446,7 @@ function renderBrokerageRepList() {
           +' <button class="btn xs" data-lic="'+escHtml(r.lic||'')+'" data-active="'+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'0':'1')+'" onclick="toggleRepActive(this.dataset.lic,this.dataset.active===\'1\')">'+( r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'Reactivate':'Deactivate')+'</button>'
         )
         +'</td></tr>';
-    }).join('')+'</tbody></table>';
+    }).join('')+'</tbody></table></div></div></div>';
 }
 
 // Current rep being invited
@@ -4391,8 +4566,8 @@ function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The repr
 // ══════════════════════════════════════════
 function renderBilling() {
   var el=document.getElementById('billing-body');if(!el)return;
-  var sc=APP.sc;
-  var totalLots=sc.reduce(function(a,s){return a+s.lots;},0);
+  var sc=APP.sc||[];
+  var totalLots=(sc.length?sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0):0);
   var activeSubs=sc.filter(function(s){return s.mmStatus==='ACTIVE';}).length;
   var needsPAD=sc.some(function(s){return s.adjCount>=2&&s.mmStatus!=='ACTIVE';});
   var html=(needsPAD?'<div class="al warn" style="margin-bottom:14px"><strong>Action required:</strong> One or more strata corporations have completed their trial. Set up Pre-Authorized Debit to activate Meeting Mode subscriptions.</div>':'')
@@ -4536,6 +4711,7 @@ function loadUserProfile(userId) {
         id:        u.id,
         name:      u.full_name,
         email:     u.email,
+        photoUrl:  u.photo_url||'',
         lic:       u.bcfsa_lic || '',
         role:      u.role,
         initials:  u.full_name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase(),
@@ -4835,7 +5011,7 @@ window.addEventListener('load', function() {
 function launchPlatform(){
   var u=APP.currentUser;
   var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');var rb=document.getElementById('user-role-badge');
-  if(av)av.textContent=u.initials||'?';
+  if(av){if(u.photoUrl){av.innerHTML='<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';}else{av.textContent=u.initials||'?';}}
   if(nm)nm.textContent=u.name||'—';
   if(rb)rb.textContent=u.role||'';
   var mn=document.getElementById('menu-name');var mr=document.getElementById('menu-role');var ml=document.getElementById('menu-lic');
