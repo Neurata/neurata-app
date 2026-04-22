@@ -6317,27 +6317,38 @@ function renderSidebar(activePg) {
   var sb = document.getElementById('sb');
   if (!sb) return;
   var sc = getVisibleSCs();
-  var html = '<div class="s-sec"><div class="s-lbl">Navigation</div>';
   var role = APP.currentUser.role || '';
   var tabs = ROLE_TABS[role] || ROLE_TABS['default'];
+  var isMB = (role === 'Managing Broker' || role === 'Associate Broker');
+  var isSubscribed = APP.brokerage && APP.brokerage.subscriptionStatus === 'active';
+  var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
+  var trialLeft = Math.max(0, PRICING.trialMeetings - adjCount);
+  var icons = {dashboard:'📊',strata:'🏙',meetings:'📅',stratasphere:'🧠',brokerage:'🏢',billing:'💳'};
+
+  var html = '<div class="s-sec"><div class="s-lbl">Navigation</div>';
   tabs.forEach(function(t) {
     var isc = (activePg === t) ? ' on' : '';
-    html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'
-      +'<span class="s-ic">'+{dashboard:'📊',strata:'🏙',meetings:'📅',stratasphere:'🧠',brokerage:'🏢',billing:'💳'}[t]+'</span>'
-      + TAB_LABELS[t] + '</div>';
+    var badge = '';
+    if (t === 'billing' && isMB && !isSubscribed) {
+      badge = trialLeft > 0
+        ? '<span class="s-bdg" style="background:var(--orgp);color:var(--org)">'+trialLeft+' free left</span>'
+        : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial done</span>';
+    }
+    html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'      +'<span class="s-ic">'+(icons[t]||'')+'</span>'      +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'      + badge + '</div>';
   });
   html += '</div>';
+
   if (sc.length > 0) {
     html += '<div class="s-sec"><div class="s-lbl">Management</div>';
     sc.forEach(function(s) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
-      var status = s.mmStatus === 'ACTIVE' ? '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Active</span>'
-        : s.mmStatus === 'TRIAL_COMPLETE' ? '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial done</span>'
-        : '<span class="s-bdg">'+s.adjCount+'/2</span>';
-      html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">'
-        +'<span style="font-size:10px;color:var(--g4)">🏙</span>'
-        +'<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.plan+'</span>'
-        + status + '</div>';
+      var mmOn = scMmActive(s);
+      var ssTier = scSsTier(s);
+      var badge = '';
+      if (mmOn) badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Active</span>';
+      if (ssTier === 'global') badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">SS+</span>';
+      else if (ssTier === 'local') badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">SS</span>';
+      html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">'        +'<span style="font-size:10px;color:var(--g4)">🏙</span>'        +'<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(s.plan)+'</span>'        + badge + '</div>';
     });
     html += '</div>';
   }
