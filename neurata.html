@@ -6335,8 +6335,11 @@ function renderSCOverview(s) {
   var mtgCount  = (s.meetings||[]).length;
   var minCount  = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
   var cmCount   = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
+  // Find exact President only — Vice President should not show as President contact
   var president = (s.councilMembers||[]).find(function(m){
-    return (m.role||'').toLowerCase().indexOf('president') >= 0 && m.isCouncil;
+    if (!m.isCouncil) return false;
+    var r = (m.role||'').toLowerCase().trim();
+    return r === 'president' || r === 'strata council president' || r === 'council president';
   });
   var mmOn  = scMmActive(s);
   var ssTier = scSsTier(s);
@@ -6390,7 +6393,7 @@ function renderSCOverview(s) {
     html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--g1);border-radius:6px;font-size:12px;margin-top:4px">';
     html += '<span style="font-size:16px">👤</span>';
     html += '<div><div style="font-weight:600">'+escHtml(president.name||president.sl||'')+'</div>';
-    html += '<div style="font-size:10px;color:var(--g4)">President';
+    html += '<div style="font-size:10px;color:var(--g4)">'+(president.role||'President');
     if (president.email) html += ' &nbsp;·&nbsp; <a href="mailto:'+escHtml(president.email)+'" style="color:var(--org)">'+escHtml(president.email)+'</a>';
     if (president.phone) html += ' &nbsp;·&nbsp; '+escHtml(president.phone);
     html += '</div></div></div>';
