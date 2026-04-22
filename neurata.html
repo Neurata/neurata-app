@@ -1446,6 +1446,49 @@ async function sbSaveSC(sc) {
 // ══════════════════════════════════════════
 // CONFIGURATION
 // ══════════════════════════════════════════
+// ── AI call with automatic 429 retry ─────────────────────────────────
+function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
+  function attempt(n) {
+    if (statusEl && n > 1) {
+      statusEl.style.display = '';
+      statusEl.innerHTML = '<div class="spin" style="margin:0 auto 8px"></div>'
+        + '<div style="font-size:12px;color:var(--ch3)">' + (retryMsg || 'Rate limit reached — retrying in 60 seconds…') + ' (attempt ' + n + ' of 3)</div>';
+    }
+    fetch(WORKER_URL + '/ai', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r) {
+      if (r.status === 429) {
+        if (n < 3) {
+          if (statusEl) {
+            statusEl.style.display = '';
+            statusEl.innerHTML = '<div class="spin" style="margin:0 auto 8px"></div>'
+              + '<div style="font-size:12px;color:var(--ch3)">AI rate limit reached — retrying automatically in 60 seconds…</div>';
+          }
+          setTimeout(function() { attempt(n + 1); }, 60000);
+          return null;
+        }
+        throw new Error('Rate limit reached after 3 attempts. Please wait a minute and try again.');
+      }
+      if (!r.ok) return r.text().then(function(t) { throw new Error('API error ' + r.status + ': ' + t.slice(0, 200)); });
+      return r.json();
+    })
+    .then(function(d) {
+      if (d === null) return; // waiting to retry
+      if (d.error) throw new Error('API: ' + JSON.stringify(d.error));
+      onSuccess(d);
+    })
+    .catch(function(err) {
+      if (statusEl) statusEl.style.display = 'none';
+      if (onError) onError(err);
+    });
+  }
+  attempt(1);
+}
+
+
 var WORKER_URL       = 'https://api.neurata.ai';
 var SUPABASE_URL      = 'https://sozghbobflcjrfsmewxv.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_KA_-dMzzaj3SA750GqL4Yg_hqIrCT8K';
@@ -2103,41 +2146,33 @@ function agSendTextToAI(text, statusEl, areaEl) {
     + 'type must be one of: FOR_INFORMATION, FOR_DISCUSSION, FOR_DIRECTION, FOR_DECISION, FOR_APPROVAL, FOR_RATIFICATION\n'
     + 'Infer type from context. Include motionText if a motion is shown.\n\nAgenda text:\n' + text.slice(0, 8000);
 
-  fetch(WORKER_URL+'/ai', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({model:'claude-sonnet-4-6', max_tokens:2000,
-      messages:[{role:'user', content: prompt}]})
-  })
-  .then(function(r){
-    if(r.status===429) throw new Error('Rate limit — please wait 60 seconds and try again.');
-    return r.json();
-  })
-  .then(function(d) {
-    statusEl.style.display = 'none';
-    if(d.error) throw new Error(JSON.stringify(d.error));
-    var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    var m=txt.match(/\[[\s\S]*\]/);
-    if(!m) throw new Error('No JSON array in response');
-    var items=JSON.parse(m[0]);
-    var catMap2={};
-    AG.agenda=[];
-    items.forEach(function(it){
-      if(!catMap2[it.cat]) catMap2[it.cat]='c_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
-      var needsMotion=NEEDS_MOTION.indexOf(it.type)>=0;
-      AG.agenda.push(mkItem(it.text,it.cat,{
-        catId:catMap2[it.cat], type:it.type||'FOR_INFORMATION',
-        background:it.background||'', financial:it.financial||'', risks:it.risks||'',
-        motion:needsMotion?{text:it.motionText||'',dt:'MAJORITY',for:0,against:0,abstain:0,outcome:null,mover:'',sec:''}:null
-      }));
-    });
-    renumAgenda(AG.agenda);
-    agRender();
-    document.getElementById('ag-start-opts').style.display='none';
-  })
-  .catch(function(err){
-    statusEl.style.display='none';
-    nAlert('Could not parse agenda automatically. Please build it manually.\n\n'+err.message);
-    agRender();
+  aiCall(
+    {model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user', content: prompt}]},
+    function(d) {
+      statusEl.style.display = 'none';
+      var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+      var m=txt.match(/\[[\s\S]*\]/);
+      if(!m) throw new Error('No JSON array in response');
+      var items=JSON.parse(m[0]);
+      var catMap2={};
+      AG.agenda=[];
+      items.forEach(function(it){
+        if(!catMap2[it.cat]) catMap2[it.cat]='c_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+        var needsMotion=NEEDS_MOTION.indexOf(it.type)>=0;
+        AG.agenda.push(mkItem(it.text,it.cat,{
+          catId:catMap2[it.cat], type:it.type||'FOR_INFORMATION',
+          background:it.background||'', financial:it.financial||'', risks:it.risks||'',
+          motion:needsMotion?{text:it.motionText||'',dt:'MAJORITY',for:0,against:0,abstain:0,outcome:null,mover:'',sec:''}:null
+        }));
+      });
+      renumAgenda(AG.agenda);
+      agRender();
+      document.getElementById('ag-start-opts').style.display='none';
+    },
+    function(err) {
+      statusEl.style.display='none';
+      nAlert('Could not parse agenda automatically. Please build it manually.\n\n'+err.message);
+      agRender();
   });
 }
 
@@ -6470,6 +6505,10 @@ function openHistoricMins() {
   var wn = document.getElementById('hm-warn');       if(wn) wn.style.display='none';
   var sb = document.getElementById('hm-save-btn');   if(sb) sb.style.display='none';
   var uz = document.getElementById('hm-upz');        if(uz) uz.style.display='';
+  var st = document.getElementById('hm-status');     if(st) st.style.display='none';
+  var ok = document.getElementById('hm-ok-msg');     if(ok) ok.textContent='';
+  // Clear file input so onchange fires even if same file is re-selected
+  var fi = document.getElementById('hm-file-input'); if(fi) fi.value='';
   _hmDecisions=[];
   _hmUploadedFile=null;
   openMo('mo-historic-mins');
@@ -6647,64 +6686,86 @@ function hmHandleFile(file) {
   var reader=new FileReader();
   reader.onload=function(e){
     var b64=e.target.result.split(',')[1];
-    fetch(WORKER_URL+'/ai',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,
-        betas:['pdfs-2024-09-25'],
-        messages:[{role:'user',content:[
-          {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:b64}},
-          {type:'text',text:'These are strata council meeting minutes. '
-            +'Find the strata plan number anywhere in the document (e.g. BCS 3229, LMS 1501, EPS 9048). '
-            +'Extract all decisions made. Return ONLY this JSON:\n'
-            +'{"planNumber":"","meetingDate":"","decisions":[{"item":"agenda item title","outcome":"CARRIED or DEFEATED or DEFERRED","summary":"one sentence describing what was decided"}]}\n'
-            +'If no plan number found, set planNumber to "NOT_FOUND".'}
-        ]}]
+
+    function doAiCall(attempt) {
+      var statusEl = document.getElementById('hm-status');
+      var warnEl   = document.getElementById('hm-warn');
+      if (attempt > 1 && statusEl) {
+        statusEl.style.display='';
+        statusEl.innerHTML='<div class="spin" style="margin:0 auto 8px"></div>'
+          +'<div style="font-size:12px;color:var(--ch3)">Rate limit hit — retrying in 60 seconds… (attempt '+attempt+' of 3)</div>';
+      }
+      fetch(WORKER_URL+'/ai',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,
+          betas:['pdfs-2024-09-25'],
+          messages:[{role:'user',content:[
+            {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:b64}},
+            {type:'text',text:'These are strata council meeting minutes. '
+              +'Find the strata plan number anywhere in the document (e.g. BCS 3229, LMS 1501, EPS 9048). '
+              +'Extract all decisions made. Return ONLY this JSON:\n'
+              +'{"planNumber":"","meetingDate":"","decisions":[{"item":"agenda item title","outcome":"CARRIED or DEFEATED or DEFERRED","summary":"one sentence describing what was decided"}]}\n'
+              +'If no plan number found, set planNumber to "NOT_FOUND".'}
+          ]}]
+        })
       })
-    })
-    .then(function(r){
-      if(r.status===429) throw new Error('Rate limit reached — please wait 60 seconds and try again.');
-      if(!r.ok) return r.text().then(function(t){throw new Error('API error '+r.status+': '+t.slice(0,200));});
-      return r.json();
-    })
-    .then(function(d){
-      document.getElementById('hm-status').style.display='none';
-      if(d.error) throw new Error('API: '+JSON.stringify(d.error));
-      var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-      var m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('no JSON in response');
-      var res=JSON.parse(m[0]);
-      if(res.planNumber==='NOT_FOUND'||!res.planNumber){
-        var w=document.getElementById('hm-warn');
-        w.style.display='';w.textContent='No plan number found. Cannot verify this belongs to '+sc_.plan+'.';
-        document.getElementById('hm-upz').style.display=''; return;
-      }
-      var docPlan=res.planNumber.toUpperCase().replace(/[.\s]+/g,' ').trim();
-      var scPlan=sc_.plan.toUpperCase().replace(/[.\s]+/g,' ').trim();
-      if(docPlan!==scPlan){
-        var w=document.getElementById('hm-warn');
-        w.style.display='';
-        w.textContent='Plan number mismatch: document has "'+res.planNumber+'" but active corporation is "'+sc_.plan+'". Upload rejected.';
-        document.getElementById('hm-upz').style.display=''; return;
-      }
-      _hmDecisions=res.decisions||[];
-      // Store file reference for document registration on save
-      _hmUploadedFile = {name: file.name, data: e.target.result, mime: file.type||'application/pdf'};
-      var ok=document.getElementById('hm-ok-msg');
-      ok.textContent='✓ Plan '+res.planNumber+' verified. Found '+_hmDecisions.length+' decision(s)'+(res.meetingDate?' from '+res.meetingDate:'')+'.';
-      var list=document.getElementById('hm-decisions-list');
-      list.innerHTML=_hmDecisions.map(function(d){
-        return '<div class="hm-item"><div class="mm-field-lbl">'+escHtml(d.item)
-          +' · <span style="color:'+(d.outcome==='CARRIED'?'var(--grn)':'var(--red)')+'">'+d.outcome+'</span></div>'
-          +'<div class="hm-decision">'+escHtml(d.summary)+'</div></div>';
-      }).join('');
-      document.getElementById('hm-result').style.display='';
-      document.getElementById('hm-save-btn').style.display='';
-    })
-    .catch(function(err){
-      document.getElementById('hm-status').style.display='none';
-      document.getElementById('hm-upz').style.display='';
-      var w=document.getElementById('hm-warn'); w.style.display='';
-      w.textContent='Could not process document. Please try again.';
-          });
+      .then(function(r){
+        if (r.status===429) {
+          if (attempt < 3) {
+            // Auto-retry after 60 seconds
+            if (statusEl) {
+              statusEl.style.display='';
+              statusEl.innerHTML='<div class="spin" style="margin:0 auto 8px"></div>'
+                +'<div style="font-size:12px;color:var(--ch3)">AI rate limit reached — retrying automatically in 60 seconds…</div>';
+            }
+            setTimeout(function(){ doAiCall(attempt+1); }, 60000);
+            return null;
+          } else {
+            throw new Error('Rate limit reached after 3 attempts. Please wait a minute and try uploading again.');
+          }
+        }
+        if(!r.ok) return r.text().then(function(t){throw new Error('API error '+r.status+': '+t.slice(0,200));});
+        return r.json();
+      })
+      .then(function(d){
+        if (d === null) return; // waiting to retry
+        if (statusEl) statusEl.style.display='none';
+        if(d.error) throw new Error('API: '+JSON.stringify(d.error));
+        var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+        var m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('no JSON in response');
+        var res=JSON.parse(m[0]);
+        if(res.planNumber==='NOT_FOUND'||!res.planNumber){
+          if(warnEl){warnEl.style.display='';warnEl.textContent='No plan number found. Cannot verify this belongs to '+sc_.plan+'.';}
+          document.getElementById('hm-upz').style.display=''; return;
+        }
+        var docPlan=res.planNumber.toUpperCase().replace(/[.\s]+/g,' ').trim();
+        var scPlan=sc_.plan.toUpperCase().replace(/[.\s]+/g,' ').trim();
+        if(docPlan!==scPlan){
+          if(warnEl){warnEl.style.display='';warnEl.textContent='Plan number mismatch: document has "'+res.planNumber+'" but active corporation is "'+sc_.plan+'". Upload rejected.';}
+          document.getElementById('hm-upz').style.display=''; return;
+        }
+        _hmDecisions=res.decisions||[];
+        _hmUploadedFile={name:file.name,data:e.target.result,mime:file.type||'application/pdf'};
+        var ok=document.getElementById('hm-ok-msg');
+        if(ok) ok.textContent='✓ Plan '+res.planNumber+' verified. Found '+_hmDecisions.length+' decision(s)'+(res.meetingDate?' from '+res.meetingDate:'')+'.';
+        var list=document.getElementById('hm-decisions-list');
+        if(list) list.innerHTML=_hmDecisions.map(function(d){
+          return '<div class="hm-item"><div class="mm-field-lbl">'+escHtml(d.item)
+            +' · <span style="color:'+(d.outcome==='CARRIED'?'var(--grn)':'var(--red)')+'">'+d.outcome+'</span></div>'
+            +'<div class="hm-decision">'+escHtml(d.summary)+'</div></div>';
+        }).join('');
+        document.getElementById('hm-result').style.display='';
+        document.getElementById('hm-save-btn').style.display='';
+      })
+      .catch(function(err){
+        if(statusEl) statusEl.style.display='none';
+        var upzEl = document.getElementById('hm-upz'); if(upzEl) upzEl.style.display='';
+        var fiEl  = document.getElementById('hm-file-input'); if(fiEl) fiEl.value='';
+        if(warnEl){warnEl.style.display='';warnEl.textContent=err.message||'Could not process document. Please try again.';}
+      });
+    }
+
+    doAiCall(1);
   };
   reader.readAsDataURL(file);
 }
