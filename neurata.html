@@ -3181,20 +3181,21 @@ function renderMgmtStrataSphere(sc, el) {
     // Logo + switcher
     + '<div style="padding:14px 12px 12px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center">'
     + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:inline-block;margin-bottom:12px"/>'
-    + '<div style="display:flex;background:rgba(0,0,0,.2);border-radius:6px;overflow:hidden;margin-bottom:0">'
+    + '<div style="display:flex;justify-content:center;gap:6px;padding:0 8px">'
     + (function(){
-        var pendingLocal = sc._ssPendingRequest==='ss_local';
+        var pendingLocal  = sc._ssPendingRequest==='ss_local';
         var pendingGlobal = sc._ssPendingRequest==='ss_global';
-        var localActive = ssTier==='local'||ssTier==='global';
-        var globalActive = ssTier==='global';
-        var localBg = localActive ? 'rgba(255,255,255,.2)' : pendingLocal ? 'rgba(255,165,0,.3)' : 'transparent';
-        var globalBg = globalActive ? 'rgba(255,255,255,.2)' : pendingGlobal ? 'rgba(255,165,0,.3)' : 'transparent';
-        var localColor = localActive ? '#fff' : pendingLocal ? 'rgba(255,200,0,1)' : 'rgba(255,255,255,.45)';
-        var globalColor = globalActive ? '#fff' : pendingGlobal ? 'rgba(255,200,0,1)' : 'rgba(255,255,255,.45)';
-        var localLabel = pendingLocal ? '&#9203; Requested' : '&#127968; Local';
-        var globalLabel = pendingGlobal ? '&#9203; Requested' : '&#127760; Global';
-        return '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="flex:1;border:none;padding:6px 4px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+localBg+';color:'+localColor+'">'+localLabel+'</button>'
-          + '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="flex:1;border:none;border-left:1px solid rgba(255,255,255,.1);padding:6px 4px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+globalBg+';color:'+globalColor+'">'+globalLabel+'</button>';
+        var localActive   = ssTier==='local'||ssTier==='global';
+        var globalActive  = ssTier==='global';
+        var localBg   = localActive  ? 'var(--org)' : pendingLocal  ? 'rgba(255,165,0,.25)' : 'rgba(255,255,255,.08)';
+        var globalBg  = globalActive ? 'var(--org)' : pendingGlobal ? 'rgba(255,165,0,.25)' : 'rgba(255,255,255,.08)';
+        var localColor  = localActive  ? '#fff' : pendingLocal  ? 'rgba(255,180,0,1)' : 'rgba(255,255,255,.5)';
+        var globalColor = globalActive ? '#fff' : pendingGlobal ? 'rgba(255,180,0,1)' : 'rgba(255,255,255,.5)';
+        var localLabel  = pendingLocal  ? '&#9203; Requested' : 'Local';
+        var globalLabel = pendingGlobal ? '&#9203; Requested' : 'Global';
+        var btnStyle = 'border:none;border-radius:5px;padding:5px 16px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;';
+        return '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="'+btnStyle+'background:'+localBg+';color:'+localColor+'">'+localLabel+'</button>'
+          + '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="'+btnStyle+'background:'+globalBg+';color:'+globalColor+'">'+globalLabel+'</button>';
       })()
     + '</div>'
     + '</div>'
@@ -5435,32 +5436,34 @@ function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The repr
 // BILLING PAGE
 // ══════════════════════════════════════════
 function renderBilling() {
-  var el=document.getElementById('billing-body'); if(!el) return;
+  var el = document.getElementById('billing-body'); if (!el) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var isMB = role === 'Managing Broker';
-  var sc = APP.sc||[];
+  var sc = APP.sc || [];
   var trialEx = scTrialExhausted();
   var isSetup = APP.brokerage && APP.brokerage.billingSetup;
   var payMethod = (APP.brokerage && APP.brokerage.payMethod) || 'acss';
-  var html = '';
 
-  // ── Pending Activation Requests (MB only) ───────────────────────────
+  // Render static content first, then async requests section
+  el.innerHTML = '<div id="billing-requests"></div><div id="billing-main"></div>';
+  _renderBillingMain(document.getElementById('billing-main'), sc, isMB, trialEx, isSetup, payMethod);
   if (isMB) {
     loadActivationRequests(function(requests) {
       var reqEl = document.getElementById('billing-requests');
-      if (!reqEl) return;
-      if (!requests.length) { reqEl.innerHTML = ''; return; }
+      if (!reqEl || !requests.length) return;
       var typeLabel = function(t){ return t==='ss_global'?'Global StrataSphere':t==='ss_local'?'Local StrataSphere':'Meeting Mode'; };
       var rhtml = '<div class="card" style="margin-bottom:14px;border:2px solid var(--org)">'
-        +'<div class="ch_"><div class="ct">&#128276; Pending Activation Requests</div><span class="tag amb">'+requests.length+' pending</span></div>'
+        +'<div class="ch_"><div class="ct">&#128276; Pending Activation Requests</div>'
+        +'<span class="tag amb">'+requests.length+' pending</span></div>'
         +'<div class="cb">';
       requests.forEach(function(r) {
         rhtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--g2)">'
           +'<div style="flex:1">'
           +'<div style="font-size:13px;font-weight:600">'+escHtml(r.sc_id)+' &mdash; '+typeLabel(r.request_type)+'</div>'
-          +'<div style="font-size:11px;color:var(--g4)">Requested by '+escHtml(r.requester_name||'team member')+' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString()+'</div>'
+          +'<div style="font-size:11px;color:var(--g4)">Requested by '+escHtml(r.requester_name||'team member')
+          +' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString()+'</div>'
           +'</div>'
-          +'<button class="btn sm pri" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')"  >Activate</button>'
+          +'<button class="btn sm pri" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">Activate</button>'
           +'<button class="btn sm" onclick="dismissActivationRequest(\''+r.id+'\')">Dismiss</button>'
           +'</div>';
       });
@@ -5468,21 +5471,22 @@ function renderBilling() {
       reqEl.innerHTML = rhtml;
     });
   }
+}
 
-  // ── SC Summary Table ─────────────────────────────────────────────────
-  var totalMmMonthly = 0, totalSsMonthly = 0;
-  html += '<div class="g2">';
+function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
+  if (!el) return;
+  var html = '<div class="g2">';
 
-  // Left: Payment method
+  // ── Left: Payment method ─────────────────────────────────────────
   html += '<div>';
   html += '<div class="card" style="margin-bottom:14px">';
-  html += '<div class="ch_"><div class="ct">Payment Method</div><span class="tag '+(isSetup?'grn':'amb')+'">'+(isSetup?'Active':'Not set up')+'</span></div>';
+  html += '<div class="ch_"><div class="ct">Payment Method</div>'
+    +'<span class="tag '+(isSetup?'grn':'amb')+'">'+(isSetup?'Active':'Not set up')+'</span></div>';
   html += '<div class="cb">';
   html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px">';
   html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+'">&#127974; Pre-Authorized Debit<br><span style="font-size:10px;font-weight:400;opacity:.7">Recommended &middot; Canadian bank account</span></button>';
   html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'">&#128179; Credit Card<br><span style="font-size:10px;font-weight:400;opacity:.7">Visa, Mastercard, Amex</span></button>';
   html += '</div>';
-  // ACSS form
   html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
   html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
   html += '<div class="fr fr2">';
@@ -5491,7 +5495,6 @@ function renderBilling() {
   html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
   html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
   html += '</div></div>';
-  // Card form
   html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">';
   html += '<div class="fr fr2">';
   html += '<div class="fg" style="grid-column:1/-1"><label>Cardholder Name</label><input type="text" placeholder="As it appears on the card" id="card-name"/></div>';
@@ -5500,10 +5503,10 @@ function renderBilling() {
   html += '<div class="fg"><label>CVV</label><input type="text" placeholder="123" maxlength="4" id="card-cvv"/></div>';
   html += '</div></div>';
   html += '<button class="btn pri" style="width:100%;margin-top:4px" onclick="billingSubmit()">Save Payment Method</button>';
-  html += '</div></div></div>';
+  html += '</div></div>';
 
-  // Right: SC subscription summary
-  html += '<div>';
+  // ── Right: SC subscription summary ───────────────────────────────
+  html += '</div><div>';
   html += '<div class="card">';
   html += '<div class="ch_"><div class="ct">Subscription Summary</div></div>';
   html += '<div class="cb">';
@@ -5511,19 +5514,22 @@ function renderBilling() {
   if (!sc.length) {
     html += '<div style="color:var(--g4);font-size:13px;text-align:center;padding:16px">No strata corporations yet.</div>';
   } else {
+    var totalMonthly = 0;
     sc.forEach(function(s) {
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var lots = parseInt(s.lots)||0;
-      var mmMonthly = mmOn && isSetup ? PRICING.perBuilding : 0;
-      var ssMonthly = ssTier==='global' && isSetup ? (PRICING.perLotGlobal * lots)
-        : ssTier==='local' && isSetup ? (PRICING.perLotLocal * lots) : 0;
-      totalMmMonthly += mmMonthly;
-      totalSsMonthly += ssMonthly;
+      var lots = parseInt(s.lots) || 0;
+      var mmMonthly = (mmOn && isSetup) ? PRICING.perBuilding : 0;
+      var ssMonthly = (ssTier==='global' && isSetup) ? (PRICING.perLotGlobal * lots)
+        : (ssTier==='local' && isSetup) ? (PRICING.perLotLocal * lots) : 0;
+      var rowTotal = mmMonthly + ssMonthly;
+      totalMonthly += rowTotal;
 
       var mmTag = mmOn
-        ? (isSetup ? '<span class="tag grn">&#9654; Active &mdash; CA$'+PRICING.perBuilding+'/mo</span>' : '<span class="tag amb">&#9654; Trial</span>')
-        : (trialEx ? '<span class="tag red">&#9654; Inactive</span>' : '<span class="tag amb">&#9654; Trial</span>');
+        ? (isSetup ? '<span class="tag grn">&#9654; Active &mdash; CA$'+PRICING.perBuilding+'/mo</span>'
+          : '<span class="tag amb">&#9654; Trial</span>')
+        : (trialEx ? '<span class="tag red">&#9654; Inactive</span>'
+          : '<span class="tag amb">&#9654; Trial</span>');
 
       var ssTag = ssTier==='global'
         ? '<span class="tag grn">&#129504; Global &mdash; CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/mo</span>'
@@ -5531,33 +5537,30 @@ function renderBilling() {
         ? '<span class="tag grn">&#129504; Local &mdash; CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/mo</span>'
         : '<span class="tag gy">&#129504; SS Off</span>';
 
-      var rowTotal = mmMonthly + ssMonthly;
-
       html += '<div style="padding:10px 0;border-bottom:1px solid var(--g2)">'
         +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
         +'<div style="flex:1">'
-        +'<div style="font-size:13px;font-weight:700">'+escHtml(s.plan)+'<span style="font-weight:400;color:var(--g4);font-size:12px;margin-left:6px">'+escHtml(s.name||'')+'</span></div>'
+        +'<div style="font-size:13px;font-weight:700">'+escHtml(s.plan)
+        +'<span style="font-weight:400;color:var(--g4);font-size:12px;margin-left:6px">'+escHtml(s.name||'')+'</span></div>'
         +'<div style="font-size:11px;color:var(--g4);margin-top:1px">'+lots+' strata lots</div>'
         +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">'+mmTag+ssTag+'</div>'
         +'</div>'
-        +(rowTotal>0 ? '<div style="text-align:right;flex-shrink:0"><div style="font-size:14px;font-weight:700">CA$'+rowTotal.toFixed(2)+'</div><div style="font-size:10px;color:var(--g4)">/month</div></div>' : '')
-        +'</div>'
-        +'</div>';
+        +(rowTotal>0 ? '<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:14px;font-weight:700">CA$'+rowTotal.toFixed(2)+'</div>'
+          +'<div style="font-size:10px;color:var(--g4)">/month</div></div>' : '')
+        +'</div></div>';
     });
 
-    var grandMonthly = totalMmMonthly + totalSsMonthly;
     html += '<div style="padding:12px 0 4px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:12px;color:var(--g4)">Monthly total &nbsp;&middot;&nbsp; Annual commitment</div>'
       +'<div style="text-align:right">'
-      +'<div style="font-size:18px;font-weight:700;color:var(--ch)">CA$'+grandMonthly.toFixed(2)+'/mo</div>'
-      +'<div style="font-size:11px;color:var(--g4)">CA$'+(grandMonthly*12).toFixed(2)+'/year</div>'
-      +'</div>'
-      +'</div>';
+      +'<div style="font-size:18px;font-weight:700;color:var(--ch)">CA$'+totalMonthly.toFixed(2)+'/mo</div>'
+      +'<div style="font-size:11px;color:var(--g4)">CA$'+(totalMonthly*12).toFixed(2)+'/year</div>'
+      +'</div></div>';
   }
 
-  html += '</div></div>';
-  html += '</div></div>';
-  el.innerHTML = '<div id="billing-requests"></div>' + html;
+  html += '</div></div></div></div>';
+  el.innerHTML = html;
 }
 
 function fmtCardNum(el){var v=el.value.replace(/[^0-9]/g,"").replace(/(.{4})/g,"$1 ").trim();el.value=v;}
