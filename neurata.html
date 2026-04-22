@@ -7498,16 +7498,66 @@ async function init(){
       m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});
     }
   });
+
+  // ── Check for invite/delegate URL params ─────────────────────────
+  var urlParams = new URLSearchParams(window.location.search);
+  var inviteBrk = urlParams.get('invite');   // brokerage lic
+  var inviteSc  = urlParams.get('sc');        // SC id
+  var delegateSc = urlParams.get('delegate'); // SC id for delegate
+  var delegateSl = urlParams.get('sl');       // strata lot
+  var hasInvite  = !!(inviteBrk || delegateSc);
+
+  // Store invite context for use after login/signup
+  if (hasInvite) {
+    window._inviteContext = {
+      type:       delegateSc ? 'delegate' : 'rep',
+      brkLic:     inviteBrk  || '',
+      scId:       inviteSc   || delegateSc || '',
+      sl:         delegateSl || ''
+    };
+    // Clean up URL without reloading
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   try{
-    // BCFSA proxy URL is hardcoded — no field needed
-    var savedUser=await ld('currentUser',null);
-    var savedSC=await ld('sc',[]);
-    var savedBrk=await ld('brokerage',{});
-    if(savedUser&&savedUser.name){
-      APP.currentUser=savedUser;
-      if(savedSC&&savedSC.length)APP.sc=savedSC;
-      if(savedBrk&&savedBrk.lic)APP.brokerage=savedBrk;
+    var savedUser = await ld('currentUser', null);
+    var savedSC   = await ld('sc', []);
+    var savedBrk  = await ld('brokerage', {});
+
+    if (savedUser && savedUser.name) {
+      if (hasInvite) {
+        // Someone is already logged in — check if it's the right account
+        nConfirm(
+          'You are currently signed in as ' + savedUser.name + ' (' + (savedUser.email||savedUser.lic||'') + ').' +
+          ' This invitation link is for a different account. Sign out and proceed with the invitation?',
+          function(ok) {
+            if (ok) {
+              // Sign out, then show invited screen with context preserved
+              getSupabase().auth.signOut().then(function() {
+                showScr('scr-invited');
+              });
+            } else {
+              // Stay logged in, discard invite context
+              window._inviteContext = null;
+              APP.currentUser = savedUser;
+              if (savedSC && savedSC.length) APP.sc = savedSC;
+              if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
+              launchPlatform();
+            }
+          },
+          'Invitation Link Detected',
+          'info'
+        );
+        return;
+      }
+      // Normal cached login — no invite
+      APP.currentUser = savedUser;
+      if (savedSC && savedSC.length) APP.sc = savedSC;
+      if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
       launchPlatform();
+    } else if (hasInvite) {
+      // No cached session — go straight to invited screen
+      showScr('scr-invited');
     }
     // else stay on login screen
   }catch(e){}
