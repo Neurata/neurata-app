@@ -7978,36 +7978,85 @@ function obInviteComplete(){
 
   var btn=document.getElementById('inv-create-btn');
   if(btn){btn.disabled=true;btn.textContent='Verifying...';}
-  // Use the same BCFSA worker route as the main onboarding
+
+  // Step 1: Verify BCFSA licence
   fetch(WORKER_URL+'/?lic='+encodeURIComponent(lic))
   .then(function(r){return r.json();})
   .then(function(rep){
-    if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-    if(rep.notFound||!rep.name){nAlert('Licence number '+lic+' was not found in the BCFSA registry. Please check and try again.');return;}
-    var dn=rep.knownAs||rep.name||lic;
-    var initials=dn.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-    APP.currentUser={
-      name:dn, legalName:rep.name, lic:lic, email:email,
-      role:rep.licensedAs||'Representative',
-      licFor:rep.licensedFor||'—',
-      initials:initials,
-      brkLic:rep.businessLicence||'',
-      brkName:rep.businessName||rep.brkName||''
-    };
-    APP.brokerage={
-      name:rep.brkName||rep.businessName||'',
-      lic:rep.businessLicence||'',
-      addr:rep.brkAddress||rep.businessAddress||'',
-      phone:rep.brkPhone||rep.businessPhone||''
-    };
-    // Write brokerage_id to JWT app_metadata so RLS policies work
-    getSupabase().auth.updateUser({
-      data: { brokerage_id: rep.businessLicence||'' }
-    }).then(function(){ launchPlatform(); });
+    if(rep.notFound||!rep.name){
+      if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+      nAlert('Licence number '+lic+' was not found in the BCFSA registry. Please check and try again.');
+      return;
+    }
+    var dn = rep.knownAs||rep.name||lic;
+    var initials = dn.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    var ctx = window._inviteContext;
+    var brkLic = (ctx && ctx.brkLic) || rep.businessLicence || '';
+
+    if(btn){btn.textContent='Creating account...';}
+
+    // Step 2: Create Supabase auth account
+    getSupabase().auth.signUp({email: email, password: pw})
+    .then(function(result) {
+      if (result.error) {
+        if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+        nAlert(result.error.message||'Could not create account. Please try again.','Error','warn');
+        return;
+      }
+      var userId = result.data.user.id;
+
+      // Step 3: Set app_metadata with brokerage_id for RLS
+      return getSupabase().auth.updateUser({
+        data: { brokerage_id: brkLic }
+      }).then(function() {
+
+        // Step 4: Create user profile in users table
+        return getSupabase().from('users').upsert({
+          id:          userId,
+          full_name:   dn,
+          email:       email,
+          bcfsa_lic:   lic,
+          role:        rep.licensedAs || 'Representative',
+          brokerage_id: brkLic
+        }, {onConflict: 'id'});
+      }).then(function() {
+
+        // Step 5: Connect rep to invited SC
+        if (ctx && ctx.scId) {
+          var scPlan = ctx.scId;
+          getSupabase().from('sc_users').upsert({
+            sc_id:   scPlan,
+            user_id: userId
+          }, {onConflict: 'sc_id,user_id'}).then(function(){});
+          getSupabase().from('reps').upsert({
+            brokerage_id: brkLic,
+            bcfsa_lic:    lic,
+            name:         dn,
+            sc_ids:       JSON.stringify([scPlan])
+          }, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(){});
+        }
+
+        // Step 6: Set up APP state and launch
+        APP.currentUser = {
+          id: userId, name:dn, legalName:rep.name, lic:lic, email:email,
+          role: rep.licensedAs||'Representative',
+          licFor: rep.licensedFor||'—', initials:initials,
+          brkLic: brkLic, brkName: rep.businessName||rep.brkName||''
+        };
+        APP.brokerage = {
+          name:  rep.brkName||rep.businessName||'',
+          lic:   brkLic,
+          addr:  rep.brkAddress||rep.businessAddress||'',
+          phone: rep.brkPhone||rep.businessPhone||''
+        };
+        window._inviteContext = null;
+        loadUserProfile(userId);
+      });
+    });
   })
   .catch(function(err){
     if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-        nAlert('Could not verify licence. Please check your connection and try again.');
+    nAlert('Could not verify licence. Please check your connection and try again.');
   });
 }
 
