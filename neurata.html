@@ -3850,14 +3850,32 @@ function exportMin(fmt, scId, mtgId) {
     catMap2[it.catId].items.push(it);
   });
 
-  if (fmt === 'docx') {
-    exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname);
-  } else if (fmt === 'pdf') {
-    exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname);
+  var logoUrl = APP.brokerage && APP.brokerage.logoUrl ? APP.brokerage.logoUrl : '';
+
+  function doExport(logoDataUrl) {
+    if (fmt === 'docx') {
+      exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname, logoDataUrl);
+    } else if (fmt === 'pdf') {
+      exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl);
+    }
+  }
+
+  // Fetch logo as data URL if available
+  if (logoUrl) {
+    fetch(logoUrl)
+      .then(function(r){ return r.blob(); })
+      .then(function(blob){
+        var reader = new FileReader();
+        reader.onloadend = function(){ doExport(reader.result); };
+        reader.readAsDataURL(blob);
+      })
+      .catch(function(){ doExport(''); }); // proceed without logo on error
+  } else {
+    doExport('');
   }
 }
 
-function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname) {
+function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fname, logoDataUrl) {
   // Generate RTF — opens natively in Word, Pages, LibreOffice
   var r = [];
 
@@ -3885,15 +3903,31 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   function result(text, carried) { return '\\pard\\sb0\\sa100\\b\\fs22\\cf'+(carried?'3':'4')+' '+SL+' '+esc(text)+'\\b0\\cf0\\par'; }
 
   // ── BROKERAGE LETTERHEAD ───────────────────────────────────────────
+  if (logoDataUrl && logoDataUrl.indexOf('base64,') > 0) {
+    // Embed logo image in RTF as PNG pict block
+    var b64 = logoDataUrl.split('base64,')[1];
+    // Convert base64 to hex for RTF \pict
+    var raw = atob(b64);
+    var hex = '';
+    for (var bi = 0; bi < raw.length; bi++) {
+      var hx = raw.charCodeAt(bi).toString(16);
+      hex += (hx.length === 1 ? '0' : '') + hx;
+    }
+    // picwgoal/pichgoal in twips — 1440 twips per inch
+    // Logo target: max 2.5" wide × 0.75" tall = 3600 × 1080 twips
+    r.push('{\\pict\\pngblip\\picwgoal3600\\pichgoal1080\\picscalex50\\picscaley50 ' + hex + '}');
+    r.push('\\pard\\sb0\\sa20\\par'); // spacing after logo
+  }
   if (APP.brokerage && APP.brokerage.name) {
-    r.push('\\pard\\qc\\sb0\\sa20\\b\\fs32 '+esc(APP.brokerage.name)+'\\b0\\par');
+    if (!logoDataUrl) {
+      // Only show text name if no logo
+      r.push('\\pard\\qc\\sb0\\sa20\\b\\fs32 '+esc(APP.brokerage.name)+'\\b0\\par');
+    }
     if (APP.brokerage.addr) r.push('\\pard\\qc\\sb0\\sa10\\fs18\\cf2 '+esc(APP.brokerage.addr)+'\\cf0\\par');
     if (APP.brokerage.phone) r.push('\\pard\\qc\\sb0\\sa10\\fs18\\cf2 '+esc(APP.brokerage.phone)+'\\cf0\\par');
     r.push('\\pard\\sb0\\sa80\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par');
   }
 
-  // ── NEURATA HEADER ──────────────────────────────────────────────────
-  r.push('\\pard\\sb0\\sa40\\fs18\\cf2 Minutes created with Neurata.ai\\cf0\\par');
   if (state==='DRAFT') {
     r.push('\\pard\\sb0\\sa80\\b\\fs20\\cf5 DRAFT \\u2014 Not yet approved by strata council\\b0\\cf0\\par');
   }
@@ -3991,6 +4025,9 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // ── SIGNATURES ────────────────────────────────────────────────────────
   r.push('\\pard\\sb480\\sa0\\fs20\\cf2 _________________________\\tab _________________________\\par');
   r.push('\\pard\\sb0\\sa20\\fs18\\cf2 Strata Council Secretary\\tab Strata Manager'+esc(mgrLic?' \u2014 '+mgrLic:'')+' \\cf0\\par');
+  // ── FOOTER — Neurata branding ──────────────────────────────────────
+  r.push('\\pard\\sb480\\sa0\\brdrb\\brdrs\\brdrw6\\brdrcf2 \\par');
+  r.push('\\pard\\qc\\sb80\\sa0\\fs16\\cf2 Minutes prepared by Neurata.ai \\u00B7  neurata.ai\\cf0\\par');
   r.push('}');
 
   // Generate true .docx using docx.js if available, else fall back to RTF
@@ -4015,12 +4052,32 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       });
     }
     // Brokerage letterhead
-    if (APP.brokerage && APP.brokerage.name) {
+    if (logoDataUrl && logoDataUrl.indexOf('base64,') > 0) {
+      // Embed logo image
+      var imgB64 = logoDataUrl.split('base64,')[1];
+      var imgType = logoDataUrl.indexOf('image/png') > 0 ? docx.ImageType ? docx.ImageType.PNG : 'image/png' : 'image/jpeg';
+      try {
+        var imgBytes = Uint8Array.from(atob(imgB64), function(c){return c.charCodeAt(0);});
+        paras.push(new Para({
+          alignment: Align.CENTER,
+          spacing: {before:0, after:120},
+          children: [new docx.ImageRun({
+            data: imgBytes,
+            transformation: {width:240, height:72},
+            type: 'png'
+          })]
+        }));
+      } catch(e) {
+        // Fall back to text if image embed fails
+        if (APP.brokerage && APP.brokerage.name) paras.push(dPara(APP.brokerage.name, {bold:true, size:32, align:Align.CENTER, after:20}));
+      }
+    } else if (APP.brokerage && APP.brokerage.name) {
       paras.push(dPara(APP.brokerage.name, {bold:true, size:32, align:Align.CENTER, after:20}));
+    }
+    if (APP.brokerage && APP.brokerage.name) {
       if (APP.brokerage.addr) paras.push(dPara(APP.brokerage.addr, {color:'595959', size:18, align:Align.CENTER, after:10}));
       if (APP.brokerage.phone) paras.push(dPara(APP.brokerage.phone, {color:'595959', size:18, align:Align.CENTER, after:20}));
     }
-    paras.push(dPara('Minutes prepared by Neurata.ai', {color:'595959', size:18, after:40}));
     if (state==='DRAFT') paras.push(dPara('DRAFT — Not yet approved by strata council', {bold:true, color:'856404', size:20, after:80}));
     paras.push(dPara(typeLabel.toUpperCase(), {bold:true, color:'2E75B6', size:36, after:60}));
     if (sc_) {
@@ -4067,6 +4124,13 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
     // Signatures
     paras.push(dPara('_________________________        _________________________', {color:'595959', size:20, before:480, after:20}));
     paras.push(dPara('Strata Council Secretary          Strata Manager'+(mgrLic?' — '+mgrLic:''), {color:'595959', size:18}));
+    // Neurata footer
+    paras.push(new Para({
+      alignment: Align.CENTER,
+      spacing: {before:480, after:0},
+      border: {top: {style: docx.BorderStyle.SINGLE, size:4, color:'CCCCCC'}},
+      children: [new Run({text: 'Minutes prepared by Neurata.ai  ·  neurata.ai', color:'999999', size:16})]
+    }));
     var doc = new DocDoc({sections:[{properties:{}, children:paras}]});
     Packer.toBlob(doc).then(function(blob) {
       var a = document.createElement('a');
@@ -4090,7 +4154,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 }
 
 
-function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname) {
+function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
   lines.push('<!DOCTYPE html><html><head><meta charset="utf-8">');
@@ -4135,6 +4199,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname) {
   lines.push('<h1>ADJOURNMENT</h1>');
   lines.push('<p>There being no further business, the meeting was adjourned at '+(mtg.adjTime||'[time]')+'.</p>');
   lines.push('<div class="sig"><br><br>_________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_________________________<br>Strata Council Secretary&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Strata Manager</div>');
+  lines.push('<div style="text-align:center;font-size:8pt;color:#aaa;margin-top:40px;padding-top:8px;border-top:1px solid #ddd">Minutes prepared by Neurata.ai &nbsp;&middot;&nbsp; neurata.ai</div>');
   lines.push('</body></html>');
 
   var w = window.open('', '_blank', 'width=900,height=700');
@@ -4691,6 +4756,21 @@ function renderBrokerage() {
     +(APP.brokerage.addr?'<div><span style="font-size:11px;color:var(--g4)">Address</span><div>'+APP.brokerage.addr+'</div></div>':'')
     +(APP.brokerage.phone?'<div><span style="font-size:11px;color:var(--g4)">Phone</span><div>'+APP.brokerage.phone+'</div></div>':'')
     +'</div></div></div>';
+  // Branding card
+  if(canSeeAll){
+    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">🎨 Branding</div></div><div class="cb">';
+    html+='<div style="font-size:11px;color:var(--g4);margin-bottom:10px">Brokerage logo appears on exported minutes. PNG or SVG, max 2MB, recommended 400×120px.</div>';
+    if(APP.brokerage.logoUrl){
+      html+='<img src="'+APP.brokerage.logoUrl+'" style="max-height:60px;max-width:200px;object-fit:contain;display:block;margin-bottom:10px;border:1px solid var(--g2);border-radius:4px;padding:6px" alt="Brokerage logo"/>';
+      html+='<div style="display:flex;gap:6px">';
+      html+='<label class="btn sm pri" style="cursor:pointer">Replace Logo<input type="file" accept=".png,.jpg,.jpeg,.svg" style="display:none" onchange="uploadBrokerageLogo(this)"/></label>';
+      html+='<button class="btn sm" style="color:var(--red)" onclick="removeBrokerageLogo()">Remove</button>';
+      html+='</div>';
+    } else {
+      html+='<label class="btn sm pri" style="cursor:pointer">Upload Logo<input type="file" accept=".png,.jpg,.jpeg,.svg" style="display:none" onchange="uploadBrokerageLogo(this)"/></label>';
+    }
+    html+='</div></div>';
+  }
   html+='</div>';
 
   // Right: Documents
