@@ -6433,6 +6433,24 @@ function switchMtgTab(tab, el) {
   document.querySelectorAll('.mtg-tab').forEach(function(b){b.classList.remove('on');});
   if (el) el.classList.add('on');
   renderMeetings();
+  // Update contextual header button
+  var actions = document.getElementById('mtg-header-actions');
+  var scId = APP.currentScId;
+  if (actions) {
+    var role = APP.currentUser && APP.currentUser.role || '';
+    var canEdit = (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
+    if (tab === 'meetings') {
+      actions.innerHTML = canEdit ? '<button class="btn pri" onclick="openNewMtgModal()">+ Create Meeting</button>' : '';
+    } else if (tab === 'minutes') {
+      actions.innerHTML = canEdit ? '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '';
+    } else if (tab === 'docs') {
+      actions.innerHTML = canEdit && scId ? '<button class="btn pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
+    } else if (tab === 'stratasphere') {
+      actions.innerHTML = '<button class="btn pri" onclick="ssNewConv()">+ New Conversation</button>';
+    } else {
+      actions.innerHTML = '';
+    }
+  }
 }
 
 function renderMinutesList(sc, el) {
@@ -6508,6 +6526,11 @@ function renderSidebar(activePg) {
 function selectSC(id) {
   APP.currentScId = id;
   showPg('meetings');
+  // Set default header button for meetings tab
+  setTimeout(function(){
+    var tab = document.getElementById('mtgtab-meetings');
+    if (tab) switchMtgTab('meetings', tab);
+  }, 50);
 }
 
 function selectSCMeeting(id) {
