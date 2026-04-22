@@ -3068,22 +3068,34 @@ function sendRepInviteEmail(email, name, scId, lic) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
-  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId);
+  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId)+'&lic='+encodeURIComponent(lic||'');
 
   // Save assignment locally and persist to Supabase
   if (lic && s) {
     if (!s.repIds) s.repIds=[];
     if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
     sv('sc_'+s.id, s);
-    // Persist rep-SC connection to Supabase reps table
-    getSupabase().from('reps').upsert({
-      brokerage_id: APP.brokerage.lic,
-      bcfsa_lic:    lic,
-      name:         name || '',
-      sc_id:        s.plan
-    }, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r){
-      if (r.error) console.error('Could not save rep-SC connection:', r.error);
-    });
+    // Persist rep-SC connection - fetch existing first to merge sc_ids
+    getSupabase().from('reps')
+      .select('sc_ids')
+      .eq('brokerage_id', APP.brokerage.lic)
+      .eq('bcfsa_lic', lic)
+      .single()
+      .then(function(existing) {
+        var scIds = [];
+        if (!existing.error && existing.data && existing.data.sc_ids) {
+          try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
+        }
+        if (scIds.indexOf(s.plan) < 0) scIds.push(s.plan);
+        getSupabase().from('reps').upsert({
+          brokerage_id: APP.brokerage.lic,
+          bcfsa_lic:    lic,
+          name:         name || '',
+          sc_ids:       JSON.stringify(scIds)
+        }, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r){
+          if (r.error) console.error('Could not save rep-SC connection:', r.error);
+        });
+      });
   }
 
   fetch(WORKER_URL+'/send-invite', {
@@ -5782,14 +5794,21 @@ function loadUserProfile(userId) {
               APP.reps = r.data.map(function(rep) {
                 return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active' };
               });
-              // Restore rep-SC connections onto SC objects
+              // Restore rep-SC connections onto SC objects from sc_ids array
               r.data.forEach(function(rep) {
-                if (!rep.sc_id) return;
-                var sc_ = APP.sc.find(function(s){ return s.plan === rep.sc_id; });
-                if (sc_) {
-                  if (!sc_.repIds) sc_.repIds = [];
-                  if (sc_.repIds.indexOf(rep.bcfsa_lic) < 0) sc_.repIds.push(rep.bcfsa_lic);
+                var scIds = [];
+                if (rep.sc_ids) {
+                  try { scIds = JSON.parse(rep.sc_ids); } catch(e) { scIds = []; }
+                } else if (rep.sc_id) {
+                  scIds = [rep.sc_id]; // backward compat
                 }
+                scIds.forEach(function(plan) {
+                  var sc_ = APP.sc.find(function(s){ return s.plan === plan; });
+                  if (sc_) {
+                    if (!sc_.repIds) sc_.repIds = [];
+                    if (sc_.repIds.indexOf(rep.bcfsa_lic) < 0) sc_.repIds.push(rep.bcfsa_lic);
+                  }
+                });
               });
             }
           });
@@ -7903,12 +7922,23 @@ function invCheckBtn(){
 }
 
 function obInviteComplete(){
-  var lic=(document.getElementById('inv-lic')||{}).value.trim();
+  var lic=(document.getElementById('inv-lic')||{}).value.trim().toUpperCase();
   if(!lic){nAlert('Please enter your BCFSA licence number.');return;}
   var email=(document.getElementById('inv-email')||{}).value.trim();
   var pw=(document.getElementById('inv-pw')||{}).value.trim();
   if(!email){nAlert('Please enter your brokerage email.');return;}
   if(!pw||pw.length<8){nAlert('Please create a password (minimum 8 characters).');return;}
+
+  // Validate lic matches the invitation
+  if (window._inviteContext && window._inviteContext.lic) {
+    var expectedLic = window._inviteContext.lic.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    var enteredLic  = lic.replace(/[^A-Z0-9]/g,'');
+    if (expectedLic && enteredLic !== expectedLic) {
+      nAlert('The licence number you entered ('+lic+') does not match the invitation. Please use the licence number associated with this invitation.', 'Licence Mismatch', 'warn');
+      return;
+    }
+  }
+
   var btn=document.getElementById('inv-create-btn');
   if(btn){btn.disabled=true;btn.textContent='Verifying...';}
   // Use the same BCFSA worker route as the main onboarding
@@ -7969,10 +7999,11 @@ async function init(){
 
   // ── Check for invite/delegate URL params ─────────────────────────
   var urlParams = new URLSearchParams(window.location.search);
-  var inviteBrk = urlParams.get('invite');   // brokerage lic
-  var inviteSc  = urlParams.get('sc');        // SC id
+  var inviteBrk  = urlParams.get('invite');   // brokerage lic
+  var inviteSc   = urlParams.get('sc');        // SC id
+  var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
   var delegateSc = urlParams.get('delegate'); // SC id for delegate
-  var delegateSl = urlParams.get('sl');       // strata lot
+  var delegateSl = urlParams.get('sl');        // strata lot
   var hasInvite  = !!(inviteBrk || delegateSc);
 
   // Store invite context for use after login/signup
@@ -7981,7 +8012,8 @@ async function init(){
       type:       delegateSc ? 'delegate' : 'rep',
       brkLic:     inviteBrk  || '',
       scId:       inviteSc   || delegateSc || '',
-      sl:         delegateSl || ''
+      sl:         delegateSl || '',
+      lic:        inviteLic  || ''
     };
     // Clean up URL without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -8035,6 +8067,7 @@ async function init(){
     } else if (hasInvite) {
       // No session — show the invite signup screen
       showScr('scr-invited');
+      // lic is stored in _inviteContext for validation on submit — not prefilled
     }
     // else stay on login screen
   }catch(e){}
