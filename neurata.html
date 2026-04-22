@@ -7161,8 +7161,9 @@ function hmHandleFile(file) {
           if(warnEl){warnEl.style.display='';warnEl.textContent='No plan number found. Cannot verify this belongs to '+sc_.plan+'.';}
           document.getElementById('hm-upz').style.display=''; return;
         }
-        var docPlan=res.planNumber.toUpperCase().replace(/[.\s]+/g,' ').trim();
-        var scPlan=sc_.plan.toUpperCase().replace(/[.\s]+/g,' ').trim();
+        var normPlan=function(s){return s.toUpperCase().replace(/[^A-Z0-9]/g,'');};
+        var docPlan=normPlan(res.planNumber);
+        var scPlan=normPlan(sc_.plan);
         if(docPlan!==scPlan){
           if(warnEl){warnEl.style.display='';warnEl.textContent='Plan number mismatch: document has "'+res.planNumber+'" but active corporation is "'+sc_.plan+'". Upload rejected.';}
           document.getElementById('hm-upz').style.display=''; return;
