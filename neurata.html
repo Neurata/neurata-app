@@ -5783,7 +5783,13 @@ function loadUserProfile(userId) {
     .single()
     .then(function(result) {
       if (result.error || !result.data) {
-        // User authenticated but no profile yet — shouldn't happen post-onboarding
+        // Profile not found — could be race condition on first login, retry once
+        if (!loadUserProfile._retried) {
+          loadUserProfile._retried = true;
+          setTimeout(function(){ loadUserProfile(userId); }, 1500);
+          return;
+        }
+        loadUserProfile._retried = false;
         nAlert('Account setup incomplete. Please contact support@neurata.ai', 'Setup Error', 'warn');
         getSupabase().auth.signOut();
         return;
