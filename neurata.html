@@ -5446,12 +5446,18 @@ function saveInviteCorps() {
       .catch(function(e){ console.error('Rep SC persist error:', e); });
   }
   closeMo('mo-invite-rep-corps');
-  // Prompt for email address
-  nPrompt('Enter email address for '+_inviteRepName+':\n(An invitation will be sent to create or connect their Neurata account)', function(email){
+  closeMo('mo-invite-rep-corps');
+  // Prompt for email then send real invite
+  nPrompt('Enter email address for '+(_inviteRepName||'representative')+':', function(email){
     if(!email||!email.trim()) { renderBrokerage(); return; }
     if(email.indexOf('@')<0){ nAlert('Please enter a valid email address.','Invalid Email','warn'); return; }
+    var rep = (APP.reps||[]).find(function(r){ return r.name === _inviteRepName; });
+    var repLic = rep ? rep.lic : '';
+    var scId = (selected && selected.size > 0)
+      ? APP.sc.find(function(s){ return selected.has(s.id); }) && APP.sc.find(function(s){ return selected.has(s.id); }).id
+      : (APP.currentScId || (APP.sc.length ? APP.sc[0].id : null));
+    sendRepInviteEmail(email.trim(), _inviteRepName||'', scId, repLic);
     renderBrokerage();
-    nAlert(_inviteRepName+' has been assigned to '+selected.size+' corporation(s) and an invitation sent to '+email.trim()+'.','Invite Sent ✓','success');
   }, '', 'Email Address');
 }
 
