@@ -842,15 +842,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <!-- Tab bar + contextual action button aligned to the right -->
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;border-bottom:1px solid var(--g2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;border-bottom:1px solid var(--g2)">
       <div style="display:flex;gap:0;">
-      <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
-      <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
-      <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
-      <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
-
+        <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
+        <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
+        <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
+        <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
+      </div>
+      <div id="mtg-header-actions" style="padding-bottom:6px"></div>
     </div>
-  </div>
   <div class="pb" id="mtg-body"></div>
 </div>
 
@@ -3069,6 +3069,7 @@ function sendDelegateInviteEmail(email, name, scId, sl) {
 function renderMgmtStrataSphere(sc, el) {
   var scId = sc.id;
   var convs = SS.convs[scId] || [];
+  updateMtgHeaderBtn('stratasphere', convs.length > 0);
   var conv = SS.activeConv && SS.activeConv.scId === scId
     ? convs.find(function(c){return c.id===SS.activeConv.convId;})
     : convs[0] || null;
@@ -6481,23 +6482,27 @@ function switchMtgTab(tab, el) {
   document.querySelectorAll('.mtg-tab').forEach(function(b){b.classList.remove('on');});
   if (el) el.classList.add('on');
   renderMeetings();
-  // Update contextual header button
+  // Header button set by updateMtgHeaderBtn() after render
+}
+
+function updateMtgHeaderBtn(tab, hasContent) {
   var actions = document.getElementById('mtg-header-actions');
   var scId = APP.currentScId;
-  if (actions) {
-    var role = APP.currentUser && APP.currentUser.role || '';
-    var canEdit = (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
-    if (tab === 'meetings') {
-      actions.innerHTML = canEdit ? '<button class="btn pri" onclick="openNewMtgModal()">+ Create Meeting</button>' : '';
-    } else if (tab === 'minutes') {
-      actions.innerHTML = canEdit ? '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '';
-    } else if (tab === 'docs') {
-      actions.innerHTML = canEdit && scId ? '<button class="btn pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
-    } else if (tab === 'stratasphere') {
-      actions.innerHTML = '<button class="btn pri" onclick="ssNewConv()">+ New Conversation</button>';
-    } else {
-      actions.innerHTML = '';
-    }
+  if (!actions) return;
+  var role = APP.currentUser && APP.currentUser.role || '';
+  var canEdit = (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
+  // Only show header button when content already exists (empty state has its own button)
+  if (!hasContent) { actions.innerHTML = ''; return; }
+  if (tab === 'meetings') {
+    actions.innerHTML = canEdit ? '<button class="btn sm pri" onclick="openNewMtgModal()">+ Create Meeting</button>' : '';
+  } else if (tab === 'minutes') {
+    actions.innerHTML = canEdit ? '<button class="btn sm pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '';
+  } else if (tab === 'docs') {
+    actions.innerHTML = canEdit && scId ? '<button class="btn sm pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
+  } else if (tab === 'stratasphere') {
+    actions.innerHTML = '<button class="btn sm pri" onclick="mgmtSsNewConv(\''+scId+'\')">+ New Conversation</button>';
+  } else {
+    actions.innerHTML = '';
   }
 }
 
@@ -6666,6 +6671,7 @@ function renderDocsList(sc, el) {
       + '</div>';
     return;
   }
+  updateMtgHeaderBtn('docs', true);
   el.innerHTML = uploadBar + '<div id="docs-list" style="margin-top:14px"></div>';
   el = document.getElementById('docs-list');
 
