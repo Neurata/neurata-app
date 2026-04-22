@@ -775,9 +775,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="ob-s">Enter your BCFSA licence number to verify your identity and join your brokerage.</div>
       <div class="al info" style="margin-bottom:14px;font-size:11px">Your licence will be verified against the BCFSA registry.</div>
       <div class="fr" style="margin-bottom:14px">
-        <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.toUpperCase()"/></div>
-        <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca"/></div>
-        <div class="fg"><label>Password</label><input type="password" id="inv-pw" placeholder="Create a secure password"/></div>
+        <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.toUpperCase();invCheckBtn()"/></div>
+        <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca" oninput="invCheckBtn()"/></div>
+        <div class="fg"><label>Password</label><input type="password" id="inv-pw" placeholder="Create a secure password (min 8 chars)" oninput="invCheckBtn()"/></div>
       </div>
       
       <button class="btn pri full" id="inv-create-btn" style="margin-top:16px" onclick="obInviteComplete()" disabled>Create Account →</button>
@@ -7894,6 +7894,14 @@ function obComplete(){
     });
 }
 
+function invCheckBtn(){
+  var lic   = (document.getElementById('inv-lic')||{}).value||'';
+  var email = (document.getElementById('inv-email')||{}).value||'';
+  var pw    = (document.getElementById('inv-pw')||{}).value||'';
+  var btn   = document.getElementById('inv-create-btn');
+  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8);
+}
+
 function obInviteComplete(){
   var lic=(document.getElementById('inv-lic')||{}).value.trim();
   if(!lic){nAlert('Please enter your BCFSA licence number.');return;}
@@ -8025,8 +8033,8 @@ async function init(){
         launchPlatform();
       }
     } else if (hasInvite) {
-      // No session at all — go straight to login with invite context preserved
-      showScr('scr-login');
+      // No session — show the invite signup screen
+      showScr('scr-invited');
     }
     // else stay on login screen
   }catch(e){}
