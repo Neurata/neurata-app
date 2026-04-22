@@ -427,7 +427,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 /* ── STRATASPHERE CONVERSATION SIDEBAR ── */
 .ss-shell{display:flex;flex:1;overflow:hidden;min-height:0}
-.ss-convs{width:260px;flex-shrink:0;background:rgba(0,0,0,.18);border-right:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden}
+.ss-convs{width:280px;flex-shrink:0;background:rgba(0,0,0,.25);border-right:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;overflow:hidden}
 .ss-convs-hd{padding:12px 12px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.45);display:flex;align-items:center;justify-content:space-between}
 .ss-new-btn{border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.7);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit}
 .ss-new-btn:hover{background:rgba(255,255,255,.1);color:#fff}
@@ -898,7 +898,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="ss-convs">
       <div style="padding:16px 14px 8px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px">
         <img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" 
-             alt="StrataSphere" style="height:24px;display:block;margin-bottom:14px"/>
+             alt="StrataSphere" style="height:32px;display:block;margin-bottom:14px"/>
         <button class="ss-new-btn" onclick="ssNewConv()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:6px;padding:7px 10px">
           <span style="font-size:14px">+</span> New Conversation
         </button>
@@ -4262,7 +4262,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8">');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.1.2 build:1776886400 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
