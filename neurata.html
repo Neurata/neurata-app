@@ -5705,36 +5705,41 @@ function renderStrata() {
   if (!el) return;
   var sc = getVisibleSCs();
   if (sc.length === 0) {
-    el.innerHTML = '<div class="empty-state">'
-      +'<div class="empty-ic">🏙</div>'
-      +'<div class="empty-h">No strata corporations yet</div>'
-      +'<div class="empty-s">Add the strata corporations you manage.</div>'
-      +'<button class="btn pri" onclick="openAddSC()">+ Add Strata Corporation</button>'
-      +'</div>';
+    el.innerHTML = '<div class="empty-state">'      +'<div class="empty-ic">🏙</div>'      +'<div class="empty-h">No strata corporations yet</div>'      +'<div class="empty-s">Add the strata corporations you manage.</div>'      +'<button class="btn pri" onclick="openAddSC()">+ Add Strata Corporation</button>'      +'</div>';
     return;
   }
   var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">';
   sc.forEach(function(s) {
-    var mtgCount = s.meetings ? s.meetings.length : 0;
-    var decCount = s.decisions ? s.decisions.length : 0;
-    var trialPct = Math.min((s.adjCount||0)/2*100,100);
-    var statusTag = s.mmStatus==='ACTIVE' ? '<span class="tag grn">Active</span>'
-      : (s.adjCount||0)>=2 ? '<span class="tag red">Trial Complete</span>'
-      : '<span class="tag org">Trial: '+(s.adjCount||0)+'/2</span>';
-    var cmCount = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
-    html += '<div class="card" style="cursor:pointer" onclick="openSCDetail(\''+s.id+'\')">'
-      +'<div class="ch_"><div><div style="font-size:14px;font-weight:700">'+s.plan+'</div>'
-      +'<div style="font-size:12px;color:var(--ch3);margin-top:1px">'+s.name+'</div></div>'+statusTag+'</div>'
-      +'<div class="cb">'
-      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">'
-      +'<div style="text-align:center"><div style="font-size:16px;font-weight:700">'+s.lots+'</div><div style="font-size:10px;color:var(--g4)">Lots</div></div>'
-      +'<div style="text-align:center"><div style="font-size:16px;font-weight:700">'+cmCount+'</div><div style="font-size:10px;color:var(--g4)">Council</div></div>'
-      +'<div style="text-align:center"><div style="font-size:16px;font-weight:700">'+mtgCount+'</div><div style="font-size:10px;color:var(--g4)">Meetings</div></div>'
-      +'<div style="text-align:center"><div style="font-size:16px;font-weight:700">'+decCount+'</div><div style="font-size:10px;color:var(--g4)">Decisions</div></div>'
-      +'</div>'
-      +(s.addr?'<div style="font-size:11px;color:var(--g4);margin-bottom:8px">'+s.addr+'</div>':'')
-      +'<div style="height:4px;background:var(--g2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+((s.adjCount||0)>=2?'var(--red)':'var(--org)')+';border-radius:2px"></div></div>'
-      +'</div></div>';
+    var mtgCount  = (s.meetings||[]).length;
+    var minCount  = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
+    var docCount  = (s.docs||[]).length;
+    var cmCount   = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
+    var president = (s.councilMembers||[]).find(function(m){return (m.role||'').toLowerCase().indexOf('president')>=0 && m.isCouncil;});
+    var statusTag = s.mmStatus==='ACTIVE'
+      ? '<span class="tag grn">Active</span>'
+      : '<span class="tag gy">Trial</span>';
+
+    html += '<div class="card" style="cursor:pointer" onclick="openSCDetail(\''+s.id+'\')">'      +'<div class="ch_">'      +'<div><div style="font-size:14px;font-weight:700">'+escHtml(s.plan)+'</div>'      +'<div style="font-size:12px;color:var(--ch3);margin-top:1px">'+escHtml(s.name||'')+'</div></div>'      +statusTag      +'</div>'      +'<div class="cb">';
+
+    // Address
+    if (s.addr) {
+      html += '<div style="font-size:11px;color:var(--g4);margin-bottom:10px;display:flex;gap:5px;align-items:flex-start">'        +'<span>📍</span><span>'+escHtml(s.addr)+'</span></div>';
+    }
+
+    // Stats row
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;text-align:center">';
+    html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">'+s.lots+'</div><div style="font-size:10px;color:var(--g4)">Lots</div></div>';
+    html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">'+cmCount+'</div><div style="font-size:10px;color:var(--g4)">Council</div></div>';
+    html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">'+mtgCount+'</div><div style="font-size:10px;color:var(--g4)">Meetings</div></div>';
+    html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">'+minCount+'</div><div style="font-size:10px;color:var(--g4)">Minutes</div></div>';
+    html += '</div>';
+
+    // President contact
+    if (president) {
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--g1);border-radius:6px;font-size:12px">'        +'<span style="font-size:16px">👤</span>'        +'<div><div style="font-weight:600">'+escHtml(president.name||president.sl||'')+'</div>'        +'<div style="font-size:10px;color:var(--g4)">President'+(president.email?' · <a href="mailto:'+escHtml(president.email)+'" onclick="event.stopPropagation()" style="color:var(--org)">'+escHtml(president.email)+'</a>':'')+'</div>'        +'</div></div>';
+    }
+
+    html += '</div></div>';
   });
   html += '</div>';
   el.innerHTML = html;
