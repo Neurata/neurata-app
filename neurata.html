@@ -1345,9 +1345,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 // Update here when prices change. Marketing site (index.html) must be updated manually.
 // ══════════════════════════════════════════
 var PRICING = {
-  perBuilding:  39,    // $39/SC/month
-  perLotSS:     2.49,  // $2.49/lot/month for Global StrataSphere
-  trialMeetings: 2     // free meetings before billing required
+  perBuilding:    39,    // $39/SC/month — Meeting Mode
+  perLotLocal:    1.49,  // $1.49/lot/month — Local StrataSphere
+  perLotGlobal:   2.49,  // $2.49/lot/month — Local + Global StrataSphere
+  perLotSS:       2.49,  // legacy alias
+  trialMeetings:  2      // free meetings before billing required
 };
 
 // ══════════════════════════════════════════
@@ -1486,6 +1488,52 @@ function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
     });
   }
   attempt(1);
+}
+
+
+// ── SC Activation Helpers ─────────────────────────────────────────────
+function scMmActive(s) {
+  return s && (s.mmActive === true || s.mmStatus === 'ACTIVE');
+}
+function scSsTier(s) {
+  // Returns null, 'local', or 'global'
+  return s && s.ssTier || null;
+}
+function scCanUseMM(s) {
+  var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
+  return scMmActive(s) || adjCount < PRICING.trialMeetings;
+}
+function scTrialExhausted() {
+  var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
+  return adjCount >= PRICING.trialMeetings;
+}
+function hasBillingInfo() {
+  return APP.brokerage && (APP.brokerage.payMethod === 'acss' || APP.brokerage.payMethod === 'card') && APP.brokerage.billingSetup;
+}
+function activateSCMeetingMode(scId) {
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  if (!hasBillingInfo()) {
+    nConfirm('You need to set up billing before activating Meeting Mode. Go to Billing now?', function(ok){       if (ok) showPg('billing');     }, 'Billing Required', 'warn');
+    return;
+  }
+  nConfirm('Activate Meeting Mode for '+sc_.plan+'? CA$'+PRICING.perBuilding+'/month, billed annually. Deactivate at end of annual period.', function(ok){     if (!ok) return;     sc_.mmActive = true;     sc_.mmStatus = 'ACTIVE';     sc_.mmActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       is_subscribed: true,       mm_activated_at: sc_.mmActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate SC:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSidebar(APP.activePg);     renderSCDetail(scId);     nAlert('Meeting Mode activated for '+sc_.plan+'. You now have unlimited meetings.', 'Activated ✓', 'success');   }, 'Activate Meeting Mode', 'info');
+}
+function activateSCStrataSphere(scId, tier) {
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  if (!hasBillingInfo()) {
+    nConfirm('You need to set up billing before activating StrataSphere. Go to Billing now?', function(ok){       if (ok) showPg('billing');     }, 'Billing Required', 'warn');
+    return;
+  }
+  var price = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
+  var label = tier === 'global' ? 'Local + Global StrataSphere' : 'Local StrataSphere';
+  var monthly = (price * (sc_.lots||0)).toFixed(2);
+  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){     if (!ok) return;     sc_.ssTier = tier;     sc_.ssActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       ss_tier: tier,       ss_activated_at: sc_.ssActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate StrataSphere:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');   }, 'Activate StrataSphere', 'info');
+}
+function upgradeSCStrataSphere(scId) {
+  // Upgrade from local to global — effective immediately
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  var monthly = (PRICING.perLotGlobal * (sc_.lots||0)).toFixed(2);
+  nConfirm('Upgrade to Local + Global StrataSphere for '+sc_.plan+'?  CA$'+PRICING.perLotGlobal+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month. Effective immediately.', function(ok){     if (!ok) return;     sc_.ssTier = 'global';     getSupabase().from('strata_corps').update({ss_tier:'global'}).eq('plan_number', sc_.plan).then(function(){});     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     nAlert('Upgraded to Global StrataSphere for '+sc_.plan+'.', 'Upgraded ✓', 'success');   }, 'Upgrade StrataSphere', 'info');
 }
 
 
@@ -5151,20 +5199,27 @@ function renderBilling() {
   // SC status
   html += '<div class="card">';
   html += '<div class="ch_"><div class="ct">Strata Corporation Status</div></div>';
-  html += '<table class="tbl"><thead><tr><th>Corporation</th><th>Lots</th><th>Meetings</th><th>Minutes</th><th>Status</th></tr></thead><tbody>';
+  html += '<table class="tbl"><thead><tr><th>Corporation</th><th>Lots</th><th>Meetings</th><th>Minutes</th><th>Meeting Mode</th><th>StrataSphere</th></tr></thead><tbody>';
   if (sc.length) {
     sc.forEach(function(s) {
       var mtgCount = (s.meetings||[]).length;
       var minCount = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
-      var tag = s.mmStatus==='ACTIVE'
-        ? '<span class="tag grn">Active</span>'
-        : '<span class="tag gy">Trial</span>';
+      var mmOn3 = scMmActive(s);
+      var ssTier3 = scSsTier(s);
+      var trialEx = scTrialExhausted();
+      var mmTag = mmOn3 ? '<span class="tag grn">▶ Active</span>'
+        : trialEx ? '<span class="tag red">▶ Inactive</span>'
+        : '<span class="tag amb">▶ Trial</span>';
+      var ssTag = ssTier3==='global' ? '<span class="tag grn">🧠 Global</span>'
+        : ssTier3==='local' ? '<span class="tag grn">🧠 Local</span>'
+        : '<span class="tag gy">🧠 Off</span>';
+      var tag = mmTag + ' ' + ssTag;
       html += '<tr>'
         +'<td><strong>'+escHtml(s.plan)+'</strong> <span style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+'</span></td>'
         +'<td>'+s.lots+'</td>'
         +'<td>'+mtgCount+'</td>'
         +'<td>'+minCount+'</td>'
-        +'<td>'+tag+'</td>'
+        +'<td>'+mmTag+'</td>'+'<td>'+ssTag+'</td>'
         +'</tr>';
     });
   } else {
@@ -5916,19 +5971,53 @@ function scDetailTab(scId, tab) {
 function renderSCOverview(s) {
   var mtgCount  = (s.meetings||[]).length;
   var minCount  = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
-  var docCount  = (s.docs||[]).length;
   var cmCount   = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
   var president = (s.councilMembers||[]).find(function(m){
     return (m.role||'').toLowerCase().indexOf('president') >= 0 && m.isCouncil;
   });
+  var mmOn  = scMmActive(s);
+  var ssTier = scSsTier(s);
+  var role = APP.currentUser && APP.currentUser.role || '';
+  var canManage = (role === 'Managing Broker' || role === 'Associate Broker');
+  var trialExhausted = scTrialExhausted();
+
   var html = '<div class="card"><div class="cb">';
-  // Stats row
+
+  // ── Subscription status bar ─────────────────────────────────────────
+  html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--g2)">';
+  // Meeting Mode status
+  if (mmOn) {
+    html += '<span class="tag grn">▶ Meeting Mode Active</span>';
+  } else if (!trialExhausted) {
+    var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
+    html += '<span class="tag amb">▶ Trial: '+(PRICING.trialMeetings - adjCount)+' meetings left</span>';
+  } else {
+    html += '<span class="tag red">▶ Meeting Mode — Inactive</span>';
+    if (canManage) html += '<button class="btn xs pri" onclick="activateSCMeetingMode(\'\'+s.id+\'\')" >Activate &#8212; CA$'+PRICING.perBuilding+'/mo</button>';
+  }
+  // StrataSphere status
+  if (ssTier === 'global') {
+    html += '<span class="tag grn">🧠 Global StrataSphere</span>';
+    if (canManage) html += '<span style="font-size:10px;color:var(--g4)">CA$'+PRICING.perLotGlobal+'/lot/mo</span>';
+  } else if (ssTier === 'local') {
+    html += '<span class="tag grn">🧠 Local StrataSphere</span>';
+    if (canManage) html += '<button class="btn xs" onclick="upgradeSCStrataSphere(\'\'+s.id+\'\')" >Upgrade to Global</button>';
+  } else {
+    html += '<span class="tag gy">🧠 StrataSphere — Inactive</span>';
+    if (canManage) {
+      html += '<button class="btn xs pri" onclick="activateSCStrataSphere(\'\'+s.id+\'\',\'local\')" >Activate Local &#8212; CA$'+PRICING.perLotLocal+'/lot/mo</button>';
+    }
+  }
+  html += '</div>';
+
+  // ── Stats row ────────────────────────────────────────────────────────
   html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:14px">';
   html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+s.lots+'</div><div style="font-size:11px;color:var(--g4)">Strata Lots</div></div>';
   html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+cmCount+'</div><div style="font-size:11px;color:var(--g4)">Council Members</div></div>';
   html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+mtgCount+'</div><div style="font-size:11px;color:var(--g4)">Meetings</div></div>';
   html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+minCount+'</div><div style="font-size:11px;color:var(--g4)">Sets of Minutes</div></div>';
   html += '</div>';
+
   // Address
   if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span>📍</span><span>'+escHtml(s.addr)+'</span></div>';
   // Manager
@@ -6147,20 +6236,25 @@ function showLaunchConfirm(scId, mtgId) {
   var sc  = APP.sc.find(function(s){return s.id===scId;});
   var mtg = sc && sc.meetings ? sc.meetings.find(function(m){return String(m.id)===String(mtgId);}) : null;
   if (!sc || !mtg) return;
-  var adj = sc.adjCount || 0;
   var warnEl = document.getElementById('launch-trial-warn');
   var bodyEl = document.getElementById('launch-confirm-body');
-  if (adj >= 2 && sc.mmStatus !== 'ACTIVE') {
-    warnEl.style.display='';
-    warnEl.textContent='Trial complete for '+sc.plan+'. A subscription is required to start additional meetings. Please set up Pre-Authorized Debit on the Billing page.';
-    document.querySelector('#mo-launch-confirm .btn.red').disabled = true;
+  var launchBtn = document.querySelector('#mo-launch-confirm .btn.red');
+  var canLaunch = scCanUseMM(sc);
+
+  if (!canLaunch) {
+    // Trial exhausted and SC not activated
+    warnEl.style.display = '';
+    warnEl.innerHTML = 'Trial complete. <strong>Activate Meeting Mode</strong> for '+sc.plan+' to continue.'
+      + '<br><button class="btn sm pri" style="margin-top:8px" onclick="closeMo(\'mo-launch-confirm\');activateSCMeetingMode(\'\'+scId+\'\')" >Activate Now &#8212; CA$'+PRICING.perBuilding+'/mo</button>';
+    if (launchBtn) launchBtn.disabled = true;
   } else {
-    warnEl.style.display='none';
-    document.querySelector('#mo-launch-confirm .btn.red').disabled = false;
-    var remaining = Math.max(0, 2 - adj);
-    var trialNote = sc.mmStatus==='ACTIVE' ? '' : '<br><br><em style="color:var(--g4)">This will use '+adj+' of 2 free trial sessions for '+sc.plan+'. '+remaining+' remaining after this meeting.</em>';
-    bodyEl.innerHTML = 'You are about to start a live meeting session for <strong>'+sc.plan+' — '+sc.name+'</strong>.<br><br>'
-      +'<strong>'+mtg.type+'</strong> · '+mtg.date+(mtg.time?' at '+mtg.time:'')+(mtg.fmt?' · '+mtg.fmt:'')
+    warnEl.style.display = 'none';
+    if (launchBtn) launchBtn.disabled = false;
+    var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
+    var trialNote = scMmActive(sc) ? ''
+      : '<br><br><em style="color:var(--g4);font-size:12px">Trial: '+(adjCount+1)+' of '+PRICING.trialMeetings+' free meetings. '+(PRICING.trialMeetings - adjCount - 1)+' remaining after this.</em>';
+    bodyEl.innerHTML = 'You are about to start a live meeting session for <strong>'+escHtml(sc.plan)+' — '+escHtml(sc.name||'')+'</strong>.<br><br>'
+      +'<strong>'+(mtg.type||'')+'</strong> · '+mtg.date+(mtg.time?' at '+mtg.time:'')+(mtg.fmt?' · '+mtg.fmt:'')
       + trialNote;
   }
   APP.currentScId  = scId;
