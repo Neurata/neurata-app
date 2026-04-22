@@ -6676,38 +6676,84 @@ function hmSave() {
   });
   newDecisions.forEach(function(d){ sc_.decisions.push(d); });
 
-  // Save to Supabase decisions table
+  // Save decisions to Supabase
   if (newDecisions.length) {
     getSupabase().from('decisions').insert(newDecisions.map(function(d){
-      return {
-        sc_id:       sc_.plan,
-        item:        d.item,
-        outcome:     d.outcome,
-        summary:     d.summary,
-        source:      'historic',
-        recorded_at: d.recorded_at
-      };
+      return { sc_id: sc_.plan, item: d.item, outcome: d.outcome, summary: d.summary, source: 'historic', recorded_at: d.recorded_at };
     })).then(function(r){
-      if (r.error) console.error('Could not save decisions to Supabase:', r.error);
+      if (r.error) console.error('Could not save decisions:', r.error);
     });
   }
 
-  // Register the uploaded file in the SC document store
-  if (_hmUploadedFile) {
-    scAddDoc(APP.currentScId, {
-      name:        _hmUploadedFile.name,
-      data:        _hmUploadedFile.data,
-      mime:        _hmUploadedFile.mime,
-      source:      'historic-minutes',
-      sourceLabel: 'Historic Minutes',
-      date:        new Date().toLocaleDateString()
-    });
-    _hmUploadedFile = null;
-  }
-  sv('sc_'+sc_.id, sc_);
+  var decCount = newDecisions.length;
   closeMo('mo-historic-mins');
-  renderSCDetail(APP.currentScId); // refresh so Minutes tab shows new doc
-  nAlert(newDecisions.length+' decision(s) added to the local StrataSphere and document saved to Minutes.');
+
+  // Upload file to Supabase Storage then insert into documents table
+  if (_hmUploadedFile) {
+    var file = _hmUploadedFile;
+    _hmUploadedFile = null;
+    var ext = file.name.split('.').pop();
+    var path = 'historic-minutes/' + sc_.plan + '/' + now + '_' + file.name;
+    // Convert base64 data URL to blob
+    var b64 = file.data.split(',')[1];
+    var raw = atob(b64);
+    var arr = new Uint8Array(raw.length);
+    for (var i=0; i<raw.length; i++) arr[i] = raw.charCodeAt(i);
+    var blob = new Blob([arr], {type: file.mime});
+    getSupabase().storage.from('neurata-documents').upload(path, blob, {upsert: true})
+      .then(function(r) {
+        if (r.error) {
+          console.error('Storage upload failed:', r.error);
+          // Still add to local docs so it shows this session
+          _addDocLocally(sc_, file.name, null, path, file.mime, decCount);
+          return;
+        }
+        var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
+        // Insert into documents table
+        return getSupabase().from('documents').insert({
+          sc_id:        sc_.plan,
+          name:         file.name,
+          source:       'historic-minutes',
+          source_label: 'Historic Minutes',
+          mime_type:    file.mime,
+          storage_path: path,
+          public_url:   url,
+          uploaded_at:  new Date().toISOString()
+        }).then(function(r2) {
+          if (r2.error) console.error('Could not save doc record:', r2.error);
+          _addDocLocally(sc_, file.name, url, path, file.mime, decCount);
+        });
+      });
+  } else {
+    sv('sc_'+sc_.id, sc_);
+    _goToMinutesTab(decCount);
+  }
+}
+
+function _addDocLocally(sc_, name, url, path, mime, decCount) {
+  if (!sc_.docs) sc_.docs = [];
+  // Remove any existing entry with same name+source
+  sc_.docs = sc_.docs.filter(function(d){return !(d.name===name && d.source==='historic-minutes');});
+  sc_.docs.push({
+    name:        name,
+    source:      'historic-minutes',
+    sourceLabel: 'Historic Minutes',
+    url:         url || '',
+    mime:        mime,
+    date:        new Date().toLocaleDateString()
+  });
+  sv('sc_'+sc_.id, sc_);
+  _goToMinutesTab(decCount);
+}
+
+function _goToMinutesTab(decCount) {
+  // Navigate to the meetings page, minutes tab
+  showPg('meetings');
+  setTimeout(function(){
+    var tab = document.getElementById('mtgtab-minutes');
+    if (tab) switchMtgTab('minutes', tab);
+    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to Minutes tab.', 'Saved ✓', 'success');
+  }, 150);
 }
 
 function mmConfirmDecisionPrompt() {
