@@ -3180,9 +3180,7 @@ function renderMgmtStrataSphere(sc, el) {
     // ── Left sidebar ──
     + '<div style="width:240px;flex-shrink:0;background:var(--ch);display:flex;flex-direction:column">'
     // Logo + switcher
-    + '<div style="padding:14px 12px 12px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center">'
-    + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:inline-block;margin-bottom:12px"/>'
-    + '<div style="display:flex;justify-content:center;padding:10px 12px 12px">'
+    // Logo + switcher
     + (function(){
         var pendingLocal  = sc._ssPendingRequest==='ss_local';
         var pendingGlobal = sc._ssPendingRequest==='ss_global';
@@ -3194,12 +3192,14 @@ function renderMgmtStrataSphere(sc, el) {
         var gColor = (globalActive||pendingGlobal) ? '#fff' : 'rgba(255,255,255,.45)';
         var lLbl = pendingLocal  ? '&#9203; Local'  : 'Local';
         var gLbl = pendingGlobal ? '&#9203; Global' : 'Global';
-        var wrap = '<div style="display:flex;background:rgba(0,0,0,.25);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.1)">';
+        var logoDiv = '<div style="padding:14px 12px 10px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center">';
+        var logoImg = '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:inline-block;margin-bottom:10px"/>';
+        var switcherDiv = '<div style="display:flex;justify-content:center">';
+        var pill = '<div style="display:flex;background:rgba(0,0,0,.25);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.1)">';
         var b1 = '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="border:none;padding:5px 18px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+localBg+';color:'+lColor+'">'+lLbl+'</button>';
         var b2 = '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="border:none;border-left:1px solid rgba(255,255,255,.1);padding:5px 18px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+globalBg+';color:'+gColor+'">'+gLbl+'</button>';
-        return wrap + b1 + b2 + '</div>';
+        return logoDiv + logoImg + switcherDiv + pill + b1 + b2 + '</div></div></div>';
       })()
-    + '</div>'
     // New conv button
     + '<div style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08)">'
     + '<button onclick="mgmtSsNewConv(\''+scId+'\')" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px">+ New Conversation</button>'
