@@ -3066,6 +3066,9 @@ function openEmailInvite(scId, lic, name) {
 
 function sendRepInviteEmail(email, name, scId, lic) {
   var s = APP.sc.find(function(x){return x.id===scId;});
+  console.log('[invite] email='+email+' scId='+scId+' lic='+lic+' s='+JSON.stringify(s&&s.plan)+' brkLic='+APP.brokerage.lic);
+  if (!s) { nAlert('Could not find strata corporation. Please try again.', 'Error', 'warn'); return; }
+  if (!APP.brokerage.lic) { nAlert('Brokerage licence not found. Please reload and try again.', 'Error', 'warn'); return; }
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
   var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId)+'&lic='+encodeURIComponent(lic||'');
