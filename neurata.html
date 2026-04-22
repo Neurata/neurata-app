@@ -6669,9 +6669,9 @@ function renderDocsList(sc, el) {
 
   // Always show upload button + doc list
   var scIdForDoc = sc.id;
-  var uploadBar = '<div style="margin-top:12px;text-align:center">'
-    + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
-    + '</div>';
+  var uploadBar = ''; // button is in tab bar header
+
+
 
   if (!docs.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📎</div>'
@@ -7205,6 +7205,7 @@ function renderMeetingsList(sc, el) {
     return;
   }
   var html = '';
+  updateMtgHeaderBtn('meetings', true);
   // Group by status
   ['LIVE','DRAFT','ADJOURNED'].forEach(function(status) {
     var group = mtgs.filter(function(m){return m.status===status;});
