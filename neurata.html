@@ -3156,10 +3156,10 @@ function renderMgmtStrataSphere(sc, el) {
   var today = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   var yesterday = today - 86400000;
   var week = today - 6*86400000;
-  function getGroup(ts){ if(ts>=today) return 'Today'; if(ts>=yesterday) return 'Yesterday'; if(ts>=week) return 'Last 7 days'; return 'Older'; }
+  var getGroupMgmt = function(ts){ if(ts>=today) return 'Today'; if(ts>=yesterday) return 'Yesterday'; if(ts>=week) return 'Last 7 days'; return 'Older'; };
   var groups = {}, groupOrder = ['Today','Yesterday','Last 7 days','Older'];
   convs.slice().sort(function(a,b){return b.ts-a.ts;}).forEach(function(c){
-    var g = getGroup(c.ts); if(!groups[g]) groups[g]=[]; groups[g].push(c);
+    var g = getGroupMgmt(c.ts); if(!groups[g]) groups[g]=[]; groups[g].push(c);
   });
   var convListHtml = '';
   groupOrder.forEach(function(g){
@@ -5165,7 +5165,7 @@ function renderBrokerage() {
       html+='<tr>'
         +'<td style="font-size:13px">'+escHtml(d.name||'')+'</td>'
         +'<td style="font-size:11px;color:var(--g4)">'+escHtml(d.date||'')+'</td>'
-        +'<td><a href="'+escHtml(d.url)+'" target="_blank" class="btn xs">Download</a>'
+        +'<td>'+(d.url||d.data?'<a href="'+escHtml(d.url||d.data||'')+'" target="_blank" class="btn xs">Download</a>':'<span style="color:var(--g4);font-size:11px">No link</span>')+
         +(canUploadDocs?'<button class="btn xs" style="color:var(--red);margin-left:4px" data-id="'+escHtml(d.id)+'" onclick="deleteBrkDocById(this.dataset.id)">✕</button>':'')
         +'</td></tr>';
     });
@@ -5436,7 +5436,9 @@ function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The repr
 // BILLING PAGE
 // ══════════════════════════════════════════
 function renderBilling() {
-  var el = document.getElementById('billing-body'); if (!el) return;
+  var el = document.getElementById('billing-body');
+  console.log('renderBilling called, el=', el, 'role=', APP.currentUser && APP.currentUser.role);
+  if (!el) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var isMB = role === 'Managing Broker';
   var sc = APP.sc || [];
@@ -5474,6 +5476,7 @@ function renderBilling() {
 }
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
+  console.log('_renderBillingMain called, el=', el, 'sc.length=', sc && sc.length);
   if (!el) return;
   var html = '<div class="g2">';
 
