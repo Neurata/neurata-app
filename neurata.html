@@ -3071,7 +3071,7 @@ function sendRepInviteEmail(email, name, scId, lic) {
   if (!APP.brokerage.lic) { nAlert('Brokerage licence not found. Please reload and try again.', 'Error', 'warn'); return; }
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
-  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId)+'&lic='+encodeURIComponent(lic||'');
+  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(s.plan||scId)+'&lic='+encodeURIComponent(lic||'');
 
   // Save assignment locally and persist to Supabase
   if (lic && s) {
@@ -5507,9 +5507,19 @@ function sendInvite(){
   if (!lic) { nAlert('Please enter the BCFSA licence number.','Missing Field','warn'); return; }
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid brokerage email address.','Missing Field','warn'); return; }
   closeMo('mo-invite-rep');
-  // Use first SC as context (brokerage-level invite — rep can be assigned to SCs after)
-  var scId = APP.currentScId || (APP.sc.length ? APP.sc[0].id : null);
-  sendRepInviteEmail(email, name, scId, lic);
+  // If there's only one SC use it; otherwise ask which SC to invite to
+  if (APP.sc.length === 1) {
+    sendRepInviteEmail(email, name, APP.sc[0].id, lic);
+  } else if (APP.sc.length > 1) {
+    // Show SC picker
+    var scOptions = APP.sc.map(function(s,i){ return i+') '+s.plan+(s.name?' — '+s.name:''); }).join('\n');
+    var choice = prompt('Which strata corporation is this rep being invited to manage?\n\n'+scOptions+'\n\nEnter number (0-'+(APP.sc.length-1)+'):');
+    var idx = parseInt(choice);
+    if (isNaN(idx) || idx < 0 || idx >= APP.sc.length) { nAlert('Invalid selection.','Error','warn'); return; }
+    sendRepInviteEmail(email, name, APP.sc[idx].id, lic);
+  } else {
+    nAlert('No strata corporations found. Please add one first.','Error','warn');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -8019,7 +8029,7 @@ function obInviteComplete(){
         bcfsa_lic:lic, role:rep.licensedAs||'Representative', brokerage_id:brkLic
       },{onConflict:'id'});
       if(ctx && ctx.scId){
-        getSupabase().from('sc_users').upsert({sc_id:ctx.scId,user_id:userId},{onConflict:'sc_id,user_id'});
+        getSupabase().from('sc_users').upsert({sc_id:ctx.scId, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'});
         getSupabase().from('reps').upsert({
           brokerage_id:brkLic, bcfsa_lic:lic, name:dn,
           sc_ids:JSON.stringify([ctx.scId])
