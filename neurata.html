@@ -3075,27 +3075,33 @@ function sendRepInviteEmail(email, name, scId, lic) {
     if (!s.repIds) s.repIds=[];
     if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
     sv('sc_'+s.id, s);
-    // Persist rep-SC connection - fetch existing first to merge sc_ids
-    getSupabase().from('reps')
-      .select('sc_ids')
-      .eq('brokerage_id', APP.brokerage.lic)
-      .eq('bcfsa_lic', lic)
-      .single()
-      .then(function(existing) {
-        var scIds = [];
-        if (!existing.error && existing.data && existing.data.sc_ids) {
-          try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
-        }
-        if (scIds.indexOf(s.plan) < 0) scIds.push(s.plan);
-        getSupabase().from('reps').upsert({
-          brokerage_id: APP.brokerage.lic,
-          bcfsa_lic:    lic,
-          name:         name || '',
-          sc_ids:       JSON.stringify(scIds)
-        }, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r){
-          if (r.error) console.error('Could not save rep-SC connection:', r.error);
-        });
-      });
+    // Persist rep-SC connection — fire and forget, don't block email send
+    (function() {
+      var brkLic = APP.brokerage.lic;
+      var scPlan = s.plan;
+      getSupabase().from('reps')
+        .select('sc_ids')
+        .eq('brokerage_id', brkLic)
+        .eq('bcfsa_lic', lic)
+        .maybeSingle()
+        .then(function(existing) {
+          var scIds = [];
+          if (existing && existing.data && existing.data.sc_ids) {
+            try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
+          }
+          if (scIds.indexOf(scPlan) < 0) scIds.push(scPlan);
+          return getSupabase().from('reps').upsert({
+            brokerage_id: brkLic,
+            bcfsa_lic:    lic,
+            name:         name || '',
+            sc_ids:       JSON.stringify(scIds)
+          }, {onConflict: 'brokerage_id,bcfsa_lic'});
+        })
+        .then(function(r) {
+          if (r && r.error) console.error('Could not save rep-SC connection:', r.error);
+        })
+        .catch(function(e) { console.error('Rep SC save error:', e); });
+    })();
   }
 
   fetch(WORKER_URL+'/send-invite', {
