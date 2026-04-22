@@ -3182,23 +3182,23 @@ function renderMgmtStrataSphere(sc, el) {
     // Logo + switcher
     + '<div style="padding:14px 12px 12px;border-bottom:1px solid rgba(255,255,255,.1);text-align:center">'
     + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:inline-block;margin-bottom:12px"/>'
-    + '<div style="display:flex;justify-content:center;gap:6px;padding:0 8px">'
+    + '<div style="display:flex;justify-content:center;padding:10px 12px 12px">'
     + (function(){
         var pendingLocal  = sc._ssPendingRequest==='ss_local';
         var pendingGlobal = sc._ssPendingRequest==='ss_global';
         var localActive   = ssTier==='local'||ssTier==='global';
         var globalActive  = ssTier==='global';
-        var localBg   = localActive  ? 'var(--org)' : pendingLocal  ? 'rgba(255,165,0,.25)' : 'rgba(255,255,255,.08)';
-        var globalBg  = globalActive ? 'var(--org)' : pendingGlobal ? 'rgba(255,165,0,.25)' : 'rgba(255,255,255,.08)';
-        var localColor  = localActive  ? '#fff' : pendingLocal  ? 'rgba(255,180,0,1)' : 'rgba(255,255,255,.5)';
-        var globalColor = globalActive ? '#fff' : pendingGlobal ? 'rgba(255,180,0,1)' : 'rgba(255,255,255,.5)';
-        var localLabel  = pendingLocal  ? '&#9203; Requested' : 'Local';
-        var globalLabel = pendingGlobal ? '&#9203; Requested' : 'Global';
-        var btnStyle = 'border:none;border-radius:5px;padding:5px 16px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;';
-        return '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="'+btnStyle+'background:'+localBg+';color:'+localColor+'">'+localLabel+'</button>'
-          + '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="'+btnStyle+'background:'+globalBg+';color:'+globalColor+'">'+globalLabel+'</button>';
+        var localBg  = (localActive||pendingLocal)   ? 'var(--org)' : 'rgba(255,255,255,.1)';
+        var globalBg = (globalActive||pendingGlobal) ? 'var(--org)' : 'rgba(255,255,255,.1)';
+        var lColor = (localActive||pendingLocal)   ? '#fff' : 'rgba(255,255,255,.45)';
+        var gColor = (globalActive||pendingGlobal) ? '#fff' : 'rgba(255,255,255,.45)';
+        var lLbl = pendingLocal  ? '&#9203; Local'  : 'Local';
+        var gLbl = pendingGlobal ? '&#9203; Global' : 'Global';
+        var wrap = '<div style="display:flex;background:rgba(0,0,0,.25);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.1)">';
+        var b1 = '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="border:none;padding:5px 18px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+localBg+';color:'+lColor+'">'+lLbl+'</button>';
+        var b2 = '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="border:none;border-left:1px solid rgba(255,255,255,.1);padding:5px 18px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+globalBg+';color:'+gColor+'">'+gLbl+'</button>';
+        return wrap + b1 + b2 + '</div>';
       })()
-    + '</div>'
     + '</div>'
     // New conv button
     + '<div style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08)">'
