@@ -6519,25 +6519,53 @@ var _hmUploadedFile=null;
 function hmSave() {
   var sc_=APP.sc.find(function(s){return s.id===APP.currentScId;}); if(!sc_) return;
   if(!sc_.decisions) sc_.decisions=[];
-  _hmDecisions.forEach(function(d){
-    sc_.decisions.push({id:Date.now()+'_'+Math.random().toString(36).slice(2),
-      source:'historic',item:d.item,outcome:d.outcome,summary:d.summary,ts:Date.now()});
+  var now = Date.now();
+  var newDecisions = _hmDecisions.map(function(d){
+    return {
+      id:      now+'_'+Math.random().toString(36).slice(2),
+      sc_id:   sc_.plan,
+      source:  'historic',
+      item:    d.item,
+      outcome: d.outcome,
+      summary: d.summary,
+      ts:      now,
+      recorded_at: new Date().toISOString()
+    };
   });
+  newDecisions.forEach(function(d){ sc_.decisions.push(d); });
+
+  // Save to Supabase decisions table
+  if (newDecisions.length) {
+    getSupabase().from('decisions').insert(newDecisions.map(function(d){
+      return {
+        sc_id:       sc_.plan,
+        item:        d.item,
+        outcome:     d.outcome,
+        summary:     d.summary,
+        source:      'historic',
+        recorded_at: d.recorded_at
+      };
+    })).then(function(r){
+      if (r.error) console.error('Could not save decisions to Supabase:', r.error);
+    });
+  }
+
   // Register the uploaded file in the SC document store
   if (_hmUploadedFile) {
     scAddDoc(APP.currentScId, {
-      name: _hmUploadedFile.name,
-      data: _hmUploadedFile.data,
-      mime: _hmUploadedFile.mime,
-      source: 'historic-minutes',
+      name:        _hmUploadedFile.name,
+      data:        _hmUploadedFile.data,
+      mime:        _hmUploadedFile.mime,
+      source:      'historic-minutes',
       sourceLabel: 'Historic Minutes',
-      date: new Date().toLocaleDateString()
+      date:        new Date().toLocaleDateString()
     });
     _hmUploadedFile = null;
   }
-  sv('sc_'+sc_.id,sc_);
+  sv('sc_'+sc_.id, sc_);
   closeMo('mo-historic-mins');
-  nAlert(_hmDecisions.length+' decision(s) added to the decision ledger and document saved.');
+  renderSCDetail(APP.currentScId); // refresh so Minutes tab shows new doc
+  nAlert(newDecisions.length+' decision(s) added to the local StrataSphere and document saved to Minutes.');
 }
 
 function mmConfirmDecisionPrompt() {
