@@ -6679,7 +6679,14 @@ function hmSave() {
   // Save decisions to Supabase
   if (newDecisions.length) {
     getSupabase().from('decisions').insert(newDecisions.map(function(d){
-      return { sc_id: sc_.plan, item: d.item, outcome: d.outcome, summary: d.summary, source: 'historic', recorded_at: d.recorded_at };
+      return {
+        sc_id:       sc_.plan,
+        item_text:   d.item,
+        motion_text: d.summary || '',
+        outcome:     d.outcome,
+        source:      'historic',
+        recorded_at: d.recorded_at
+      };
     })).then(function(r){
       if (r.error) console.error('Could not save decisions:', r.error);
     });
