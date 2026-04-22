@@ -3160,9 +3160,13 @@ function scAddDoc(scId, doc) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;});
   if (!sc_) return;
   if (!sc_.docs) sc_.docs = [];
-  // Avoid duplicates by name+source
-  var exists = sc_.docs.find(function(d){return d.name===doc.name && d.source===doc.source;});
-  if (exists) return;
+  // Avoid exact duplicates (same name + source + same day)
+  var today = new Date().toLocaleDateString();
+  var exists = sc_.docs.find(function(d){return d.name===doc.name && d.source===doc.source && d.date===today;});
+  if (exists) {
+    // Remove old so we replace it with the fresh upload
+    sc_.docs = sc_.docs.filter(function(d){return !(d.name===doc.name && d.source===doc.source);});
+  }
   doc.addedAt = new Date().toISOString();
   sc_.docs.push(doc);
   sv('sc_'+sc_.id, sc_);
