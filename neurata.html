@@ -6482,7 +6482,17 @@ function switchMtgTab(tab, el) {
   document.querySelectorAll('.mtg-tab').forEach(function(b){b.classList.remove('on');});
   if (el) el.classList.add('on');
   renderMeetings();
-  // Header button set by updateMtgHeaderBtn() after render
+  // updateMtgHeaderBtn is called inside each render function with correct hasContent value
+  // But also set it immediately so the button appears without waiting for render
+  var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : null;
+  if (sc) {
+    var hasContent = false;
+    if (tab === 'meetings') hasContent = (sc.meetings||[]).length > 0;
+    else if (tab === 'minutes') hasContent = (sc.meetings||[]).some(function(m){return m.minutes;}) || (sc.docs||[]).some(function(d){return d.source==='historic-minutes';});
+    else if (tab === 'docs') hasContent = (sc.docs||[]).length > 0;
+    else if (tab === 'stratasphere') hasContent = !!(SS.convs[sc.id] && SS.convs[sc.id].length);
+    updateMtgHeaderBtn(tab, hasContent);
+  }
 }
 
 function updateMtgHeaderBtn(tab, hasContent) {
