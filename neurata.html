@@ -6249,7 +6249,7 @@ function renderStrata() {
     var minCount  = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
     var docCount  = (s.docs||[]).length;
     var cmCount   = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
-    var president = (s.councilMembers||[]).find(function(m){return (m.role||'').toLowerCase().indexOf('president')>=0 && m.isCouncil;});
+    var president = (s.councilMembers||[]).find(function(m){ if(!m.isCouncil) return false; var r=(m.role||'').toLowerCase().trim(); return r==='president'||r==='strata council president'||r==='council president'; });
     var statusTag = s.mmStatus==='ACTIVE'
       ? '<span class="tag grn">Active</span>'
       : '<span class="tag gy">Trial</span>';
