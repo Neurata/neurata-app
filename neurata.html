@@ -746,7 +746,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <h4>8. Governing Law</h4>
           <p>Governed by the laws of British Columbia, Canada.</p>
         </div>
-        <label class="ob-ck"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()"><span>I agree to the Neurata End User Agreement and Terms of Service</span></label>
+        <label class="ob-ck"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()"><span>I agree to the <a href="#" onclick="document.getElementById('ob-s4').scrollIntoView({behavior:'smooth'});return false;" style="color:var(--org)">Neurata End User Agreement</a> and Terms of Service</span></label>
         <div class="br" style="margin-top:16px;justify-content:flex-end">
           <button class="btn" onclick="obGoStep(3)">← Back</button>
           <button class="btn pri" id="ob-create-btn" onclick="obComplete()" disabled>Create Account →</button>
@@ -769,7 +769,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca"/></div>
         <div class="fg"><label>Password</label><input type="password" id="inv-pw" placeholder="Create a secure password"/></div>
       </div>
-      <label class="ob-ck"><input type="checkbox" id="inv-ck1" onchange="invToggleCreateBtn()"><span>I agree to the Neurata End User Agreement and Terms of Service</span></label>
+      <label class="ob-ck"><input type="checkbox" id="inv-ck1" onchange="invToggleCreateBtn()"><span>I agree to the <a href="#" onclick="document.getElementById('ob-s4').scrollIntoView({behavior:'smooth'});return false;" style="color:var(--org)">Neurata End User Agreement</a> and Terms of Service</span></label>
       <button class="btn pri full" id="inv-create-btn" style="margin-top:16px" onclick="obInviteComplete()" disabled>Create Account →</button>
       <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-login')">← Already have an account?</button></div>
     </div>
@@ -4625,7 +4625,30 @@ function renderBrokerage() {
       +'<button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button>'
       +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
   }
-el.innerHTML=html;
+  // Brokerage Documents card
+  var canUploadDocs = (role2==='Managing Broker'||role2==='Associate Broker');
+  var brkDocs = (APP.brokerage&&APP.brokerage.docs)||[];
+  html += '<div class="card" style="margin-top:14px">';
+  html += '<div class="ch_"><div class="ct">&#128193; Brokerage Documents</div>';
+  if (canUploadDocs) html += '<button class="btn sm pri" onclick="uploadBrkDoc()">+ Upload</button>';
+  html += '</div><div class="cb">';
+  if (!brkDocs.length) {
+    html += '<div style="font-size:12px;color:var(--g4);">'+(canUploadDocs?'Upload standard forms and brokerage documents for your team (Form B, Form K, bylaws, etc.).':'No documents uploaded yet.')+'</div>';
+  } else {
+    html += '<table class="tbl"><thead><tr><th>Name</th><th>Date</th><th></th></tr></thead><tbody>';
+    brkDocs.forEach(function(d) {
+      html += '<tr>'
+        +'<td style="font-size:13px">'+escHtml(d.name||'')+'</td>'
+        +'<td style="font-size:11px;color:var(--g4)">'+escHtml(d.date||'')+'</td>'
+        +'<td><a href="'+escHtml(d.url)+'" target="_blank" class="btn xs">Download</a>'
+        +(canUploadDocs?'<button class="btn xs" style="color:var(--red);margin-left:4px" data-id="'+escHtml(d.id)+'" onclick="deleteBrkDocById(this.dataset.id)">✕</button>':'')
+        +'</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div></div>';
+
+  el.innerHTML=html;
   // Populate invite SC checkboxes
   var chks=document.getElementById('inv-rep-sc-chks');
   if(chks)chks.innerHTML=APP.sc.map(function(s){return'<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox"> '+s.plan+' — '+s.name+'</label>';}).join('');
@@ -4739,6 +4762,7 @@ function uploadBrkDoc() {
   inp.click();
 }
 
+function deleteBrkDocById(id){ deleteBrkDoc(id); }
 function deleteBrkDoc(docId) {
   nConfirm('Remove this document from the brokerage library?', function(ok) {
     if (!ok) return;
