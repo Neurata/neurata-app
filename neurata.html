@@ -628,7 +628,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="ob-h">Welcome Back</div>
       <div class="ob-s">Sign in to your Neurata account.</div>
       <div class="fr" style="margin-bottom:16px">
-        <div class="fg"><label>Brokerage Email</label><input type="email" id="li-email" placeholder="you@yourbrokerage.ca" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div class="fg"><label>Brokerage Email</label><input type="email" id="li-email" placeholder="you@yourbrokerage.ca" onkeydown="if(event.key==='Enter')doLogin()" oninput="liCheckBtn()"/></div>
         <div class="fg"><label>Password</label><input type="password" id="li-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       </div>
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
@@ -3070,11 +3070,20 @@ function sendRepInviteEmail(email, name, scId, lic) {
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
   var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId);
 
-  // Save assignment
+  // Save assignment locally and persist to Supabase
   if (lic && s) {
     if (!s.repIds) s.repIds=[];
     if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
     sv('sc_'+s.id, s);
+    // Persist rep-SC connection to Supabase reps table
+    getSupabase().from('reps').upsert({
+      brokerage_id: APP.brokerage.lic,
+      bcfsa_lic:    lic,
+      name:         name || '',
+      sc_id:        s.plan
+    }, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r){
+      if (r.error) console.error('Could not save rep-SC connection:', r.error);
+    });
   }
 
   fetch(WORKER_URL+'/send-invite', {
@@ -5385,11 +5394,19 @@ function saveInviteCorps() {
   APP.sc.forEach(function(s) {
     if (!s.repIds) s.repIds = [];
     var inSelected = selected.has(s.id);
-    var idx = s.repIds.indexOf(lic);
-    if (inSelected && idx < 0)  s.repIds.push(lic);
-    if (!inSelected && idx >= 0) s.repIds.splice(idx, 1);
+    var repIdx = s.repIds.indexOf(lic);
+    if (inSelected && repIdx < 0)  s.repIds.push(lic);
+    if (!inSelected && repIdx >= 0) s.repIds.splice(repIdx, 1);
     sv('sc_'+s.id, s);
   });
+  // Persist all SC assignments to Supabase
+  var assignedPlans = APP.sc.filter(function(s){return selected.has(s.id);}).map(function(s){return s.plan;});
+  if (assignedPlans.length) {
+    var upsertRows = assignedPlans.map(function(plan){
+      return { brokerage_id: APP.brokerage.lic, bcfsa_lic: lic, name: _inviteRepName||'', sc_id: plan };
+    });
+    getSupabase().from('reps').upsert(upsertRows, {onConflict:'brokerage_id,bcfsa_lic'}).then(function(){});
+  }
   closeMo('mo-invite-rep-corps');
   // Prompt for email address
   nPrompt('Enter email address for '+_inviteRepName+':\n(An invitation will be sent to create or connect their Neurata account)', function(email){
@@ -5605,6 +5622,13 @@ function billingSubmitContact() {
 // ══════════════════════════════════════════
 // AUTH & SESSION
 // ══════════════════════════════════════════
+function liCheckBtn(){
+  var email = (document.getElementById('li-email')||{}).value||'';
+  var pw    = (document.getElementById('li-pw')||{}).value||'';
+  var btn   = document.getElementById('li-btn');
+  if (btn) btn.disabled = !(email.indexOf('@') >= 0 && pw.length >= 6);
+}
+
 function doLogin(){
   var email = (document.getElementById('li-email')||{}).value||'';
   var pw    = (document.getElementById('li-pw')||{}).value||'';
@@ -5757,6 +5781,15 @@ function loadUserProfile(userId) {
             if (!r.error && r.data && r.data.length) {
               APP.reps = r.data.map(function(rep) {
                 return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active' };
+              });
+              // Restore rep-SC connections onto SC objects
+              r.data.forEach(function(rep) {
+                if (!rep.sc_id) return;
+                var sc_ = APP.sc.find(function(s){ return s.plan === rep.sc_id; });
+                if (sc_) {
+                  if (!sc_.repIds) sc_.repIds = [];
+                  if (sc_.repIds.indexOf(rep.bcfsa_lic) < 0) sc_.repIds.push(rep.bcfsa_lic);
+                }
               });
             }
           });
@@ -7951,25 +7984,32 @@ async function init(){
     var savedSC   = await ld('sc', []);
     var savedBrk  = await ld('brokerage', {});
 
-    if (savedUser && savedUser.name) {
+    // Check for live Supabase session too (covers cases where localStorage is stale)
+    var supaSession = await getSupabase().auth.getSession();
+    var isLoggedIn = (savedUser && savedUser.name) || (supaSession.data && supaSession.data.session);
+
+    if (isLoggedIn) {
       if (hasInvite) {
-        // Someone is already logged in — check if it's the right account
+        // Someone is already logged in — prompt to sign out and follow invite
+        var displayName = savedUser ? savedUser.name : 'your current account';
+        var displayEmail = savedUser ? (savedUser.email||savedUser.lic||'') : '';
         nConfirm(
-          'You are currently signed in as ' + savedUser.name + ' (' + (savedUser.email||savedUser.lic||'') + ').' +
-          ' This invitation link is for a different account. Sign out and proceed with the invitation?',
+          'You are currently signed in as ' + displayName + (displayEmail ? ' (' + displayEmail + ')' : '') + '. ' +
+          'This invitation link is for a different account. Sign out now and continue with the invitation?',
           function(ok) {
             if (ok) {
-              // Sign out, then show invited screen with context preserved
               getSupabase().auth.signOut().then(function() {
-                showScr('scr-invited');
+                showScr('scr-login');
               });
             } else {
-              // Stay logged in, discard invite context
+              // Stay logged in — discard invite, proceed normally
               window._inviteContext = null;
-              APP.currentUser = savedUser;
-              if (savedSC && savedSC.length) APP.sc = savedSC;
-              if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
-              launchPlatform();
+              if (savedUser && savedUser.name) {
+                APP.currentUser = savedUser;
+                if (savedSC && savedSC.length) APP.sc = savedSC;
+                if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
+                launchPlatform();
+              }
             }
           },
           'Invitation Link Detected',
@@ -7978,13 +8018,15 @@ async function init(){
         return;
       }
       // Normal cached login — no invite
-      APP.currentUser = savedUser;
-      if (savedSC && savedSC.length) APP.sc = savedSC;
-      if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
-      launchPlatform();
+      if (savedUser && savedUser.name) {
+        APP.currentUser = savedUser;
+        if (savedSC && savedSC.length) APP.sc = savedSC;
+        if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
+        launchPlatform();
+      }
     } else if (hasInvite) {
-      // No cached session — go straight to invited screen
-      showScr('scr-invited');
+      // No session at all — go straight to login with invite context preserved
+      showScr('scr-login');
     }
     // else stay on login screen
   }catch(e){}
