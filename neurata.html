@@ -727,7 +727,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="ob-step" id="ob-s4">
         <div class="ob-h">Terms &amp; Agreement</div>
         <div class="ob-s">Review and accept the Neurata End User Agreement to complete your account.</div>
-        <div class="eua">
+        <div class="eua" id="eua-scroll" onscroll="euaScrollCheck()" style="position:relative;">
           <h4>NEURATA PLATFORM END USER AGREEMENT (Effective March 15, 2026)</h4>
           <h4>1. Acceptance</h4>
           <p>By creating an account you agree to be bound by this Agreement. If using the platform on behalf of a brokerage or strata corporation, you represent that you have authority to do so.</p>
@@ -737,8 +737,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <p>Strata Corporations are independent, immutable entities identified by their LTSA plan number, linked to one brokerage at a time. If a Strata Corporation transfers to a new brokerage, the former brokerage and its representatives lose access. All data is retained by the Strata Corporation.</p>
           <h4>4. Meeting Mode Trial</h4>
           <p>Each Strata Corporation receives 2 free adjourned Meeting Mode sessions. Draft meetings and historic minutes ingestion are unlimited and do not count toward the trial. Historic minutes uploaded must correspond to the correct Strata Corporation — mismatched plan numbers will be rejected.</p>
-          <h4>5. Strata-Sphere &amp; Data</h4>
-          <p>Content, once stripped of Personally Identifiable Information, may be used within Strata-Sphere to generate governance insights, in compliance with PIPA (BC).</p>
+          <h4>5. StrataSphere &amp; Data Processing</h4>
+          <p><strong>Local StrataSphere.</strong> Meeting minutes, agendas, decisions, and uploaded documents are stored and processed within your brokerage's private StrataSphere instance. This data is accessible only to authorized representatives of your brokerage and is never shared with other brokerages or third parties.</p>
+          <p><strong>Global StrataSphere.</strong> If you opt into Global StrataSphere, anonymized and de-identified governance data (motions, decisions, and vote outcomes) may be aggregated across the platform to generate cross-portfolio insights. Before any data is contributed to the Global StrataSphere, Neurata applies automated PII stripping to remove all personally identifiable information including owner names, strata lot identifiers linked to individuals, contact details, and any other information that could identify a natural person.</p>
+          <p><strong>PII &amp; PIPA Compliance.</strong> Neurata processes personal information in accordance with the <em>Personal Information Protection Act</em> (PIPA, BC). Personal information collected during account creation (name, email, BCFSA licence number) is used solely for authentication, account management, and regulatory verification. Meeting minutes and documents may contain personal information about strata lot owners — by uploading such content, you confirm that you have the authority to do so under applicable strata legislation and your brokerage's privacy policies.</p>
+          <p><strong>Data Residency.</strong> All data is stored on servers located in Canada (Toronto region). No personal information is transferred outside of Canada.</p>
+          <p><strong>AI Processing.</strong> Neurata uses AI (Anthropic Claude) to generate meeting minutes summaries and parse uploaded documents. Content sent to the AI is subject to Anthropic's data processing terms. Neurata does not permit Anthropic to use your content to train AI models.</p>
           <h4>6. Data Ownership</h4>
           <p>All content related to a Strata Corporation is owned by that Strata Corporation. Neurata will not prevent data portability regardless of subscription or brokerage status.</p>
           <h4>7. Authorization</h4>
@@ -746,7 +750,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <h4>8. Governing Law</h4>
           <p>Governed by the laws of British Columbia, Canada.</p>
         </div>
-        <label class="ob-ck"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()"><span>I agree to the <a href="#" onclick="document.getElementById('ob-s4').scrollIntoView({behavior:'smooth'});return false;" style="color:var(--org)">Neurata End User Agreement</a> and Terms of Service</span></label>
+        <div id="eua-scroll-msg" style="font-size:11px;color:var(--g4);text-align:center;margin-bottom:8px;">↓ Scroll through the agreement to enable</div><label class="ob-ck" id="eua-ck-label" style="opacity:.4;pointer-events:none;"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()" disabled><span>I have read and agree to the Neurata End User Agreement above, including the terms governing StrataSphere data processing and PII handling.</span></label>
         <div class="br" style="margin-top:16px;justify-content:flex-end">
           <button class="btn" onclick="obGoStep(3)">← Back</button>
           <button class="btn pri" id="ob-create-btn" onclick="obComplete()" disabled>Create Account →</button>
@@ -769,7 +773,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca"/></div>
         <div class="fg"><label>Password</label><input type="password" id="inv-pw" placeholder="Create a secure password"/></div>
       </div>
-      <label class="ob-ck"><input type="checkbox" id="inv-ck1" onchange="invToggleCreateBtn()"><span>I agree to the <a href="#" onclick="document.getElementById('ob-s4').scrollIntoView({behavior:'smooth'});return false;" style="color:var(--org)">Neurata End User Agreement</a> and Terms of Service</span></label>
+      <label class="ob-ck"><input type="checkbox" id="inv-ck1" onchange="invToggleCreateBtn()"><span>I have read and agree to the Neurata End User Agreement, including the terms governing StrataSphere data processing and PII handling.</span></label>
       <button class="btn pri full" id="inv-create-btn" style="margin-top:16px" onclick="obInviteComplete()" disabled>Create Account →</button>
       <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-login')">← Already have an account?</button></div>
     </div>
@@ -6879,6 +6883,22 @@ function obStep3Next(){
   if(pw!==pw2){nAlert('Passwords do not match.');return;}
   obGoStep(4);
 }
+
+function euaScrollCheck() {
+  var el = document.getElementById('eua-scroll');
+  if (!el) return;
+  // Check if scrolled within 40px of the bottom
+  var atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+  if (atBottom) {
+    var ck = document.getElementById('ob-ck1');
+    var lbl = document.getElementById('eua-ck-label');
+    var msg = document.getElementById('eua-scroll-msg');
+    if (ck) ck.disabled = false;
+    if (lbl) { lbl.style.opacity = '1'; lbl.style.pointerEvents = ''; }
+    if (msg) msg.style.display = 'none';
+  }
+}
+
 
 function obToggleCreateBtn(){var btn=document.getElementById('ob-create-btn');if(btn)btn.disabled=!document.getElementById('ob-ck1').checked;}
 function invToggleCreateBtn(){var btn=document.getElementById('inv-create-btn');if(btn)btn.disabled=!document.getElementById('inv-ck1').checked;}
