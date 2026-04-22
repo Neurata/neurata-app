@@ -1346,7 +1346,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 // ══════════════════════════════════════════
 var PRICING = {
   perBuilding:  39,    // $39/SC/month
-  perLotSS:     2.50,  // $2.50/lot/month for Global StrataSphere
+  perLotSS:     2.49,  // $2.49/lot/month for Global StrataSphere
   trialMeetings: 2     // free meetings before billing required
 };
 
@@ -4616,20 +4616,10 @@ function renderBrokerage() {
     +'<div><span style="font-size:11px;color:var(--g4)">BCFSA Licence</span><div>'+(APP.brokerage.lic||u.brkLic||'—')+'</div></div>'
     +(APP.brokerage.addr?'<div><span style="font-size:11px;color:var(--g4)">Address</span><div>'+APP.brokerage.addr+'</div></div>':'')
     +(APP.brokerage.phone?'<div><span style="font-size:11px;color:var(--g4)">Phone</span><div>'+APP.brokerage.phone+'</div></div>':'')
-    +'</div></div></div>'
-    +'</div>'+''
-    +'</div>'
-    +'<div>'
-    +
-    +'</div></div>';
-    // Representatives section (MB/AB only)
+    +'</div></div></div>';
+
+  // Docs card — in left column
   var role2=APP.currentUser.role||'';
-  if(role2==='Managing Broker'||role2==='Associate Broker'||APP.currentUser.isSuperAdmin){
-    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
-      +'<button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button>'
-      +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
-  }
-  // Brokerage Documents card
   var canUploadDocs = (role2==='Managing Broker'||role2==='Associate Broker');
   var brkDocs = (APP.brokerage&&APP.brokerage.docs)||[];
   html += '<div class="card" style="margin-top:14px">';
@@ -4651,6 +4641,15 @@ function renderBrokerage() {
     html += '</tbody></table>';
   }
   html += '</div></div>';
+  // Close left column, open right column
+  html += '</div><div>';
+  // Reps card — right column
+  if(role2==='Managing Broker'||role2==='Associate Broker'||APP.currentUser.isSuperAdmin){
+    html+='<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
+      +'<button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button>'
+      +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
+  }
+  html += '</div></div>'; // close right col + g2
 
   el.innerHTML=html;
   // Populate invite SC checkboxes
@@ -4958,7 +4957,7 @@ function renderBilling() {
   html += '<div class="ch_"><div class="ct">Subscription Summary</div></div>';
   html += '<div class="cb"><div style="display:flex;flex-direction:column;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--g2)"><div><div style="font-size:13px;">Platform</div><div style="font-size:11px;color:var(--g4)">'+sc.length+' corps &times; $'+PRICING.perBuilding+'/mo</div></div><strong>$'+(sc.length*PRICING.perBuilding*12).toLocaleString()+'/yr</strong></div>';
-  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--g2)"><div><div style="font-size:13px;">StrataSphere</div><div style="font-size:11px;color:var(--g4)">'+totalLots+' lots &times; $'+PRICING.perLotSS+'/mo</div></div><strong>$'+(totalLots*PRICING.perLotSS*12).toFixed(0)+'/yr</strong></div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--g2)"><div><div style="font-size:13px;">StrataSphere</div><div style="font-size:11px;color:var(--g4)">'+totalLots+' lots &times; $'+PRICING.perLotSS+'/mo</div></div><strong>$'+(totalLots*PRICING.perLotSS*12).toFixed(2)+'/yr</strong></div>';
   html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0"><span style="font-weight:700">Estimated Annual</span><strong style="color:var(--org);font-size:16px">$'+((sc.length*PRICING.perBuilding*12)+(totalLots*PRICING.perLotSS*12)).toFixed(0)+'/yr</strong></div>';
   html += '</div></div></div>';
   // SC status
@@ -5506,58 +5505,125 @@ function renderMeetings() {
   else if (currentMtgTab === 'stratasphere') renderMgmtStrataSphere(sc, el);
 }
 
+function selectSCAndOpenMeeting(scId, mtgId) {
+  APP.currentScId = scId;
+  showPg('meetings');
+  setTimeout(function(){ agOpen(scId, mtgId); }, 100);
+}
+
 function renderDash() {
   var el = document.getElementById('dash-body');
   var sub = document.getElementById('dash-sub');
-  if (sub) sub.textContent = (APP.brokerage.name || APP.currentUser.brkName || '—') + (APP.brokerage.lic ? ' · BCFSA ' + APP.brokerage.lic : '');
+  if (sub) sub.textContent = (APP.brokerage.name||APP.currentUser.brkName||'—') + (APP.brokerage.lic?' · BCFSA '+APP.brokerage.lic:'');
   if (!el) return;
   var sc = getVisibleSCs();
-  if (!sc || sc.length === 0) {
-    el.innerHTML = '<div class="empty-state">'
-      +'<div class="empty-ic">🏙</div>'
-      +'<div class="empty-h">Add your first Strata Corporation</div>'
-      +'<div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div>'
-      +'<button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button>'
-      +'</div>';
+  if (!sc||sc.length===0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic">🏙</div><div class="empty-h">Add your first Strata Corporation</div><div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div><button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button></div>';
     return;
   }
-  // Summary stats
-  var totalLots = sc.reduce(function(a,s){return a+s.lots;},0);
+
+  var totalLots = sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0);
   var totalMtgs = sc.reduce(function(a,s){return a+(s.meetings?s.meetings.length:0);},0);
-  var totalDec  = sc.reduce(function(a,s){return a+(s.decisions?s.decisions.length:0);},0);
-  var html = '<div class="g4" style="margin-bottom:16px">'
-    +'<div class="stat"><div class="sv" style="color:var(--org)">'+sc.length+'</div><div class="sl">Strata Corporations</div></div>'
-    +'<div class="stat"><div class="sv">'+totalLots+'</div><div class="sl">Total Strata Lots</div></div>'
-    +'<div class="stat"><div class="sv">'+totalMtgs+'</div><div class="sl">Total Meetings</div></div>'
-    +'<div class="stat"><div class="sv">'+totalDec+'</div><div class="sl">Recorded Decisions</div></div>'
-    +'</div>';
-  // Brokerage Documents card on dashboard
-  var brkDocsForDash = APP.brokerage.docs || [];
-  if (brkDocsForDash.length > 0) {
-    html += '<div class="card"><div class="ch_"><div class="ct">📁 Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
-    brkDocsForDash.forEach(function(d) {
-      html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--g2)">'        + '<span style="font-size:13px">📄</span>'        + '<span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'        + '<a href="'+escHtml(d.url)+'" target="_blank" class="btn xs">Download</a>'        + '</div>';
+  var adjCount  = APP.brokerage.trialMeetingsUsed || 0;
+
+  // Upcoming meetings (future dates across all SCs)
+  var today = new Date().toISOString().slice(0,10);
+  var upcoming = [];
+  sc.forEach(function(s){
+    (s.meetings||[]).forEach(function(m){
+      if (m.date >= today && m.status !== 'ADJOURNED') upcoming.push(Object.assign({},m,{scPlan:s.plan,scName:s.name,scId:s.id}));
+    });
+  });
+  upcoming.sort(function(a,b){return a.date.localeCompare(b.date);});
+
+  // Recent finalized minutes
+  var recentMins = [];
+  sc.forEach(function(s){
+    (s.meetings||[]).forEach(function(m){
+      if (m.minutes) recentMins.push(Object.assign({},m,{scPlan:s.plan,scName:s.name,scId:s.id}));
+    });
+  });
+  recentMins.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  var html = '';
+
+  // ── Stats row ──────────────────────────────────────────────────────
+  html += '<div class="g4" style="margin-bottom:16px">';
+  html += '<div class="stat"><div class="sv" style="color:var(--org)">'+sc.length+'</div><div class="sl">Strata Corps</div></div>';
+  html += '<div class="stat"><div class="sv">'+totalLots+'</div><div class="sl">Total Lots</div></div>';
+  html += '<div class="stat"><div class="sv">'+totalMtgs+'</div><div class="sl">Meetings</div></div>';
+  html += '<div class="stat"><div class="sv">'+recentMins.length+'</div><div class="sl">Sets of Minutes</div></div>';
+  html += '</div>';
+
+  // ── Trial status (brokerage-level) ─────────────────────────────────
+  var isActive = APP.brokerage.subscriptionStatus === 'active';
+  if (!isActive) {
+    var trialPct = Math.min((adjCount/PRICING.trialMeetings)*100,100);
+    var trialColor = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
+    html += '<div class="card" style="margin-bottom:14px"><div class="ch_"><div class="ct">Trial</div>';
+    if (adjCount >= PRICING.trialMeetings) {
+      html += '<span class="tag red">Trial complete</span>';
+    } else {
+      html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+    }
+    html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
+    html += '</div><div class="cb" style="padding:10px 14px">';
+    html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
+    html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
+    html += '</div></div>';
+  }
+
+  html += '<div class="g2">';
+
+  // ── Upcoming meetings ──────────────────────────────────────────────
+  html += '<div class="card"><div class="ch_"><div class="ct">Upcoming Meetings</div><button class="btn sm" onclick="showPg(\'meetings\')">All Meetings →</button></div><div class="cb" style="padding:8px">';
+  if (upcoming.length) {
+    upcoming.slice(0,5).forEach(function(m) {
+      var typeMap = {council:'Council',agm:'AGM',sgm:'SGM',committee:'Committee'};
+      html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2)">'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+escHtml(m.scPlan)+' — '+escHtml(m.scName||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--g4)">'+m.date+(m.time?' · '+m.time:'')+(m.fmt?' · '+m.fmt:'')+'</div></div>'
+        +'<span class="tag gy" style="font-size:10px">'+(typeMap[m.type]||m.type)+'</span>'
+        +'<button class="btn xs" onclick="selectSCAndOpenMeeting(\''+m.scId+'\',\''+m.id+'\')" >Open</button>'
+        +'</div>';
+    });
+  } else {
+    html += '<div style="font-size:12px;color:var(--g4);padding:8px 0">No upcoming meetings scheduled.</div>';
+  }
+  html += '</div></div>';
+
+  // ── Recent minutes ─────────────────────────────────────────────────
+  html += '<div class="card"><div class="ch_"><div class="ct">Recent Minutes</div><button class="btn sm" onclick="showPg(\'meetings\');switchMtgTab(\'minutes\',document.getElementById(\'mtgtab-minutes\'))">All Minutes →</button></div><div class="cb" style="padding:8px">';
+  if (recentMins.length) {
+    recentMins.slice(0,5).forEach(function(m) {
+      var isFinal = m.minutes && m.minutes.status === 'FINAL';
+      html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2)">'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+escHtml(m.scPlan)+' — '+escHtml(m.scName||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--g4)">'+m.date+'</div></div>'
+        +'<span class="tag '+(isFinal?'grn':'amb')+'" style="font-size:10px">'+(isFinal?'Final':'Draft')+'</span>'
+        +'<button class="btn xs" onclick="viewMinutes(\''+m.scId+'\',\''+m.id+'\')" >View</button>'
+        +'</div>';
+    });
+  } else {
+    html += '<div style="font-size:12px;color:var(--g4);padding:8px 0">No minutes yet. Run your first meeting to generate minutes automatically.</div>';
+  }
+  html += '</div></div>';
+
+  html += '</div>'; // end g2
+
+  // ── Brokerage documents ────────────────────────────────────────────
+  var brkDocs = APP.brokerage.docs || [];
+  if (brkDocs.length) {
+    html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">📁 Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
+    brkDocs.forEach(function(d) {
+      html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--g2)">'
+        +'<span>📄</span><span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'
+        +'<a href="'+escHtml(d.url)+'" target="_blank" class="btn xs">Download</a>'
+        +'</div>';
     });
     html += '</div></div>';
   }
 
-  // Trial usage
-  html += '<div class="card"><div class="ch_"><div class="ct">Meeting Mode — Trial Usage</div><button class="btn sm" onclick="showPg(\'strata\')">Manage Strata Corps →</button></div><div class="cb" style="padding:8px 14px">';
-  sc.forEach(function(s) {
-    var pct = Math.min((s.adjCount||0)/2*100,100);
-    var col = (s.adjCount||0) >= 2 ? 'var(--red)' : 'var(--org)';
-    var status = s.mmStatus==='ACTIVE' ? '<span class="tag grn">Subscribed</span>'
-      : (s.adjCount||0)>=2 ? '<span class="tag red">Subscribe to continue</span>'
-      : '<span style="font-size:11px;color:var(--ch3)">'+(s.adjCount||0)+'/2 trial sessions</span>';
-    html += '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--g2)">'
-      +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+s.plan+' — '+s.name+'</div>'
-      +'<div style="height:4px;background:var(--g2);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:2px;transition:width .4s"></div></div></div>'
-      + status
-      +'<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>'
-      +'</div>';
-  });
-  html += '</div></div>';
-  // Recent decisions
   el.innerHTML = html;
 }
 
