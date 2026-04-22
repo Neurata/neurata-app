@@ -2700,6 +2700,11 @@ function saveDelegate() {
   if (s.delegateIds.indexOf(uid) < 0) s.delegateIds.push(uid);
 
   sv('sc_'+s.id, s);
+  // Send actual email
+  var delEmail = document.getElementById('del-email') ? document.getElementById('del-email').value.trim() : '';
+  var delName  = document.getElementById('del-name')  ? document.getElementById('del-name').value.trim()  : '';
+  var delSl    = document.getElementById('del-sl')    ? document.getElementById('del-sl').value            : '';
+  if (delEmail) sendDelegateInviteEmail(delEmail, delName, _delInviteScId, delSl);
   closeMo('mo-invite-delegate');
   nAlert('Invitation sent to '+email+'. '+name+' will receive an email to create their council portal account.', 'Invite Sent ✓', 'success');
   _scDetailTab = 'reps';
@@ -2877,25 +2882,87 @@ function openEmailInvite(scId, lic, name) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   closeMo('mo-invite-rep-corps');
   var promptMsg = name
-    ? 'Enter the email address for '+name+':\n(An invitation will be sent to create or connect their Neurata account)'
-    : 'Enter the email address to invite:\n(An invitation will be sent to create or connect their Neurata account)';
+    ? 'Enter the email address for '+name+':'
+    : 'Enter the email address to invite:';
   nPrompt(promptMsg, function(email){
     if(!email||!email.trim()) return;
     if(email.indexOf('@')<0){ nAlert('Please enter a valid email address.','Invalid Email','warn'); return; }
-    // Save the assignment
-    if (lic) {
-      if (!s.repIds) s.repIds=[];
-      if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
-      sv('sc_'+s.id, s);
-    }
-    // Reset save button back to brokerage flow
-    var saveBtn = document.querySelector('#mo-invite-rep-corps .mo-ft .btn.pri');
-    if(saveBtn) saveBtn.setAttribute('onclick','saveInviteCorps()');
-    nAlert('Invitation sent to '+email.trim()+'.'+(name?' '+name+' has been assigned to '+s.plan+'.':''),
-      'Invite Sent ✓','success');
-    _scDetailTab='reps';
-    renderSCDetail(scId);
+    sendRepInviteEmail(email.trim(), name||'', scId, lic);
   }, '', 'Email Address');
+}
+
+function sendRepInviteEmail(email, name, scId, lic) {
+  var s = APP.sc.find(function(x){return x.id===scId;});
+  var fromName = APP.currentUser ? APP.currentUser.name : '';
+  var brokerage = APP.brokerage ? APP.brokerage.name : '';
+  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scId);
+
+  // Save assignment
+  if (lic && s) {
+    if (!s.repIds) s.repIds=[];
+    if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
+    sv('sc_'+s.id, s);
+  }
+
+  fetch(WORKER_URL+'/send-invite', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      to: email,
+      toName: name,
+      fromName: fromName,
+      brokerage: brokerage,
+      scPlan: s ? s.plan : '',
+      scName: s ? s.name : '',
+      inviteUrl: inviteUrl,
+      type: 'rep'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) {
+      nAlert('Email could not be sent: '+d.error, 'Error', 'warn');
+    } else {
+      nAlert('Invitation sent to '+email+'.'+(name?' '+name+' will receive an email to create their account.':''), 'Invite Sent ✓', 'success');
+      if (scId) { _scDetailTab='reps'; renderSCDetail(scId); }
+    }
+  })
+  .catch(function(e){
+    nAlert('Could not send invitation: '+e.message, 'Error', 'warn');
+  });
+}
+
+function sendDelegateInviteEmail(email, name, scId, sl) {
+  var s = APP.sc.find(function(x){return x.id===scId;});
+  var fromName = APP.currentUser ? APP.currentUser.name : '';
+  var brokerage = APP.brokerage ? APP.brokerage.name : '';
+  var inviteUrl = 'https://app.neurata.ai/?delegate='+encodeURIComponent(scId)+'&sl='+encodeURIComponent(sl||'');
+
+  fetch(WORKER_URL+'/send-invite', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      to: email,
+      toName: name,
+      fromName: fromName,
+      brokerage: brokerage,
+      scPlan: s ? s.plan : '',
+      scName: s ? s.name : '',
+      inviteUrl: inviteUrl,
+      type: 'delegate'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) {
+      nAlert('Email could not be sent: '+d.error, 'Error', 'warn');
+    } else {
+      nAlert('Invitation sent to '+email+'.', 'Invite Sent ✓', 'success');
+    }
+  })
+  .catch(function(e){
+    nAlert('Could not send invitation: '+e.message, 'Error', 'warn');
+  });
 }
 
 
