@@ -6482,7 +6482,7 @@ function renderDocsList(sc, el) {
       + '</div>';
     return;
   }
-  el.innerHTML = uploadBar + '<div id="docs-list"></div>';
+  el.innerHTML = uploadBar + '<div id="docs-list" style="margin-top:14px"></div>';
   el = document.getElementById('docs-list');
 
   var html = '';
@@ -6754,12 +6754,12 @@ function _addDocLocally(sc_, name, url, path, mime, decCount) {
 }
 
 function _goToMinutesTab(decCount) {
-  // Navigate to the meetings page, minutes tab
+  // Navigate to the meetings page, documents tab
   showPg('meetings');
   setTimeout(function(){
-    var tab = document.getElementById('mtgtab-minutes');
-    if (tab) switchMtgTab('minutes', tab);
-    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to Minutes tab.', 'Saved ✓', 'success');
+    var tab = document.getElementById('mtgtab-documents');
+    if (tab) switchMtgTab('documents', tab);
+    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Documents tab.', 'Saved ✓', 'success');
   }, 150);
 }
 
