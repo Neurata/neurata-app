@@ -5423,10 +5423,27 @@ function saveInviteCorps() {
   // Persist all SC assignments to Supabase
   var assignedPlans = APP.sc.filter(function(s){return selected.has(s.id);}).map(function(s){return s.plan;});
   if (assignedPlans.length) {
-    var upsertRows = assignedPlans.map(function(plan){
-      return { brokerage_id: APP.brokerage.lic, bcfsa_lic: lic, name: _inviteRepName||'', sc_id: plan };
-    });
-    getSupabase().from('reps').upsert(upsertRows, {onConflict:'brokerage_id,bcfsa_lic'}).then(function(){});
+    // Persist all SC assignments — merge into sc_ids array
+    var brkLic2 = APP.brokerage.lic;
+    getSupabase().from('reps')
+      .select('sc_ids')
+      .eq('brokerage_id', brkLic2)
+      .eq('bcfsa_lic', lic)
+      .maybeSingle()
+      .then(function(existing) {
+        var scIds = [];
+        if (existing && existing.data && existing.data.sc_ids) {
+          try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
+        }
+        assignedPlans.forEach(function(plan){ if (scIds.indexOf(plan)<0) scIds.push(plan); });
+        return getSupabase().from('reps').upsert({
+          brokerage_id: brkLic2,
+          bcfsa_lic:    lic,
+          name:         _inviteRepName || '',
+          sc_ids:       JSON.stringify(scIds)
+        }, {onConflict: 'brokerage_id,bcfsa_lic'});
+      }).then(function(r){ if(r&&r.error) console.error('Rep SC persist error:', r.error); })
+      .catch(function(e){ console.error('Rep SC persist error:', e); });
   }
   closeMo('mo-invite-rep-corps');
   // Prompt for email address
@@ -5476,7 +5493,18 @@ function renderRepList(){
     +'<tbody><tr><td><strong>'+APP.currentUser.name+'</strong></td><td><span class="tag gy">'+APP.currentUser.role+'</span></td><td style="font-size:11px">'+APP.currentUser.lic+'</td><td style="font-size:11px">'+APP.currentUser.licFor+'</td></tr></tbody>'
     +'</table></div>';
 }
-function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The representative will receive an email to set up their account. Their BCFSA licence will be verified on account creation.');}
+function sendInvite(){
+  var name  = (document.getElementById('inv-rep-name')||{}).value||'';
+  var lic   = ((document.getElementById('inv-rep-lic')||{}).value||'').trim().toUpperCase();
+  var email = (document.getElementById('inv-rep-email')||{}).value||'';
+  if (!name.trim()) { nAlert('Please enter the representative\'s full name.','Missing Field','warn'); return; }
+  if (!lic) { nAlert('Please enter the BCFSA licence number.','Missing Field','warn'); return; }
+  if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid brokerage email address.','Missing Field','warn'); return; }
+  closeMo('mo-invite-rep');
+  // Use first SC as context (brokerage-level invite — rep can be assigned to SCs after)
+  var scId = APP.currentScId || (APP.sc.length ? APP.sc[0].id : null);
+  sendRepInviteEmail(email, name, scId, lic);
+}
 
 // ══════════════════════════════════════════
 // BILLING PAGE
