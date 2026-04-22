@@ -1528,6 +1528,7 @@ function activateFromRequest(id, scId, requestType) {
   } else {
     activateSCMeetingMode(sc_.id);
   }
+  if (APP.currentScId === sc_.id) renderMeetings();
 }
 
 
@@ -1616,13 +1617,13 @@ function activateSCStrataSphere(scId, tier) {
   var price = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
   var label = tier === 'global' ? 'Local + Global StrataSphere' : 'Local StrataSphere';
   var monthly = (price * (sc_.lots||0)).toFixed(2);
-  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){     if (!ok) return;     sc_.ssTier = tier;     sc_.ssActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       ss_tier: tier,       ss_activated_at: sc_.ssActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate StrataSphere:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');   }, 'Activate StrataSphere', 'info');
+  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){     if (!ok) return;     sc_.ssTier = tier;     sc_.ssActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       ss_tier: tier,       ss_activated_at: sc_.ssActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate StrataSphere:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');   }, 'Activate StrataSphere', 'info');
 }
 function upgradeSCStrataSphere(scId) {
   // Upgrade from local to global — effective immediately
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
   var monthly = (PRICING.perLotGlobal * (sc_.lots||0)).toFixed(2);
-  nConfirm('Upgrade to Local + Global StrataSphere for '+sc_.plan+'?  CA$'+PRICING.perLotGlobal+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month. Effective immediately.', function(ok){     if (!ok) return;     sc_.ssTier = 'global';     getSupabase().from('strata_corps').update({ss_tier:'global'}).eq('plan_number', sc_.plan).then(function(){});     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     nAlert('Upgraded to Global StrataSphere for '+sc_.plan+'.', 'Upgraded ✓', 'success');   }, 'Upgrade StrataSphere', 'info');
+  nConfirm('Upgrade to Local + Global StrataSphere for '+sc_.plan+'?  CA$'+PRICING.perLotGlobal+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month. Effective immediately.', function(ok){     if (!ok) return;     sc_.ssTier = 'global';     getSupabase().from('strata_corps').update({ss_tier:'global'}).eq('plan_number', sc_.plan).then(function(){});     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert('Upgraded to Global StrataSphere for '+sc_.plan+'.', 'Upgraded ✓', 'success');   }, 'Upgrade StrataSphere', 'info');
 }
 
 
