@@ -5112,7 +5112,19 @@ function syncBrokerageReps() {
   fetch(WORKER_URL+'/brokerage-reps?lic='+encodeURIComponent(brkLic))
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(data){
-    if (data.reps&&data.reps.length) { APP.reps=data.reps; sv('reps',APP.reps); }
+    if (data.reps && data.reps.length) {
+      APP.reps = data.reps;
+      sv('reps', APP.reps);
+      // Persist reps to Supabase so they survive refresh
+      var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
+      var repRows = data.reps.map(function(r) {
+        return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
+      });
+      // Upsert all reps
+      getSupabase().from('reps').upsert(repRows, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r) {
+        if (r.error) console.error('Could not save reps:', r.error);
+      });
+    }
     renderBrokerage();
     nAlert(data.reps&&data.reps.length?'Synced '+data.reps.length+' representatives.':'No representatives found.');
   })
@@ -5407,6 +5419,19 @@ function loadUserProfile(userId) {
       };
       // Load strata corps for this user
       loadUserSCs(userId);
+      // Load reps from Supabase
+      if (APP.brokerage.lic) {
+        getSupabase().from('reps')
+          .select('*')
+          .eq('brokerage_id', APP.brokerage.lic)
+          .then(function(r) {
+            if (!r.error && r.data && r.data.length) {
+              APP.reps = r.data.map(function(rep) {
+                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active' };
+              });
+            }
+          });
+      }
     });
 }
 
@@ -6337,9 +6362,9 @@ function renderSidebar(activePg) {
     var isc = (activePg === t) ? ' on' : '';
     var badge = '';
     if (t === 'billing' && isMB && !isSubscribed) {
-      badge = trialLeft > 0
-        ? '<span class="s-bdg" style="background:var(--orgp);color:var(--org)">'+trialLeft+' free left</span>'
-        : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial done</span>';
+      badge = adjCount < PRICING.trialMeetings
+        ? '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Trial '+adjCount+'/'+PRICING.trialMeetings+'</span>'
+        : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial Ended</span>';
     }
     html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'      +'<span class="s-ic">'+(icons[t]||'')+'</span>'      +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'      + badge + '</div>';
   });
