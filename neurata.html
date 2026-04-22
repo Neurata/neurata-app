@@ -3915,10 +3915,16 @@ function _adjournProceed() {
       it.minutesSummary = it.text + ' was deferred. No decision was made at this meeting.';
     }
   });
-  // Count trial
+  // Increment brokerage-level trial counter
   if (!sc_.adjCount) sc_.adjCount = 0;
   sc_.adjCount++;
-  if (sc_.adjCount >= 2) sc_.mmStatus = 'TRIAL_COMPLETE';
+  if (!APP.brokerage.trialMeetingsUsed) APP.brokerage.trialMeetingsUsed = 0;
+  APP.brokerage.trialMeetingsUsed++;
+  // Update Supabase brokerage trial count
+  getSupabase().from('brokerages').update({
+    trial_meetings_used: APP.brokerage.trialMeetingsUsed
+  }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+  if (scTrialExhausted()) sc_.mmStatus = 'TRIAL_COMPLETE';
   sv('sc_'+sc_.id, sc_);
   showPg('meetings');
   document.getElementById('tab-mm').style.display = 'none';
@@ -5439,7 +5445,7 @@ function sendInvite(){closeMo('mo-invite-rep');nAlert('Invitation sent. The repr
 // ══════════════════════════════════════════
 function renderBilling() {
   var el = document.getElementById('billing-body');
-  console.log('renderBilling called, el=', el, 'role=', APP.currentUser && APP.currentUser.role);
+
   if (!el) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var isMB = role === 'Managing Broker';
@@ -5478,7 +5484,7 @@ function renderBilling() {
 }
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
-  console.log('_renderBillingMain called, el=', el, 'sc.length=', sc && sc.length);
+
   if (!el) return;
   var html = '<div class="g2">';
 
@@ -5727,13 +5733,18 @@ function loadUserProfile(userId) {
         globalSS:  u.global_ss || false
       };
       APP.brokerage = {
-        name:    b.name || '',
-        lic:     b.bcfsa_lic || '',
-        addr:    b.address || '',
-        phone:   b.phone || '',
-        city:    b.city || '',
-        logoUrl: b.logo_url || '',
-        docs:    b.docs || []
+        name:             b.name || '',
+        lic:              b.bcfsa_lic || '',
+        addr:             b.address || '',
+        phone:            b.phone || '',
+        city:             b.city || '',
+        email:            b.email || u.email || '',
+        logoUrl:          b.logo_url || '',
+        docs:             b.docs || [],
+        subscriptionStatus: b.subscription_status || 'trial',
+        trialMeetingsUsed:  b.trial_meetings_used || 0,
+        billingSetup:       b.billing_setup || false,
+        payMethod:          b.pay_method || 'acss'
       };
       // Load strata corps for this user
       loadUserSCs(userId);
