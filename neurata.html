@@ -432,10 +432,16 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ss-new-btn{border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.7);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit}
 .ss-new-btn:hover{background:rgba(255,255,255,.1);color:#fff}
 .ss-convs-list{flex:1;overflow-y:auto;padding:4px 6px}
-.ss-conv-item{padding:8px 10px;border-radius:6px;cursor:pointer;margin-bottom:2px;color:rgba(255,255,255,.65);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s}
+.ss-conv-item{padding:8px 28px 8px 10px;border-radius:6px;cursor:pointer;margin-bottom:1px;color:rgba(255,255,255,.65);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s;position:relative}
 .ss-conv-item:hover{background:rgba(255,255,255,.08);color:#fff}
-.ss-conv-item.on{background:rgba(255,255,255,.15);color:#fff;font-weight:600}
-.ss-conv-sc{font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-conv-item:hover .ss-conv-del{opacity:1}
+.ss-conv-item.on{background:rgba(255,255,255,.15);color:#fff}
+.ss-conv-item.on .ss-conv-del{opacity:.6}
+.ss-conv-sc{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-conv-grp{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.3);padding:10px 10px 4px;margin-top:4px}
+.ss-conv-del{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:14px;opacity:0;transition:opacity .15s;padding:2px 5px;border-radius:3px;line-height:1}
+.ss-conv-del:hover{background:rgba(255,255,255,.15);color:#fff;opacity:1!important}
+.ss-conv-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 .ss-conv-del{float:right;background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:13px;padding:0 0 0 4px;line-height:1}
 .ss-conv-del:hover{color:rgba(255,255,255,.7)}
 /* Typing indicator */
@@ -3138,13 +3144,14 @@ function mgmtSsSend(scId) {
   var lastUser = history.pop();
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
-      system:'You are StrataSphere AI for '+sc.plan+' ('+sc.name+'). Answer questions about this strata corporation\'s governance, decisions, bylaws, and the BC Strata Property Act. Decision ledger: '+JSON.stringify(dec.slice(-15))+'. PIPA-compliant: refer to owners by strata lot number only. No markdown formatting — plain prose only.',
+      system:'You are StrataSphere, the AI governance assistant for '+sc.plan+' ('+sc.name+'). '+'You answer questions strictly based on: (1) the decision ledger provided, (2) uploaded minutes and documents for this corporation, and (3) established BC legislation and regulation including the Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), BCFSA rules, and SPABC guidance. '+'If a question requires SC-specific information not present in the provided data, say so clearly — do not invent or infer facts about this specific corporation. '+'Decision ledger (most recent 15): '+JSON.stringify(dec.slice(-15))+'. '+'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '+'Plain prose only — no markdown, no bullet dashes, no asterisks.',
       messages:history.concat([lastUser||{role:'user',content:msg}])})})
   .then(function(r){return r.json();})
   .then(function(d){
     var typing=document.getElementById('mgmt-typing'); if(typing)typing.remove();
     var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim()||'Unable to respond.';
     conv.msgs.push({role:'assistant',text:txt});
+    ssPersistConv(scId, conv);
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   })
   .catch(function(){
@@ -3387,7 +3394,7 @@ function mmAiSend(){
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
       tools:[{type:'web_search_20250305',name:'web_search'}],
-      system:'You are StrataSphere, expert assistant for BC Strata Managers. Active meeting item: "'+(it?it.text:'')+'" ('+( it?it.cat:'')+') . Provide concise, actionable guidance based on BC Strata Property Act, RESA, BCFSA, PIPA. Under 4 sentences. Be specific. PIPA: refer to owners by strata lot number only (e.g. SL 102), never by name. Do not use markdown formatting.',
+      system:'You are StrataSphere, the BC strata governance assistant. Active meeting item: "'+(it?it.text:'')+'" ('+(it?it.cat:'')+').' +' Provide concise procedural guidance strictly based on BC legislation: Strata Property Act, RESA, BCFSA rules, PIPA, and SPABC guidance.' +' If you are uncertain about a specific rule, say so rather than guessing.' +' Under 4 sentences. Plain prose — no markdown, no asterisks, no bullet dashes.' +' PIPA: owners by strata lot number only, never by name.',
       messages:[{role:'user',content:msg}]})})
   .then(function(r){return r.json();})
   .then(function(d){var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();el.innerHTML+='<div class="mm-aimsg ai fi">'+(txt||'Unable to respond.')+'</div>';el.scrollTop=el.scrollHeight;})
@@ -4331,6 +4338,65 @@ function addAgItem(){nPrompt('New agenda item:', function(t){if(!t)return;MM.age
 // ══════════════════════════════════════════
 
 // ── StrataSphere conversation state ──────────────────────────────────
+// ── StrataSphere Conversation Persistence ────────────────────────────
+function ssPersistConv(scId, conv) {
+  if (!conv || !conv.msgs || !conv.msgs.length) return;
+  var sc_ = APP.sc.find(function(s){return s.id===scId;});
+  getSupabase().from('ss_conversations').upsert({
+    id:          conv.id,
+    sc_id:       sc_ ? sc_.plan : scId,
+    user_id:     APP.currentUser ? APP.currentUser.id : null,
+    title:       conv.title || 'Conversation',
+    msgs:        JSON.stringify(conv.msgs),
+    scope:       conv.scope || 'local',
+    updated_at:  new Date().toISOString()
+  }, {onConflict: 'id'}).then(function(r){
+    if (r.error) console.error('Could not save conversation:', r.error);
+  });
+}
+
+function ssLoadConversations() {
+  if (!APP.currentUser || !APP.currentUser.id) return;
+  var planNumbers = APP.sc.map(function(s){return s.plan;});
+  if (!planNumbers.length) return;
+  getSupabase().from('ss_conversations')
+    .select('*')
+    .eq('user_id', APP.currentUser.id)
+    .in('sc_id', planNumbers)
+    .order('updated_at', {ascending: false})
+    .then(function(r) {
+      if (r.error || !r.data || !r.data.length) return;
+      r.data.forEach(function(row) {
+        // Find the scId from plan number
+        var sc_ = APP.sc.find(function(s){return s.plan === row.sc_id;});
+        if (!sc_) return;
+        var scId = sc_.id;
+        if (!SS.convs[scId]) SS.convs[scId] = [];
+        // Only add if not already in memory
+        var exists = SS.convs[scId].find(function(c){return c.id===row.id;});
+        if (!exists) {
+          SS.convs[scId].push({
+            id:    row.id,
+            title: row.title,
+            msgs:  JSON.parse(row.msgs || '[]'),
+            scope: row.scope || 'local',
+            ts:    new Date(row.updated_at).getTime()
+          });
+        }
+      });
+      // Sort each SC's convs by ts descending
+      Object.keys(SS.convs).forEach(function(scId) {
+        SS.convs[scId].sort(function(a,b){return b.ts-a.ts;});
+      });
+      // Re-render if SS page is active
+      if (document.getElementById('pg-stratasphere') &&
+          document.getElementById('pg-stratasphere').classList.contains('active')) {
+        ssRenderConvList();
+      }
+    });
+}
+
+
 var SS = {
   convs: {},        // {scId: [{id, title, msgs:[{role,text}], scope, ts}]}
   activeConv: null, // {scId, convId}
@@ -4452,19 +4518,52 @@ function ssRenderConvList() {
   var el = document.getElementById('ss-convs-list');
   if (!el) return;
   var scId = ssGetScId();
-  var convs = (scId && SS.convs[scId]) ? SS.convs[scId].slice().reverse() : [];
+  var convs = (scId && SS.convs[scId]) ? SS.convs[scId].slice() : [];
+  // Sort newest first
+  convs.sort(function(a,b){return b.ts - a.ts;});
+
   if (!convs.length) {
-    el.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.3);padding:8px 10px">No conversations yet.\nClick + New to start.</div>';
+    el.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,.3);padding:12px 10px;line-height:1.5">No conversations yet.<br>Click <strong style="color:rgba(255,255,255,.5)">+ New</strong> to start.</div>';
     return;
   }
-  el.innerHTML = convs.map(function(c) {
-    var active = SS.activeConv && SS.activeConv.convId === c.id;
-    return '<div class="ss-conv-item'+(active?' on':'')+'" onclick="ssSelectConv(\''+scId+'\',\''+c.id+'\')">'
-      + '<button class="ss-conv-del" onclick="event.stopPropagation();ssDeleteConv(\''+scId+'\',\''+c.id+'\')" title="Delete">×</button>'
-      + escHtml(c.title)
-      + '<div class="ss-conv-sc">' + (c.scope==='global'?'🌐 Global':'🔵 Local') + ' · ' + new Date(c.ts).toLocaleDateString() + '</div>'
-      + '</div>';
-  }).join('');
+
+  // Group by date
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var yesterday = today - 86400000;
+  var week = today - 6 * 86400000;
+  var month = today - 29 * 86400000;
+
+  function getGroup(ts) {
+    if (ts >= today)     return 'Today';
+    if (ts >= yesterday) return 'Yesterday';
+    if (ts >= week)      return 'Previous 7 days';
+    if (ts >= month)     return 'Previous 30 days';
+    return 'Older';
+  }
+
+  var groups = {};
+  var groupOrder = ['Today','Yesterday','Previous 7 days','Previous 30 days','Older'];
+  convs.forEach(function(c) {
+    var g = getGroup(c.ts);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(c);
+  });
+
+  var html = '';
+  groupOrder.forEach(function(g) {
+    if (!groups[g]) return;
+    html += '<div class="ss-conv-grp">' + g + '</div>';
+    groups[g].forEach(function(c) {
+      var active = SS.activeConv && SS.activeConv.convId === c.id;
+      html += '<div class="ss-conv-item'+(active?' on':'')+'" onclick="ssSelectConv(\''+scId+'\',\''+c.id+'\')">'
+        + '<span class="ss-conv-title">' + escHtml(c.title) + '</span>'
+        + '<div class="ss-conv-sc">' + (c.scope==='global'?'&#127760; Global':'&#128309; Local') + '</div>'
+        + '<button class="ss-conv-del" onclick="event.stopPropagation();ssDeleteConv(\''+scId+'\',\''+c.id+'\')" title="Delete conversation">✕</button>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
 }
 
 function ssRenderMessages() {
@@ -4529,6 +4628,8 @@ function ssDeleteConv(scId, convId) {
   if (SS.activeConv && SS.activeConv.convId === convId) {
     SS.activeConv = SS.convs[scId].length ? {scId:scId, convId:SS.convs[scId][0].id} : null;
   }
+  // Delete from Supabase
+  getSupabase().from('ss_conversations').delete().eq('id', convId).then(function(){});
   ssRenderConvList();
   ssRenderMessages();
 }
@@ -4582,13 +4683,18 @@ function ssSend() {
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
-      system: 'You are StrataSphere AI for a BC strata management platform. '
-        + 'Answer questions about strata governance, decisions, bylaws, and the Strata Property Act. '
+      system: 'You are StrataSphere, the AI governance intelligence layer for a BC strata management platform. '
+        + 'You answer questions based ONLY on: '
+        + '(1) The decision ledger and documents provided for this strata corporation. '
+        + '(2) Established BC legislation and authoritative sources: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA BC), BCFSA rules and advisories, and SPABC published guidance. '
+        + 'For SC-specific questions (e.g. "what did the council decide about X"), only use the provided decision ledger. If the answer is not in the ledger, say "I do not have a recorded decision on that topic for this corporation." '
+        + 'For general strata law questions, cite the relevant legislation or source. '
+        + 'Never invent facts, decisions, dollar amounts, dates, or names not present in the provided data. '
+        + 'If you are uncertain, say so explicitly. '
         + 'Context: ' + context + ' '
-        + 'Decisions: ' + JSON.stringify(dec.slice(-15)) + '. '
-        + 'PIPA-compliant: refer to owners by strata lot number only, never by name. '
-        + 'Be concise and professional. Do NOT use markdown formatting — no **, no #, no --, no bullet dashes. '
-        + 'Use plain prose. If you need to list items, use numbers like 1. 2. 3. or write them as a sentence.',
+        + 'Decision ledger (most recent 15): ' + JSON.stringify(dec.slice(-15)) + '. '
+        + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
+        + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.',
       messages: history.concat([lastUser || {role:'user', content: msg}])
     })
   })
@@ -4599,6 +4705,7 @@ function ssSend() {
     var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
     if (!txt) txt = 'I was unable to generate a response. Please try again.';
     conv.msgs.push({role: 'assistant', text: txt});
+    ssPersistConv(scId, conv);
     ssRenderMessages();
     ssRenderConvList();
   })
@@ -5564,6 +5671,8 @@ function loadUserSCs(userId) {
 
       APP.sc = scList;
       launchPlatform();
+      // Load SS conversations after SC list is ready
+      setTimeout(ssLoadConversations, 500);
     }).catch(function() {
       // Partial failure — launch with whatever we have
       APP.sc = scList;
