@@ -4618,6 +4618,8 @@ function renderBrokerage() {
     +(APP.brokerage.phone?'<div><span style="font-size:11px;color:var(--g4)">Phone</span><div>'+APP.brokerage.phone+'</div></div>':'')
     +'</div></div></div>';
 
+  // Close left column, open right column
+  html += '</div><div>';
   // Docs card — in left column
   var role2=APP.currentUser.role||'';
   var canUploadDocs = (role2==='Managing Broker'||role2==='Associate Broker');
@@ -4641,11 +4643,9 @@ function renderBrokerage() {
     html += '</tbody></table>';
   }
   html += '</div></div>';
-  // Close left column, open right column
-  html += '</div><div>';
   // Reps card — right column
   if(role2==='Managing Broker'||role2==='Associate Broker'||APP.currentUser.isSuperAdmin){
-    html+='<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
+    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
       +'<button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button>'
       +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
   }
