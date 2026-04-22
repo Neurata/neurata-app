@@ -882,6 +882,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <span style="font-size:11px;color:rgba(255,255,255,.5)">Viewing:</span>
         <span id="ss-sc-indicator" style="font-size:12px;font-weight:600;color:#fff;white-space:nowrap">No corp selected</span>
       </div>
+      <div id="ss-tier-badge" style="display:none;align-items:center"></div>
       <div style="display:flex;gap:0;background:rgba(255,255,255,.1);border-radius:6px;padding:2px">
         <button id="ss-bl" onclick="setSS('local')" style="border:none;border-radius:5px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;background:var(--org);color:#fff;transition:all .15s">Local</button>
         <button id="ss-bg" onclick="setSS('global')" style="border:none;border-radius:5px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;background:none;color:rgba(255,255,255,.6);transition:all .15s">Global</button>
@@ -1492,20 +1493,26 @@ function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
 
 
 // ── SC Activation Helpers ─────────────────────────────────────────────
+function scTrialExhausted() {
+  var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
+  return adjCount >= PRICING.trialMeetings;
+}
 function scMmActive(s) {
-  return s && (s.mmActive === true || s.mmStatus === 'ACTIVE');
+  // Active if: paid activation OR still within trial
+  if (!s) return false;
+  if (s.mmActive === true || s.mmStatus === 'ACTIVE') return true;
+  return !scTrialExhausted(); // trial counts as active
 }
 function scSsTier(s) {
-  // Returns null, 'local', or 'global'
-  return s && s.ssTier || null;
+  // During trial: local is free. After trial: must be explicitly activated.
+  if (!s) return null;
+  if (s.ssTier === 'global') return 'global';
+  if (s.ssTier === 'local') return 'local';
+  if (!scTrialExhausted()) return 'local'; // trial includes local SS
+  return null;
 }
 function scCanUseMM(s) {
-  var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
-  return scMmActive(s) || adjCount < PRICING.trialMeetings;
-}
-function scTrialExhausted() {
-  var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
-  return adjCount >= PRICING.trialMeetings;
+  return scMmActive(s);
 }
 function hasBillingInfo() {
   return APP.brokerage && (APP.brokerage.payMethod === 'acss' || APP.brokerage.payMethod === 'card') && APP.brokerage.billingSetup;
@@ -6344,10 +6351,11 @@ function renderSidebar(activePg) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var badge = '';
-      if (mmOn) badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Active</span>';
-      if (ssTier === 'global') badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">SS+</span>';
-      else if (ssTier === 'local') badge += '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">SS</span>';
+      var badge = mmOn
+        ? '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Active</span>'
+        : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Inactive</span>';
+      if (ssTier === 'global') badge += '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8">SS+</span>';
+      else if (ssTier === 'local') badge += '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8">SS</span>';
       html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">'        +'<span style="font-size:10px;color:var(--g4)">🏙</span>'        +'<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(s.plan)+'</span>'        + badge + '</div>';
     });
     html += '</div>';
