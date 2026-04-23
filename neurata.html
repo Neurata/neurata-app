@@ -391,15 +391,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 /* ── CUSTOM DIALOGS (replace alert/confirm/prompt) ── */
 #cdlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px}
 #cdlg-overlay.open{display:flex}
-#cdlg-box{background:var(--wh);border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.25);width:100%;max-width:420px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;overflow:hidden}
-#cdlg-hd{padding:16px 20px 0;display:flex;align-items:flex-start;gap:12px}
+#cdlg-box{background:var(--wh);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.25);width:100%;max-width:480px;overflow:hidden}
+#cdlg-hd{padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--g2)}
 #cdlg-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:1px}
 #cdlg-icon.info{background:var(--blu1,#dbeafe);color:#2563eb}
 #cdlg-icon.warn{background:var(--orgl);color:var(--org)}
 #cdlg-icon.danger{background:var(--redl);color:var(--red)}
 #cdlg-icon.success{background:var(--grnl);color:var(--grn)}
 #cdlg-title{font-size:14px;font-weight:700;color:var(--ch);margin-bottom:4px}
-#cdlg-msg{font-size:13px;color:var(--ch2);line-height:1.5;white-space:pre-wrap}
+#cdlg-msg{font-size:13px;color:var(--ch2);line-height:1.5;white-space:pre-wrap;padding:16px 20px}
 #cdlg-input-wrap{padding:0 20px 0 64px}
 #cdlg-input{width:100%;border:1px solid var(--g3);border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--ch);box-sizing:border-box}
 #cdlg-input:focus{border-color:var(--org)}
@@ -3100,7 +3100,7 @@ function renderSCReps(s) {
       +'<td style="color:var(--g4);font-size:11px">'+escHtml(r.scope==='Council'?'Council Portal':r.lic||'—')+'</td>'
       +'<td><span style="background:'+scopeBg+';padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">'+scopeLabel+'</span></td>'
       +'<td><span class="tag '+(r.status.toLowerCase().indexOf('active')>=0?'grn':'gy')+'" style="font-size:10px">'+escHtml(r.status)+'</span></td>'
-      +'<td>'+(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':''))+'</td>'
+      +'<td>'+(canManage?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')+'</td>'
       +'</tr>';
   });
 
@@ -6274,86 +6274,23 @@ function switchSuperAdminRole(idx) {
   showPg('dashboard');
 }
 
-// Auto-restore saved session on page load
-window.addEventListener('load', function() {
-  // Restore Supabase session if one exists
-  getSupabase().auth.getSession().then(function(result) {
-    if (result.data && result.data.session && result.data.session.user) {
-      loadUserProfile(result.data.session.user.id);
+// Auth state changes — handle sign out and token refresh
+getSupabase().auth.onAuthStateChange(function(event, session) {
+  if (event === 'SIGNED_OUT') {
+    APP.currentUser = {name:'',lic:'',role:'',initials:'',brkLic:'',brkName:''};
+    APP.sc = [];
+    APP.brokerage = {};
+    showScr('scr-login');
+  }
+  if (event === 'PASSWORD_RECOVERY') {
+    showNewPasswordPrompt();
+  }
+  if (event === 'SIGNED_IN' && session) {
+    // Only reload if already in the platform (handles token refresh)
+    if (APP.currentUser && APP.currentUser.name) {
+      loadUserProfile(session.user.id);
     }
-    // else stay on login screen
-  }).catch(function(){
-    // No session or error — stay on login screen
-  });
-
-  // Listen for auth state changes (handles token refresh, sign out from another tab)
-  getSupabase().auth.onAuthStateChange(function(event, session) {
-    if (event === 'SIGNED_OUT') {
-      APP.currentUser = {name:'',lic:'',role:'',initials:'',brkLic:'',brkName:''};
-      APP.sc = [];
-      APP.brokerage = {};
-      showScr('scr-login');
-    }
-    if (event === 'PASSWORD_RECOVERY') {
-      showNewPasswordPrompt();
-    }
-    if (event === 'SIGNED_IN' && session) {
-      var userId = session.user.id;
-      var isConfirmed = !!session.user.email_confirmed_at;
-      
-      // Only act if email is confirmed — signup also fires SIGNED_IN but email isn't confirmed yet
-      if (!isConfirmed) {
-        // Email not confirmed yet — just return, check-email screen already showing
-        return;
-      }
-      // Check for pending profile to write
-      var pending = null;
-      try { pending = JSON.parse(localStorage.getItem('_pendingProfile')||'null'); } catch(e){}
-      // Match on userId or email (userId may be null if signUp callback was slow)
-      var pendingMatches = pending && !APP._profileWritten &&
-        (pending.userId === userId || pending.email === session.user.email);
-      if (pendingMatches) {
-        APP._profileWritten = true;
-        localStorage.removeItem('_pendingProfile');
-        
-        getSupabase().from('users').upsert({
-          id:           userId,
-          full_name:    pending.dn,
-          email:        pending.email,
-          bcfsa_lic:    pending.lic,
-          role:         pending.role,
-          brokerage_id: pending.brkLic
-        },{onConflict:'id'})
-        .then(function(r){
-          if (r.error) { console.error('[confirm] users error:', r.error); return; }
-          
-          if (pending.scId) {
-            console.log('[confirm] writing sc_users for sc_id:', pending.scId, 'user_id:', userId);
-            getSupabase().from('sc_users').upsert({
-              sc_id: pending.scId, user_id: userId, access_type: 'rep'
-            },{onConflict:'sc_id,user_id'})
-            .then(function(sr){
-              if(sr.error) console.error('[confirm] sc_users error:', JSON.stringify(sr.error));
-            });
-            getSupabase().from('reps').upsert({
-              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
-              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
-            },{onConflict:'brokerage_id,bcfsa_lic'})
-            .then(function(rr){
-              if(rr.error) console.error('[confirm] reps error:', JSON.stringify(rr.error));
-            });
-          } else {
-            
-          }
-          APP._profileWritten = false;
-          loadUserProfile(userId);
-        });
-      } else if (!pending) {
-        // Existing user logging in — load profile normally
-        loadUserProfile(userId);
-      }
-    }
-  });
+  }
 });
 
 
@@ -7009,9 +6946,7 @@ function renderMinutesList(sc, el) {
       + '</div>';
     return;
   }
-  var html = '<div class="br" style="margin-bottom:16px">'
-    + '<button class="btn pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
-    + '</div>';
+  var html = '';
   adjourned.forEach(function(m) {
     html += '<div class="card fi" style="margin-bottom:10px">'
       +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
