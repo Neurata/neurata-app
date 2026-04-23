@@ -777,7 +777,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="fr" style="margin-bottom:14px">
         <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.toUpperCase();invCheckBtn()"/></div>
         <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca" oninput="invCheckBtn()"/></div>
-        <div class="fg"><label>Password</label><input type="password" id="inv-pw" placeholder="Create a secure password (min 8 chars)" oninput="invCheckBtn()"/></div>
+        <div class="fg">
+          <label>Password</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="password" id="inv-pw" placeholder="Min 8 characters" oninput="invCheckBtn();invPwStrength()" style="flex:1"/>
+            <button type="button" class="btn xs" onclick="invTogglePw()" id="inv-pw-toggle" style="flex-shrink:0">Show</button>
+          </div>
+          <div id="inv-pw-strength" style="font-size:10px;margin-top:4px;color:var(--g4)">Minimum 8 characters</div>
+        </div>
       </div>
       
       <button class="btn pri full" id="inv-create-btn" style="margin-top:16px" onclick="obInviteComplete()" disabled>Create Account →</button>
@@ -5881,15 +5888,20 @@ function loadUserSCs(userId) {
   var db = getSupabase();
 
   // Step 1: Load strata corps
-  var scQuery = isAdmin
+  // Admins: direct query. Reps: two-step (sc_users has no FK to strata_corps)
+  var scQueryPromise = isAdmin
     ? db.from('strata_corps').select('*').eq('brokerage_id', APP.brokerage.lic)
-    : db.from('sc_users').select('strata_corps(*)').eq('user_id', userId);
+    : db.from('sc_users').select('sc_id').eq('user_id', userId).then(function(r) {
+        if (r.error || !r.data || !r.data.length) return {data:[], error:null};
+        var planNums = r.data.map(function(x){return x.sc_id;});
+        return db.from('strata_corps').select('*').in('plan_number', planNums);
+      });
 
-  scQuery.then(function(result) {
+  Promise.resolve(scQueryPromise).then(function(result) {
     if (result.error) { launchPlatform(); return; }
     var rows = result.data || [];
     var scList = rows.map(function(r) {
-      var sc = isAdmin ? r : r.strata_corps;
+      var sc = r; // both paths now return strata_corps rows directly
       if (!sc) return null;
       return {
         id:        sc.plan_number,
@@ -7972,6 +7984,30 @@ function obComplete(){
     });
 }
 
+function invTogglePw(){
+  var inp = document.getElementById('inv-pw');
+  var btn = document.getElementById('inv-pw-toggle');
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  if (btn) btn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+}
+
+function invPwStrength(){
+  var pw  = (document.getElementById('inv-pw')||{}).value||'';
+  var el  = document.getElementById('inv-pw-strength');
+  if (!el) return;
+  var score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  var labels = ['Too short','Weak','Fair','Good','Strong','Very strong'];
+  var colors = ['var(--red)','var(--red)','var(--org)','var(--org)','var(--grn)','var(--grn)'];
+  el.textContent = pw.length === 0 ? 'Minimum 8 characters' : labels[score] || 'Very strong';
+  el.style.color  = pw.length === 0 ? 'var(--g4)' : colors[score] || 'var(--grn)';
+}
+
 function invCheckBtn(){
   var lic   = (document.getElementById('inv-lic')||{}).value||'';
   var email = (document.getElementById('inv-email')||{}).value||'';
@@ -8085,6 +8121,32 @@ async function init(){
       m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});
     }
   });
+
+  // ── Handle Supabase auth callback (email confirmation, password reset) ──
+  var hash = window.location.hash;
+  var search = window.location.search;
+  var hasAuthCallback = hash.indexOf('access_token=') >= 0
+    || hash.indexOf('type=signup') >= 0
+    || hash.indexOf('type=recovery') >= 0
+    || search.indexOf('code=') >= 0;
+
+  if (hasAuthCallback) {
+    // Let Supabase SDK process the callback
+    var cbResult = await getSupabase().auth.getSession();
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (cbResult.data && cbResult.data.session) {
+      var userId = cbResult.data.session.user.id;
+      // Check if this was a password recovery
+      if (hash.indexOf('type=recovery') >= 0) {
+        showNewPasswordPrompt();
+        return;
+      }
+      // Email confirmed — load profile
+      nAlert('Email confirmed! Loading your account…', 'Welcome', 'success');
+      setTimeout(function(){ loadUserProfile(userId); }, 500);
+      return;
+    }
+  }
 
   // ── Check for invite/delegate URL params ─────────────────────────
   var urlParams = new URLSearchParams(window.location.search);
