@@ -5892,13 +5892,16 @@ function loadUserSCs(userId) {
   var scQueryPromise = isAdmin
     ? db.from('strata_corps').select('*').eq('brokerage_id', APP.brokerage.lic)
     : db.from('sc_users').select('sc_id').eq('user_id', userId).then(function(r) {
+        console.log('[loadSC] sc_users result:', JSON.stringify(r));
         if (r.error || !r.data || !r.data.length) return {data:[], error:null};
         var planNums = r.data.map(function(x){return x.sc_id;});
+        console.log('[loadSC] planNums:', planNums);
         return db.from('strata_corps').select('*').in('plan_number', planNums);
       });
 
   Promise.resolve(scQueryPromise).then(function(result) {
-    if (result.error) { launchPlatform(); return; }
+    console.log('[loadSC] strata_corps result:', JSON.stringify(result && result.data));
+    if (result.error) { console.error('[loadSC] error:', result.error); launchPlatform(); return; }
     var rows = result.data || [];
     var scList = rows.map(function(r) {
       var sc = r; // both paths now return strata_corps rows directly
