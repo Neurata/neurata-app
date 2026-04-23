@@ -1899,6 +1899,9 @@ function agSaveAndClose() {
   if (mtg) {
     mtg.agenda = JSON.parse(JSON.stringify(AG.agenda));
     sv('sc_'+sc_.id, sc_);
+    // Persist agenda to Supabase
+    getSupabase().from('meetings').update({agenda: mtg.agenda})
+      .eq('id', mtg.id).then(function(r){ if(r.error) console.error('Agenda save error:', r.error); });
     renderMeetings();
   } else {
     // Meeting not found in SC — close silently
@@ -3984,6 +3987,11 @@ function generateMinutes(sc, mtg) {
   };
   mtg.minutes = mins;
   sv('sc_'+sc.id, sc);
+  // Persist draft minutes to Supabase
+  getSupabase().from('meetings').update({
+    minutes_state:   mins.status || 'DRAFT',
+    minutes_content: mins
+  }).eq('id', mtg.id).then(function(r){ if(r.error) console.error('Minutes draft save error:', r.error); });
   // Fire AI generation for items with notes
   generateItemSummaries(mins.agenda, function() {
     mtg.minutes.agenda = mins.agenda;
@@ -4132,6 +4140,11 @@ function _finalizeProceed() {
   mtg.minutesState = 'FINAL';
   if (mtg.minutes) mtg.minutes.status = 'FINAL';
   sv('sc_'+sc_.id, sc_);
+  // Persist finalized minutes to Supabase
+  getSupabase().from('meetings').update({
+    minutes_state:   'FINAL',
+    minutes_content: mtg.minutes
+  }).eq('id', mtg.id).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
   document.getElementById('min-status-tag').textContent='FINAL';
   document.getElementById('min-status-tag').className='tag grn';
   document.getElementById('min-pdf-btn').disabled=false;
@@ -5479,7 +5492,6 @@ function syncBrokerageReps() {
   .then(function(data){
     if (data.reps && data.reps.length) {
       APP.reps = data.reps;
-      sv('reps', APP.reps);
       // Persist reps to Supabase so they survive refresh
       var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
       var repRows = data.reps.map(function(r) {
@@ -6175,9 +6187,7 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
-  // Persist session for auto-restore
-  sv('currentUser', APP.currentUser);
-  if (APP.brokerage && APP.brokerage.lic) sv('brokerage', APP.brokerage);
+  // Session managed by Supabase auth - no localStorage needed
 }
 
 
@@ -7671,7 +7681,11 @@ function saveAttendance() {
   // Save to meeting
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId;});
   var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
-  if(mtg) { mtg.attendees = present; sv('sc_'+sc_.id, sc_); }
+  if(mtg) {
+    mtg.attendees = present;
+    sv('sc_'+sc_.id, sc_);
+    getSupabase().from('meetings').update({attendees: present}).eq('id', mtg.id).then(function(){});
+  }
   closeMo('mo-attendance');
   // Show attendance badge in top bar
   var btn = document.getElementById('mm-att-btn');
@@ -8211,8 +8225,11 @@ async function init(){
         );
         return;
       }
-      // Normal cached login — no invite
-      if (savedUser && savedUser.name) {
+      // Live session exists — always load fresh from Supabase, ignore SC cache
+      if (supaSession.data && supaSession.data.session) {
+        loadUserProfile(supaSession.data.session.user.id);
+      } else if (savedUser && savedUser.name) {
+        // Fallback: no live session but have cache — try to restore
         APP.currentUser = savedUser;
         if (savedSC && savedSC.length) APP.sc = savedSC;
         if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
