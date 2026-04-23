@@ -793,6 +793,21 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- ═══════ CHECK EMAIL ═══════ -->
+<div class="screen" id="scr-check-email">
+  <div class="ob-wrap">
+    <div class="ob-card" style="width:440px;text-align:center">
+      <div class="ob-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" height="48" style="display:block;margin:0 auto"><defs><linearGradient id="nlg4" x1="28" y1="56" x2="28" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".31" stop-color="#f7941d"/></linearGradient></defs><path fill="url(#nlg4)" d="M31.14,8.46L39.6,0h16.4v16.4l-8.46,8.46V8.46h-16.4ZM8.46,47.54v-16.4L0,39.6v16.4h16.4l8.46-8.46H8.46ZM39.6,56h16.4v-16.4l-8.46-8.46v16.4h-3.33l-16.4-16.4h-13.07L39.6,56ZM16.4,0H0v16.4l8.46,8.46V8.46h3.33l16.4,16.4h13.07L16.4,0Z"/></svg></div>
+      <div style="font-size:48px;margin:16px 0">📧</div>
+      <div class="ob-h">Check your email</div>
+      <div class="ob-s" style="margin-bottom:8px">We sent a confirmation link to</div>
+      <div style="font-weight:700;font-size:15px;color:var(--ch);margin-bottom:16px" id="check-email-address">your email address</div>
+      <div class="ob-s">Click the link in the email to activate your account and access Neurata.</div>
+      <div class="al info" style="margin:20px 0;font-size:12px;text-align:left">Didn't receive it? Check your spam folder, or <button class="btn xs ghost" onclick="showScr('scr-invited')">go back and try again</button>.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
@@ -8149,9 +8164,35 @@ async function init(){
         showNewPasswordPrompt();
         return;
       }
-      // Email confirmed — load profile
-      nAlert('Email confirmed! Loading your account…', 'Welcome', 'success');
-      setTimeout(function(){ loadUserProfile(userId); }, 500);
+      // Email confirmed — write pending profile if exists, then load
+      var pending = null;
+      try { pending = JSON.parse(sessionStorage.getItem('_pendingProfile')||'null'); } catch(e){}
+      if (pending && pending.userId === userId) {
+        sessionStorage.removeItem('_pendingProfile');
+        // Now write to Supabase — session is confirmed and active
+        await getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}});
+        await getSupabase().from('users').upsert({
+          id:           userId,
+          full_name:    pending.dn,
+          email:        pending.email,
+          bcfsa_lic:    pending.lic,
+          role:         pending.role,
+          brokerage_id: pending.brkLic
+        },{onConflict:'id'});
+        if (pending.scId) {
+          getSupabase().from('sc_users').upsert({
+            sc_id: pending.scId, user_id: userId, access_type:'rep'
+          },{onConflict:'sc_id,user_id'});
+          getSupabase().from('reps').upsert({
+            brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
+            name: pending.dn, sc_ids: JSON.stringify([pending.scId])
+          },{onConflict:'brokerage_id,bcfsa_lic'});
+        }
+        nAlert('Email confirmed! Welcome to Neurata.', 'Welcome ✓', 'success');
+      } else {
+        nAlert('Email confirmed! Loading your account…', 'Welcome', 'success');
+      }
+      setTimeout(function(){ loadUserProfile(userId); }, 800);
       return;
     }
   }
