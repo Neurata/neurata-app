@@ -5754,9 +5754,15 @@ function adminEnterBrokerage(brkLic) {
     // Show "viewing as" banner in super admin bar
     var bar = document.getElementById('super-admin-bar');
     if (bar) {
+      var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
+      var roleLabels = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
       bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
         + '<span style="font-size:11px;color:#fff;margin-right:8px">Viewing: <strong>' + escHtml(b.name) + '</strong></span>'
-        + '<button onclick="adminExitBrokerage()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.5);background:none;color:#fff;cursor:pointer">← Exit</button>';
+        + roles.map(function(r) {
+            var active = r === APP.currentUser.role;
+            return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">' + roleLabels[r] + '</button>';
+          }).join('')
+        + '<button onclick="adminExitBrokerage()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.5);background:none;color:#fff;cursor:pointer;margin-left:8px">← Exit</button>';
     }
   });
 }
@@ -6378,13 +6384,18 @@ function renderSuperAdminBar() {
 function switchSuperAdminRole(role) {
   APP.currentUser = Object.assign({}, APP.currentUser, {
     role: role,
-    initials: {  'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'}[role] || 'SA'
+    initials: {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'}[role] || 'SA'
   });
   var av = document.getElementById('u-av');
   var nm = document.getElementById('u-nm');
   if (av) av.textContent = APP.currentUser.initials;
   if (nm) nm.textContent = APP.currentUser.name;
   renderNav();
+  // If inside a brokerage, re-render the banner with updated active role
+  if (APP._adminContext) {
+    var b = (APP._allBrokerages||[]).find(function(x){ return x.bcfsa_lic === APP.brokerage.lic; });
+    if (b) { adminEnterBrokerage(b.bcfsa_lic); return; }
+  }
   renderSuperAdminBar();
   showPg('dashboard');
 }
