@@ -5822,11 +5822,10 @@ function renderBilling() {
 }
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
-
   if (!el) return;
   var html = '<div class="g2">';
 
-  // ── Left: Payment method ─────────────────────────────────────────
+  // ── Left: Payment method ──────────────────────────────────────────
   html += '<div>';
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Payment Method</div>'
@@ -5854,62 +5853,83 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<button class="btn pri" style="width:100%;margin-top:4px" onclick="billingSubmit()">Save Payment Method</button>';
   html += '</div></div>';
 
-  // ── Right: SC subscription summary ───────────────────────────────
+  // ── Right column: Subscription Summary + Account Statements ──────
   html += '</div><div>';
-  html += '<div class="card">';
-  html += '<div class="ch_"><div class="ct">Subscription Summary</div></div>';
-  html += '<div class="cb">';
 
-  if (!sc.length) {
-    html += '<div style="color:var(--g4);font-size:13px;text-align:center;padding:16px">No strata corporations yet.</div>';
+  // Subscription Summary — active services per SC only
+  html += '<div class="card" style="margin-bottom:14px">';
+  html += '<div class="ch_"><div class="ct">Active Services</div></div>';
+  html += '<div class="cb">';
+  var activeSCs = sc.filter(function(s){ return scMmActive(s) || scSsTier(s); });
+  if (!activeSCs.length) {
+    html += '<div style="color:var(--g4);font-size:13px">No active services yet. Activate Meeting Mode or StrataSphere on a strata corporation to get started.</div>';
   } else {
-    var totalMonthly = 0;
-    sc.forEach(function(s) {
+    activeSCs.forEach(function(s) {
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var lots = parseInt(s.lots) || 0;
-      var mmMonthly = (mmOn && isSetup) ? PRICING.perBuilding : 0;
-      var ssMonthly = (ssTier==='global' && isSetup) ? (PRICING.perLotGlobal * lots)
-        : (ssTier==='local' && isSetup) ? (PRICING.perLotLocal * lots) : 0;
-      var rowTotal = mmMonthly + ssMonthly;
-      totalMonthly += rowTotal;
-
-      var mmTag = mmOn
-        ? (isSetup ? '<span class="tag grn">&#9654; Active &mdash; CA$'+PRICING.perBuilding+'/mo</span>'
-          : '<span class="tag amb">&#9654; Trial</span>')
-        : (trialEx ? '<span class="tag red">&#9654; Inactive</span>'
-          : '<span class="tag amb">&#9654; Trial</span>');
-
-      var ssTag = ssTier==='global'
-        ? '<span class="tag grn">&#129504; Global &mdash; CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/mo</span>'
-        : ssTier==='local'
-        ? '<span class="tag grn">&#129504; Local &mdash; CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/mo</span>'
-        : '<span class="tag gy">&#129504; SS Off</span>';
-
+      var services = [];
+      if (mmOn) services.push('<span class="tag grn">&#9654; Meeting Mode</span>');
+      if (ssTier === 'global') services.push('<span class="tag grn">&#129504; Global StrataSphere</span>');
+      else if (ssTier === 'local') services.push('<span class="tag grn">&#129504; Local StrataSphere</span>');
       html += '<div style="padding:10px 0;border-bottom:1px solid var(--g2)">'
-        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-        +'<div style="flex:1">'
         +'<div style="font-size:13px;font-weight:700">'+escHtml(s.plan)
-        +'<span style="font-weight:400;color:var(--g4);font-size:12px;margin-left:6px">'+escHtml(s.name||'')+'</span></div>'
-        +'<div style="font-size:11px;color:var(--g4);margin-top:1px">'+lots+' strata lots</div>'
-        +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">'+mmTag+ssTag+'</div>'
-        +'</div>'
-        +(rowTotal>0 ? '<div style="text-align:right;flex-shrink:0">'
-          +'<div style="font-size:14px;font-weight:700">CA$'+rowTotal.toFixed(2)+'</div>'
-          +'<div style="font-size:10px;color:var(--g4)">/month</div></div>' : '')
-        +'</div></div>';
+        +' <span style="font-weight:400;color:var(--g4);font-size:12px">'+escHtml(s.name||'')+'</span></div>'
+        +'<div style="font-size:11px;color:var(--g4);margin-bottom:6px">'+s.lots+' strata lots</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:4px">'+services.join('')+'</div>'
+        +'</div>';
     });
-
-    html += '<div style="padding:12px 0 4px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="font-size:12px;color:var(--g4)">Monthly total &nbsp;&middot;&nbsp; Annual commitment</div>'
-      +'<div style="text-align:right">'
-      +'<div style="font-size:18px;font-weight:700;color:var(--ch)">CA$'+totalMonthly.toFixed(2)+'/mo</div>'
-      +'<div style="font-size:11px;color:var(--g4)">CA$'+(totalMonthly*12).toFixed(2)+'/year</div>'
-      +'</div></div>';
   }
+  html += '</div></div>';
 
-  html += '</div></div></div></div>';
+  // Account Statements
+  html += '<div class="card">';
+  html += '<div class="ch_"><div class="ct">Account Statements</div>'
+    +(isMB ? '<button class="btn sm" onclick="generateInvoice()">&#128196; Email Invoice</button>' : '')
+    +'</div>';
+  html += '<div class="cb" id="statements-body">';
+  html += '<div style="color:var(--g4);font-size:13px">Loading statements...</div>';
+  html += '</div></div>';
+
+  html += '</div></div>';
   el.innerHTML = html;
+
+  // Load statements async
+  loadAccountStatements(document.getElementById('statements-body'));
+}
+
+function loadAccountStatements(el) {
+  if (!el) return;
+  getSupabase().from('invoices')
+    .select('*')
+    .eq('brokerage_id', APP.brokerage.lic)
+    .order('period_end', {ascending: false})
+    .limit(12)
+    .then(function(r) {
+      if (r.error || !r.data || !r.data.length) {
+        el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet. Invoices are generated automatically at the end of each billing period.</div>';
+        return;
+      }
+      var html = '<table class="tbl"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>';
+      r.data.forEach(function(inv) {
+        var period = inv.period_start ? inv.period_start.slice(0,7) : '—';
+        var status = inv.status || 'draft';
+        var tag = status === 'paid' ? '<span class="tag grn">Paid</span>'
+          : status === 'sent' ? '<span class="tag amb">Sent</span>'
+          : '<span class="tag gy">Draft</span>';
+        html += '<tr>'
+          +'<td style="font-size:13px">'+period+'</td>'
+          +'<td style="font-size:13px">CA$'+(inv.amount_cents ? (inv.amount_cents/100).toFixed(2) : '—')+'</td>'
+          +'<td>'+tag+'</td>'
+          +'<td>'+(inv.pdf_url ? '<a href="'+escHtml(inv.pdf_url)+'" target="_blank" class="btn xs">Download</a>' : '')+'</td>'
+          +'</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    });
+}
+
+function generateInvoice() {
+  nAlert('Invoice will be generated and emailed to '+escHtml(APP.brokerage.email||'your billing address')+'. This feature connects to the billing engine — coming soon.', 'Email Invoice', 'info');
 }
 
 function fmtCardNum(el){var v=el.value.replace(/[^0-9]/g,"").replace(/(.{4})/g,"$1 ").trim();el.value=v;}
