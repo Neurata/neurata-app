@@ -637,16 +637,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <button class="btn xs ghost" onclick="showScr('scr-onboard')">New to Neurata? Create an account</button>
         <button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button>
         <button class="btn xs ghost" onclick="showForgotPassword()" style="color:var(--g4)">Forgot your password?</button>
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--g2);text-align:center">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--g4);margin-bottom:8px">Developer / Demo Access</div>
-          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-            <button class="btn sm" onclick="superAdminLogin(0)" style="font-size:11px">Managing Broker</button>
-            <button class="btn sm" onclick="superAdminLogin(1)" style="font-size:11px">Associate Broker</button>
-            <button class="btn sm" onclick="superAdminLogin(2)" style="font-size:11px">Representative</button>
-            <button class="btn sm" onclick="superAdminLogin(3)" style="font-size:11px">Assistant</button>
-            <button class="btn sm" onclick="superAdminLogin(4)" style="font-size:11px">Council Delegate</button>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>
@@ -5983,8 +5974,15 @@ function loadUserProfile(userId) {
         brkName:  '',
         licFor:   u.licensed_for || '',
         title:    u.title || u.role || '',
-        globalSS: u.global_ss || false
+        globalSS: u.global_ss || false,
+        isSuperAdmin: u.role === 'Super Admin'
       };
+      // Super Admin — load all data across all brokerages
+      if (u.role === 'Super Admin') {
+        APP.brokerage = { name: 'Neurata Admin', lic: 'ADMIN', addr: '', email: u.email || '' };
+        loadSuperAdminData(userId, u);
+        return;
+      }
       // Fetch brokerage separately (avoids RLS join issues)
       getSupabase().from('brokerages').select('*').eq('bcfsa_lic', u.brokerage_id).single()
       .then(function(bResult) {
@@ -6236,92 +6234,63 @@ document.addEventListener('click',function(e){var pill=document.querySelector('.
 // ══════════════════════════════════════════
 
 // Pre-populated demo data for Super Admin
-var DEMO_SC = [
-  {id:'sc_demo_1', plan:'BCS 3229', name:'The Terminus', lots:50, addr:'28-38 Water St, Vancouver BC',
-   mgr:'Jeremy (REP)', mgrLic:'183255', adjCount:0, mmStatus:'', meetings:[], decisions:[],
-   councilSLs:['SL001','SL002','SL003','SL004','SL005'],
-   repIds:['183255']},
-  {id:'sc_demo_2', plan:'LMS 1501', name:'1633 West 8th', lots:74, addr:'1633 W 8th Ave, Vancouver BC',
-   mgr:'Jeremy (REP)', mgrLic:'183255', adjCount:1, mmStatus:'', meetings:[], decisions:[],
-   councilSLs:['SL001','SL002','SL003'],
-   repIds:['183255']},
-  {id:'sc_demo_3', plan:'EPS 9048', name:'Parkview Place', lots:32, addr:'9048 Park Blvd, Kelowna BC',
-   mgr:'Unassigned', mgrLic:'', adjCount:0, mmStatus:'', meetings:[], decisions:[],
-   councilSLs:['SL001','SL002','SL003'],
-   repIds:[],
-   delegateIds:['del_demo'],
-   delegates:[
-     {uid:'del_demo', name:'Jeremy (DEL)', email:'del@parkviewplace.com', councilRole:'President', invitedAt:'2026-01-01T00:00:00.000Z'}
-   ],
-   councilMembers:[
-     {sl:'SL001', name:'Jeremy (DEL)', email:'del@parkviewplace.com', role:'President', isCouncil:true}
-   ]}
-];
-var DEMO_BROKERAGE = {
-  name:'Associated Property Management (2001) Ltd.',
-  lic:'X025017', addr:'#1-1441 St. Paul St, Kelowna BC', phone:'(250) 712-0025'
-};
-
-var SUPER_ADMIN_ROLES = [
-  {role:'Managing Broker',    name:'Jeremy',  lic:'183255', initials:'MB',   label:'MB'},
-  {role:'Associate Broker',   name:'Jeremy',  lic:'181412', initials:'AB',   label:'AB'},
-  {role:'Representative',     name:'Jeremy',  lic:'183255', initials:'REP',  label:'REP'},
-  {role:'Assistant',          name:'Jeremy',  lic:'183255', initials:'ASST', label:'ASST'},
-  {role:'Council Delegate',   name:'Jeremy',  lic:'del_demo', uid:'del_demo', initials:'DEL', label:'DEL'}
-];
-
-function superAdminLogin(roleIdx) {
-  var r = SUPER_ADMIN_ROLES[roleIdx || 0];
-  if (!r) r = SUPER_ADMIN_ROLES[0];
-  APP.currentUser = {
-    name: r.name, legalName: r.name, lic: r.lic,
-    uid: r.uid || r.lic,
-    role: r.role, licFor: 'Strata Management', initials: r.initials,
-    brkLic: DEMO_BROKERAGE.lic, brkName: DEMO_BROKERAGE.name,
-    isSuperAdmin: true
-  };
-  APP.brokerage = DEMO_BROKERAGE;
-  // Always reset to fresh DEMO_SC so role switching shows correct filtered view
-  APP.sc = JSON.parse(JSON.stringify(DEMO_SC));
-  launchPlatform();
-  renderSuperAdminBar();
+function loadSuperAdminData(userId, u) {
+  // Load ALL strata corps across all brokerages
+  getSupabase().from('strata_corps').select('*').order('brokerage_id')
+  .then(function(r) {
+    var rows = r.data || [];
+    APP.sc = rows.map(function(sc) {
+      return {
+        id: sc.plan_number, plan: sc.plan_number, name: sc.name,
+        lots: sc.lots || 1, addr: sc.address || '',
+        mgr: '', mgrLic: '', brokerage_id: sc.brokerage_id,
+        mmStatus: sc.is_subscribed ? 'ACTIVE' : '',
+        adjCount: 0, meetings: [], decisions: [], docs: [],
+        councilMembers: [], repIds: [], delegateIds: []
+      };
+    });
+    // Load all brokerages for switcher
+    getSupabase().from('brokerages').select('*')
+    .then(function(br) {
+      APP._allBrokerages = br.data || [];
+      launchPlatform();
+      renderSuperAdminBar();
+    });
+  });
 }
+
+
 
 function renderSuperAdminBar() {
   var bar = document.getElementById('super-admin-bar');
   if (!bar) return;
+  if (!APP.currentUser || !APP.currentUser.isSuperAdmin) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   var cur = APP.currentUser.role;
+  var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
   bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
-    + SUPER_ADMIN_ROLES.map(function(r, i) {
-        var active = r.role === cur;
-        return '<button onclick="switchSuperAdminRole('+i+')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">'
-          + (r.label||r.role)
+    + roles.map(function(r) {
+        var active = r === cur;
+        return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">'
+          + {  'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'}[r]
           + '</button>';
       }).join('');
 }
 
-function switchSuperAdminRole(idx) {
-  var r = SUPER_ADMIN_ROLES[idx];
+function switchSuperAdminRole(role) {
   APP.currentUser = Object.assign({}, APP.currentUser, {
-    name: r.name, legalName: r.name, lic: r.lic,
-    uid: r.uid || r.lic,
-    role: r.role, initials: r.initials, isSuperAdmin: true
+    role: role,
+    initials: {  'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'}[role] || 'SA'
   });
-  // Update topbar display
   var av = document.getElementById('u-av');
   var nm = document.getElementById('u-nm');
-  if (av) av.textContent = r.initials;
-  if (nm) nm.textContent = r.name;
-  var mn = document.getElementById('menu-name');
-  var mr = document.getElementById('menu-role');
-  if (mn) mn.textContent = r.name;
-  // Reset to fresh DEMO_SC so role-based visibility updates correctly
-  APP.sc = JSON.parse(JSON.stringify(DEMO_SC));
+  if (av) av.textContent = APP.currentUser.initials;
+  if (nm) nm.textContent = APP.currentUser.name;
   renderNav();
   renderSuperAdminBar();
   showPg('dashboard');
 }
+
 
 // Auth state changes — handle sign out and token refresh
 getSupabase().auth.onAuthStateChange(function(event, session) {
