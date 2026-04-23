@@ -836,7 +836,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     </div>
     <div class="mo-ft">
       <button class="btn" onclick="closeMo('mo-invite-rep-corps')">Cancel</button>
-      <button class="btn pri" onclick="saveSCInviteRep('')">Assign & Invite</button>
+      <button class="btn pri" id="invite-corps-save-btn" onclick="saveSCInviteRep('')">Assign &amp; Invite</button>
     </div>
   </div>
 </div>
@@ -3082,7 +3082,7 @@ function openSCInviteRep(scId) {
   document.getElementById('invite-corps-list').innerHTML    = html;
   inviteUpdateCount();
   // Override save button to use SC-scoped save
-  document.querySelector('#mo-invite-rep-corps .mo-ft .btn.pri').setAttribute('onclick','saveSCInviteRep(\''+scId+'\')');
+  var saveBtn = document.getElementById('invite-corps-save-btn'); if(saveBtn) saveBtn.setAttribute('onclick','saveSCInviteRep(\''+scId+'\')');
   openMo('mo-invite-rep-corps');
 }
 
