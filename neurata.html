@@ -5560,42 +5560,47 @@ function saveInviteCorps() {
     sv('sc_'+s.id, s);
   });
   // Persist all SC assignments to Supabase
-  var assignedPlans = APP.sc.filter(function(s){return selected.has(s.id);}).map(function(s){return s.plan;});
+  var assignedSCs = APP.sc.filter(function(s){return selected.has(s.id);});
+  var assignedPlans = assignedSCs.map(function(s){return s.plan;});
+  var brkLic2 = APP.brokerage.lic;
   if (assignedPlans.length) {
-    // Persist all SC assignments — merge into sc_ids array
-    var brkLic2 = APP.brokerage.lic;
-    getSupabase().from('reps')
-      .select('sc_ids')
-      .eq('brokerage_id', brkLic2)
-      .eq('bcfsa_lic', lic)
-      .maybeSingle()
-      .then(function(existing) {
-        var scIds = [];
-        if (existing && existing.data && existing.data.sc_ids) {
-          try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
+    // Write sc_users rows for ALL selected SCs
+    assignedSCs.forEach(function(s) {
+      // Find the rep's user_id if they exist in auth
+      getSupabase().from('users').select('id').eq('bcfsa_lic', lic).eq('brokerage_id', brkLic2).maybeSingle()
+      .then(function(u) {
+        if (u && u.data && u.data.id) {
+          getSupabase().from('sc_users').upsert({
+            sc_id: s.plan, user_id: u.data.id, access_type: 'rep'
+          },{onConflict:'sc_id,user_id'}).then(function(){});
         }
-        assignedPlans.forEach(function(plan){ if (scIds.indexOf(plan)<0) scIds.push(plan); });
-        return getSupabase().from('reps').upsert({
-          brokerage_id: brkLic2,
-          bcfsa_lic:    lic,
-          name:         _inviteRepName || '',
-          sc_ids:       JSON.stringify(scIds)
-        }, {onConflict: 'brokerage_id,bcfsa_lic'});
-      }).then(function(r){ if(r&&r.error) console.error('Rep SC persist error:', r.error); })
-      .catch(function(e){ console.error('Rep SC persist error:', e); });
+      });
+    });
+    // Merge all plans into reps.sc_ids
+    getSupabase().from('reps').select('sc_ids').eq('brokerage_id', brkLic2).eq('bcfsa_lic', lic).maybeSingle()
+    .then(function(existing) {
+      var scIds = [];
+      if (existing && existing.data && existing.data.sc_ids) {
+        try { scIds = JSON.parse(existing.data.sc_ids); } catch(e) { scIds = []; }
+      }
+      assignedPlans.forEach(function(plan){ if (scIds.indexOf(plan)<0) scIds.push(plan); });
+      return getSupabase().from('reps').upsert({
+        brokerage_id: brkLic2, bcfsa_lic: lic, name: _inviteRepName || '',
+        sc_ids: JSON.stringify(scIds)
+      }, {onConflict: 'brokerage_id,bcfsa_lic'});
+    }).then(function(r){ if(r&&r.error) console.error('Rep SC persist error:', r.error); })
+    .catch(function(e){ console.error('Rep SC persist error:', e); });
   }
-  closeMo('mo-invite-rep-corps');
   closeMo('mo-invite-rep-corps');
   // Prompt for email then send real invite
   nPrompt('Enter email address for '+(_inviteRepName||'representative')+':', function(email){
     if(!email||!email.trim()) { renderBrokerage(); return; }
-    if(email.indexOf('@')<0){ nAlert('Please enter a valid email address.','Invalid Email','warn'); return; }
+    if(!email||email.indexOf('@')<0){ nAlert('Please enter a valid email address.','Invalid Email','warn'); return; }
     var rep = (APP.reps||[]).find(function(r){ return r.name === _inviteRepName; });
     var repLic = rep ? rep.lic : '';
-    var scId = (selected && selected.size > 0)
-      ? APP.sc.find(function(s){ return selected.has(s.id); }) && APP.sc.find(function(s){ return selected.has(s.id); }).id
-      : (APP.currentScId || (APP.sc.length ? APP.sc[0].id : null));
-    sendRepInviteEmail(email.trim(), _inviteRepName||'', scId, repLic);
+    // Use first selected SC for invite URL context
+    var firstSC = assignedSCs.length ? assignedSCs[0] : null;
+    if (firstSC) sendRepInviteEmail(email.trim(), _inviteRepName||'', firstSC.id, repLic);
     renderBrokerage();
   }, '', 'Email Address');
 }
@@ -5988,7 +5993,7 @@ function loadUserProfile(userId) {
           .then(function(r) {
             if (!r.error && r.data && r.data.length) {
               APP.reps = r.data.map(function(rep) {
-                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active' };
+                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active', scIds: rep.sc_ids || '[]' };
               });
               // Restore rep-SC connections onto SC objects from sc_ids array
               r.data.forEach(function(rep) {
@@ -6151,6 +6156,18 @@ function loadUserSCs(userId) {
       });
 
       APP.sc = scList;
+      // Restore rep-SC connections from reps.sc_ids NOW that APP.sc is populated
+      (APP.reps || []).forEach(function(rep) {
+        var scIds = [];
+        try { scIds = JSON.parse(rep.scIds || rep.sc_ids || '[]'); } catch(e) {}
+        scIds.forEach(function(plan) {
+          var sc_ = APP.sc.find(function(s){ return s.plan === plan; });
+          if (sc_) {
+            if (!sc_.repIds) sc_.repIds = [];
+            if (sc_.repIds.indexOf(rep.lic) < 0) sc_.repIds.push(rep.lic);
+          }
+        });
+      });
       // Reset currentScId to first SC if previous value no longer valid
       if (scList.length && (!APP.currentScId || !scList.find(function(s){return s.id===APP.currentScId;}))) {
         APP.currentScId = scList[0].id;
