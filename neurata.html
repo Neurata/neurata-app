@@ -8241,18 +8241,18 @@ async function init(){
   // Handle Supabase confirmation via hash fragment (#access_token=...)
   if (accessToken) {
     window.history.replaceState({}, document.title, window.location.pathname);
-    
-    var sResult = await getSupabase().auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken || ''
-    });
-    if (sResult.error) {
-      console.error('[confirm] setSession error:', sResult.error.message);
-      nAlert('Confirmation failed: ' + sResult.error.message, 'Error', 'warn');
-      return;
+    // Sign out any unconfirmed session, then show login with success message
+    // The DB trigger already wrote users/sc_users/reps on signUp — just need to log in
+    await getSupabase().auth.signOut();
+    showScr('scr-login');
+    var errEl = document.getElementById('li-err');
+    if (errEl) {
+      errEl.style.display = '';
+      errEl.style.background = '#f0fdf4';
+      errEl.style.color = '#16a34a';
+      errEl.style.border = '1px solid #bbf7d0';
+      errEl.textContent = '✓ Email confirmed! Please sign in.';
     }
-    
-    // onAuthStateChange SIGNED_IN fires and writes profile
     return;
   }
 
@@ -8310,6 +8310,14 @@ async function init(){
     }
 
     if (session) {
+      // Don't load unconfirmed sessions — they have no data and break the app
+      if (!session.user.email_confirmed_at) {
+        // Show check-email screen for unconfirmed users
+        showScr('scr-check-email');
+        var emailEl = document.getElementById('check-email-address');
+        if (emailEl) emailEl.textContent = session.user.email;
+        return;
+      }
       loadUserProfile(session.user.id);
     }
     // else stay on login screen
