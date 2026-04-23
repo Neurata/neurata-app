@@ -6201,12 +6201,7 @@ window.addEventListener('load', function() {
       
       // Only act if email is confirmed — signup also fires SIGNED_IN but email isn't confirmed yet
       if (!isConfirmed) {
-        // Email not confirmed yet — show check email screen, don't try to load profile
-        if (document.getElementById('scr-invited') && document.getElementById('scr-invited').classList.contains('on')) {
-          showScr('scr-check-email');
-          var emailEl = document.getElementById('check-email-address');
-          if (emailEl) emailEl.textContent = session.user.email;
-        }
+        // Email not confirmed yet — just return, check-email screen already showing
         return;
       }
       // Check for pending profile to write
