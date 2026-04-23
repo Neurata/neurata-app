@@ -7278,6 +7278,35 @@ function createSC() {
       }).then(function(){});
     }
   });
+  // Upload strata plan PDF to Storage if one was provided
+  if (_scPlanPdfFile) {
+    var pdfFile = _scPlanPdfFile;
+    _scPlanPdfFile = null;
+    var path = 'strata-plans/' + plan + '/' + pdfFile.name;
+    getSupabase().storage.from('neurata-documents').upload(path, pdfFile, {upsert: true})
+    .then(function(r) {
+      if (r.error) { console.error('Strata plan upload failed:', r.error); return; }
+      var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
+      getSupabase().from('documents').insert({
+        sc_id:        plan,
+        name:         pdfFile.name,
+        source:       'strata-plan',
+        source_label: 'Strata Plan',
+        mime_type:    'application/pdf',
+        storage_path: path,
+        public_url:   url,
+        uploaded_at:  new Date().toISOString()
+      }).then(function(){});
+      // Add to local SC object
+      var sc_ = APP.sc.find(function(s){return s.plan===plan;});
+      if (sc_) {
+        if (!sc_.docs) sc_.docs = [];
+        sc_.docs.push({ name: pdfFile.name, sourceLabel: 'Strata Plan', source: 'strata-plan', mime: 'application/pdf', date: new Date().toLocaleDateString() });
+      }
+    });
+  } else {
+    _scPlanPdfFile = null;
+  }
   closeMo('mo-add-sc');
   document.getElementById('sc-plan').value='';
   document.getElementById('sc-name').value='';
@@ -7302,6 +7331,7 @@ function openAddSC() {
   var fn2 = document.getElementById('sc-name'); if(fn2) fn2.value='';
   var fl  = document.getElementById('sc-lots'); if(fl) fl.value='';
   var fa  = document.getElementById('sc-addr'); if(fa) fa.value='';
+  _scPlanPdfFile = null;
   var fi  = document.getElementById('sc-pdf-input'); if(fi) fi.value='';
   openMo('mo-add-sc');
 }
@@ -7501,9 +7531,12 @@ function mmEditCurrentItem() {
 }
 
 
+var _scPlanPdfFile = null; // stored for upload after SC creation
+
 function scHandleFile(file){
   if(!file) return;
   if(file.type !== 'application/pdf'){ nAlert('Please upload a PDF file.'); return; }
+  _scPlanPdfFile = file; // save for upload after createSC
   document.getElementById('sc-upz').style.display='none';
   document.getElementById('sc-parse-status').style.display='';
   var reader = new FileReader();
