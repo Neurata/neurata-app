@@ -7312,7 +7312,8 @@ function createSC() {
   document.getElementById('sc-name').value='';
   document.getElementById('sc-lots').value='';
   document.getElementById('sc-addr').value='';
-  showPg('meetings');
+  showPg('strata');
+  setTimeout(function(){ openSCDetail(plan); }, 100);
 }
 
 function openAddSC() {
