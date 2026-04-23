@@ -3091,7 +3091,7 @@ function openEmailInvite(scId, lic, name) {
 
 function sendRepInviteEmail(email, name, scId, lic) {
   var s = APP.sc.find(function(x){return x.id===scId;});
-  console.log('[invite] email='+email+' scId='+scId+' lic='+lic+' s='+JSON.stringify(s&&s.plan)+' brkLic='+APP.brokerage.lic);
+  
   if (!s) { nAlert('Could not find strata corporation. Please try again.', 'Error', 'warn'); return; }
   if (!APP.brokerage.lic) { nAlert('Brokerage licence not found. Please reload and try again.', 'Error', 'warn'); return; }
   var fromName = APP.currentUser ? APP.currentUser.name : '';
@@ -5925,15 +5925,15 @@ function loadUserSCs(userId) {
   var scQueryPromise = isAdmin
     ? db.from('strata_corps').select('*').eq('brokerage_id', APP.brokerage.lic)
     : db.from('sc_users').select('sc_id').eq('user_id', userId).then(function(r) {
-        console.log('[loadSC] sc_users result:', JSON.stringify(r));
+        
         if (r.error || !r.data || !r.data.length) return {data:[], error:null};
         var planNums = r.data.map(function(x){return x.sc_id;});
-        console.log('[loadSC] planNums:', planNums);
+        
         return db.from('strata_corps').select('*').in('plan_number', planNums);
       });
 
   Promise.resolve(scQueryPromise).then(function(result) {
-    console.log('[loadSC] strata_corps result:', JSON.stringify(result && result.data));
+    
     if (result.error) { console.error('[loadSC] error:', result.error); launchPlatform(); return; }
     var rows = result.data || [];
     var scList = rows.map(function(r) {
@@ -6198,10 +6198,15 @@ window.addEventListener('load', function() {
     if (event === 'SIGNED_IN' && session) {
       var userId = session.user.id;
       var isConfirmed = !!session.user.email_confirmed_at;
-      console.log('[auth] SIGNED_IN userId:', userId, 'confirmed:', isConfirmed);
+      
       // Only act if email is confirmed — signup also fires SIGNED_IN but email isn't confirmed yet
       if (!isConfirmed) {
-        console.log('[auth] email not confirmed yet — waiting for confirmation');
+        // Email not confirmed yet — show check email screen, don't try to load profile
+        if (document.getElementById('scr-invited') && document.getElementById('scr-invited').classList.contains('on')) {
+          showScr('scr-check-email');
+          var emailEl = document.getElementById('check-email-address');
+          if (emailEl) emailEl.textContent = session.user.email;
+        }
         return;
       }
       // Check for pending profile to write
@@ -6213,7 +6218,7 @@ window.addEventListener('load', function() {
       if (pendingMatches) {
         APP._profileWritten = true;
         localStorage.removeItem('_pendingProfile');
-        console.log('[confirm] writing profile for confirmed user', userId);
+        
         getSupabase().from('users').upsert({
           id:           userId,
           full_name:    pending.dn,
@@ -6224,7 +6229,7 @@ window.addEventListener('load', function() {
         },{onConflict:'id'})
         .then(function(r){
           if (r.error) { console.error('[confirm] users error:', r.error); return; }
-          console.log('[confirm] users row written OK');
+          
           if (pending.scId) {
             console.log('[confirm] writing sc_users for sc_id:', pending.scId, 'user_id:', userId);
             getSupabase().from('sc_users').upsert({
@@ -6232,7 +6237,6 @@ window.addEventListener('load', function() {
             },{onConflict:'sc_id,user_id'})
             .then(function(sr){
               if(sr.error) console.error('[confirm] sc_users error:', JSON.stringify(sr.error));
-              else console.log('[confirm] sc_users written OK');
             });
             getSupabase().from('reps').upsert({
               brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
@@ -6240,10 +6244,9 @@ window.addEventListener('load', function() {
             },{onConflict:'brokerage_id,bcfsa_lic'})
             .then(function(rr){
               if(rr.error) console.error('[confirm] reps error:', JSON.stringify(rr.error));
-              else console.log('[confirm] reps written OK');
             });
           } else {
-            console.log('[confirm] no scId in pending — skipping sc_users/reps');
+            
           }
           APP._profileWritten = false;
           loadUserProfile(userId);
@@ -8250,7 +8253,7 @@ async function init(){
   // Handle Supabase confirmation via hash fragment (#access_token=...)
   if (accessToken) {
     window.history.replaceState({}, document.title, window.location.pathname);
-    console.log('[confirm] access_token in hash, type:', hashType);
+    
     var sResult = await getSupabase().auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken || ''
@@ -8260,7 +8263,7 @@ async function init(){
       nAlert('Confirmation failed: ' + sResult.error.message, 'Error', 'warn');
       return;
     }
-    console.log('[confirm] session set from hash, userId:', sResult.data.session && sResult.data.session.user.id);
+    
     // onAuthStateChange SIGNED_IN fires and writes profile
     return;
   }
