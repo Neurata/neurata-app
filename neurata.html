@@ -3213,7 +3213,8 @@ function sendRepInviteEmail(email, name, scId, lic) {
   if (!APP.brokerage.lic) { nAlert('Brokerage licence not found. Please reload and try again.', 'Error', 'warn'); return; }
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
-  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(s.plan||scId)+'&lic='+encodeURIComponent(lic||'');
+  var scParam = (allPlans && allPlans.length > 1) ? allPlans.join(',') : (s.plan||scId);
+  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scParam)+'&lic='+encodeURIComponent(lic||'');
 
   // Save assignment locally and persist to Supabase
   if (lic && s) {
@@ -8360,6 +8361,7 @@ async function init(){
   var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
   var delegateSc = urlParams.get('delegate'); // SC id for delegate
   var delegateSl = urlParams.get('sl');        // strata lot
+  var inviteScPlans = inviteSc ? inviteSc.split(',').map(function(p){return p.trim();}).filter(Boolean) : [];
   var hasInvite  = !!(inviteBrk || delegateSc);
 
   // Store invite context for use after login/signup
@@ -8367,9 +8369,10 @@ async function init(){
     window._inviteContext = {
       type:       delegateSc ? 'delegate' : 'rep',
       brkLic:     inviteBrk  || '',
-      scId:       inviteSc   || delegateSc || '',
-      sl:         delegateSl || '',
-      lic:        inviteLic  || ''
+      scId:       inviteScPlans[0] || delegateSc || '',
+      scPlans:    inviteScPlans,
+      lic:        inviteLic  || '',
+      sl:         delegateSl || ''
     };
     // Clean up URL without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
