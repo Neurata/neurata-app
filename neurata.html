@@ -628,7 +628,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="ob-h">Welcome Back</div>
       <div class="ob-s">Sign in to your Neurata account.</div>
       <div class="fr" style="margin-bottom:16px">
-        <div class="fg"><label>Brokerage Email</label><input type="email" id="li-email" placeholder="you@yourbrokerage.ca" onkeydown="if(event.key==='Enter')doLogin()" oninput="liCheckBtn()"/></div>
+        <div class="fg"><label>Brokerage Email</label><input type="email" id="li-email" placeholder="you@yourbrokerage.ca" onkeydown="if(event.key==='Enter')doLogin()"/></div>
         <div class="fg"><label>Password</label><input type="password" id="li-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       </div>
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
@@ -5706,13 +5706,6 @@ function billingSubmitContact() {
 // ══════════════════════════════════════════
 // AUTH & SESSION
 // ══════════════════════════════════════════
-function liCheckBtn(){
-  var email = (document.getElementById('li-email')||{}).value||'';
-  var pw    = (document.getElementById('li-pw')||{}).value||'';
-  var btn   = document.getElementById('li-btn');
-  if (btn) btn.disabled = !(email.indexOf('@') >= 0 && pw.length >= 6);
-}
-
 function doLogin(){
   var email = (document.getElementById('li-email')||{}).value||'';
   var pw    = (document.getElementById('li-pw')||{}).value||'';
