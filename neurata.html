@@ -3206,7 +3206,8 @@ function openEmailInvite(scId, lic, name) {
   }, '', 'Email Address');
 }
 
-function sendRepInviteEmail(email, name, scId, lic) {
+function sendRepInviteEmail(email, name, scId, lic, allPlans) {
+  allPlans = allPlans || [];
   var s = APP.sc.find(function(x){return x.id===scId;});
   
   if (!s) { nAlert('Could not find strata corporation. Please try again.', 'Error', 'warn'); return; }
