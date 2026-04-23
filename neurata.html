@@ -5507,6 +5507,9 @@ function openInviteModal(lic, name) {
   });
   document.getElementById('invite-corps-list').innerHTML = html;
   inviteUpdateCount();
+  // Set save button to brokerage-level save function
+  var saveBtn = document.getElementById('invite-corps-save-btn');
+  if (saveBtn) saveBtn.setAttribute('onclick', 'saveInviteCorps()');
   openMo('mo-invite-rep-corps');
 }
 
