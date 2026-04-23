@@ -6204,38 +6204,36 @@ window.addEventListener('load', function() {
         APP._profileWritten = true;
         localStorage.removeItem('_pendingProfile');
         var userId = session.user.id;
-        console.log('[confirm] SIGNED_IN event — writing profile for', userId);
-        // Write all profile data now that session is confirmed
-        getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}})
-        .then(function() {
-          return getSupabase().from('users').upsert({
-            id:           userId,
-            full_name:    pending.dn,
-            email:        pending.email,
-            bcfsa_lic:    pending.lic,
-            role:         pending.role,
-            brokerage_id: pending.brkLic
-          },{onConflict:'id'});
+        console.log('[confirm] SIGNED_IN — calling worker to write profile for', userId);
+        // Use worker with service role key — bypasses RLS
+        fetch(WORKER_URL+'/setup-user', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            userId:  userId,
+            dn:      pending.dn,
+            email:   pending.email,
+            lic:     pending.lic,
+            role:    pending.role,
+            brkLic:  pending.brkLic,
+            scId:    pending.scId
+          })
         })
-        .then(function(r) {
-          if (r && r.error) { console.error('[confirm] users upsert error:', r.error); return; }
-          console.log('[confirm] users row written OK');
-          if (pending.scId) {
-            getSupabase().from('sc_users').upsert({
-              sc_id: pending.scId, user_id: userId, access_type:'rep'
-            },{onConflict:'sc_id,user_id'});
-            getSupabase().from('reps').upsert({
-              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
-              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
-            },{onConflict:'brokerage_id,bcfsa_lic'});
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          APP._profileWritten = false;
+          if (d.error) {
+            console.error('[confirm] worker error:', d.error);
+            nAlert('There was a problem setting up your account: '+d.error, 'Error', 'warn');
+            return;
           }
-          // Small delay then load profile
-          setTimeout(function(){
-            APP._profileWritten = false;
-            loadUserProfile(userId);
-          }, 500);
+          console.log('[confirm] profile written OK via worker');
+          loadUserProfile(userId);
         })
-        .catch(function(e){ console.error('[confirm] error:', e); });
+        .catch(function(e){
+          APP._profileWritten = false;
+          console.error('[confirm] fetch error:', e);
+        });
       }
     }
   });
@@ -8133,8 +8131,21 @@ function obInviteComplete(){
     var brkLic   = (ctx && ctx.brkLic) || rep.businessLicence || '';
     if(btn){ btn.textContent='Creating account...'; }
 
-    // Step 2: Create auth account
-    return getSupabase().auth.signUp({email:email, password:pw})
+    // Step 2: Create auth account — pass profile data as metadata
+    // Supabase trigger will create the users row on email confirmation
+    return getSupabase().auth.signUp({
+      email: email,
+      password: pw,
+      options: {
+        data: {
+          full_name:    dn,
+          bcfsa_lic:    lic,
+          role:         rep.licensedAs || 'Representative',
+          brokerage_id: brkLic,
+          sc_id:        ctx ? ctx.scId : ''
+        }
+      }
+    })
     .then(function(result){
       if(result.error){ return Promise.reject(result.error.message||'Could not create account.'); }
       var userId = result.data.user.id;
