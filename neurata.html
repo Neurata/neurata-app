@@ -5821,7 +5821,7 @@ function showForgotPassword() {
 function loadUserProfile(userId) {
   getSupabase()
     .from('users')
-    .select('*, brokerages(*)')
+    .select('*')
     .eq('id', userId)
     .single()
     .then(function(result) {
@@ -5841,39 +5841,49 @@ function loadUserProfile(userId) {
         return;
       }
       loadUserProfile._retryCount = 0; // reset on success
+      loadUserProfile._retryCount = 0; // reset on success
       var u = result.data;
-      var b = u.brokerages || {};
-      // Populate APP state from database
+      // Set user first
       APP.currentUser = {
-        id:        u.id,
-        name:      u.full_name,
-        email:     u.email,
-        photoUrl:  u.photo_url||'',
-        lic:       u.bcfsa_lic || '',
-        role:      u.role,
-        initials:  u.full_name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase(),
-        brkLic:    b.bcfsa_lic || '',
-        brkName:   b.name || '',
-        licFor:    u.licensed_for || '',
-        title:     u.title || u.role || '',
-        globalSS:  u.global_ss || false
+        id:       u.id,
+        name:     u.full_name,
+        email:    u.email,
+        photoUrl: u.photo_url||'',
+        lic:      u.bcfsa_lic || '',
+        role:     u.role,
+        initials: u.full_name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase(),
+        brkLic:   u.brokerage_id || '',
+        brkName:  '',
+        licFor:   u.licensed_for || '',
+        title:    u.title || u.role || '',
+        globalSS: u.global_ss || false
       };
-      APP.brokerage = {
-        name:             b.name || '',
-        lic:              b.bcfsa_lic || '',
-        addr:             b.address || '',
-        phone:            b.phone || '',
-        city:             b.city || '',
-        email:            b.email || u.email || '',
-        logoUrl:          b.logo_url || '',
-        docs:             b.docs || [],
-        subscriptionStatus: b.subscription_status || 'trial',
-        trialMeetingsUsed:  b.trial_meetings_used || 0,
-        billingSetup:       b.billing_setup || false,
-        payMethod:          b.pay_method || 'acss'
-      };
-      // Load strata corps for this user
-      loadUserSCs(userId);
+      // Fetch brokerage separately (avoids RLS join issues)
+      getSupabase().from('brokerages').select('*').eq('bcfsa_lic', u.brokerage_id).single()
+      .then(function(bResult) {
+        var b = (bResult.data) || {};
+        APP.brokerage = {
+          name:               b.name || '',
+          lic:                b.bcfsa_lic || u.brokerage_id || '',
+          addr:               b.address || '',
+          phone:              b.phone || '',
+          city:               b.city || '',
+          email:              b.email || u.email || '',
+          logoUrl:            b.logo_url || '',
+          docs:               b.docs || [],
+          subscriptionStatus: b.subscription_status || 'trial',
+          trialMeetingsUsed:  b.trial_meetings_used || 0,
+          billingSetup:       b.billing_setup || false,
+          payMethod:          b.pay_method || 'acss'
+        };
+        if (b.name) APP.currentUser.brkName = b.name;
+        // Load strata corps
+        loadUserSCs(userId);
+      }).catch(function() {
+        // Brokerage not accessible yet — proceed anyway
+        APP.brokerage = { lic: u.brokerage_id || '', name: '', docs: [] };
+        loadUserSCs(userId);
+      });
       // Load reps from Supabase
       if (APP.brokerage.lic) {
         getSupabase().from('reps')
