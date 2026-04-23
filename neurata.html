@@ -5744,7 +5744,15 @@ function doLogin(){
         if (errEl) { errEl.style.display=''; errEl.textContent='Incorrect email or password.'; }
         return;
       }
-      // Auth succeeded — load user profile from users table
+      // Auth succeeded — check email is confirmed
+      if (!result.data.user.email_confirmed_at) {
+        if (btn) { btn.disabled=false; btn.textContent='Sign In →'; }
+        if (errEl) {
+          errEl.style.display='';
+          errEl.textContent='Please confirm your email address before signing in. Check your inbox for a confirmation link.';
+        }
+        return;
+      }
       loadUserProfile(result.data.user.id);
     })
     .catch(function(err) {
