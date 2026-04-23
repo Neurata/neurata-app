@@ -8146,21 +8146,8 @@ function obInviteComplete(){
     var brkLic   = (ctx && ctx.brkLic) || rep.businessLicence || '';
     if(btn){ btn.textContent='Creating account...'; }
 
-    // Save pending profile to localStorage BEFORE signUp
-    // so SIGNED_IN handler can find it after email confirmation
-    try {
-      localStorage.setItem('_pendingProfile', JSON.stringify({
-        userId:  null, // will update after signUp
-        dn:      dn,
-        email:   email,
-        lic:     lic,
-        role:    rep.licensedAs || 'Representative',
-        brkLic:  brkLic,
-        scId:    ctx ? ctx.scId : null
-      }));
-    } catch(e){}
-
-    // Step 2: Create auth account — pass profile data as metadata
+    // Step 2: Create auth account with metadata
+    // DB trigger will write users/sc_users/reps rows immediately on insert
     return getSupabase().auth.signUp({
       email: email,
       password: pw,
