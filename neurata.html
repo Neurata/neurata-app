@@ -6207,7 +6207,10 @@ window.addEventListener('load', function() {
       // Check for pending profile to write
       var pending = null;
       try { pending = JSON.parse(localStorage.getItem('_pendingProfile')||'null'); } catch(e){}
-      if (pending && pending.userId === userId && !APP._profileWritten) {
+      // Match on userId or email (userId may be null if signUp callback was slow)
+      var pendingMatches = pending && !APP._profileWritten &&
+        (pending.userId === userId || pending.email === session.user.email);
+      if (pendingMatches) {
         APP._profileWritten = true;
         localStorage.removeItem('_pendingProfile');
         console.log('[confirm] writing profile for confirmed user', userId);
