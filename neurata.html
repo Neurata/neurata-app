@@ -8208,69 +8208,25 @@ async function init(){
     }
   });
 
-  // ── Handle Supabase auth callback (email confirmation, password reset) ──
-  var hash = window.location.hash;
-  var search = window.location.search;
-  var hasAuthCallback = hash.indexOf('access_token=') >= 0
-    || hash.indexOf('type=signup') >= 0
-    || hash.indexOf('type=recovery') >= 0
-    || search.indexOf('code=') >= 0;
+  // ── Check URL params ─────────────────────────────────────────────
+  var urlParams = new URLSearchParams(window.location.search);
+  var tokenHash = urlParams.get('token_hash');
+  var tokenType = urlParams.get('type');
 
-  if (hasAuthCallback) {
-    // Let Supabase SDK process the callback
-    var cbResult = await getSupabase().auth.getSession();
+  // Handle Supabase email confirmation (token_hash flow)
+  if (tokenHash) {
     window.history.replaceState({}, document.title, window.location.pathname);
-    if (cbResult.data && cbResult.data.session) {
-      var userId = cbResult.data.session.user.id;
-      if (hash.indexOf('type=recovery') >= 0) {
-        showNewPasswordPrompt();
-        return;
-      }
-      // Email confirmed — write pending profile then load
-      var pending = null;
-      try { pending = JSON.parse(localStorage.getItem('_pendingProfile')||'null'); } catch(e){}
-      if (pending && pending.userId === userId) {
-        localStorage.removeItem('_pendingProfile');
-        try {
-          await getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}});
-          var upsertResult = await getSupabase().from('users').upsert({
-            id:           userId,
-            full_name:    pending.dn,
-            email:        pending.email,
-            bcfsa_lic:    pending.lic,
-            role:         pending.role,
-            brokerage_id: pending.brkLic
-          },{onConflict:'id'});
-          if (upsertResult.error) {
-            console.error('[confirm] users upsert error:', upsertResult.error);
-          } else {
-            console.log('[confirm] users row written OK');
-          }
-          if (pending.scId) {
-            await getSupabase().from('sc_users').upsert({
-              sc_id: pending.scId, user_id: userId, access_type:'rep'
-            },{onConflict:'sc_id,user_id'});
-            await getSupabase().from('reps').upsert({
-              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
-              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
-            },{onConflict:'brokerage_id,bcfsa_lic'});
-          }
-          nAlert('Email confirmed! Welcome to Neurata.', 'Welcome ✓', 'success');
-          loadUserProfile(userId);
-        } catch(e) {
-          console.error('[confirm] error writing profile:', e);
-          nAlert('There was a problem setting up your account. Please try again.', 'Error', 'warn');
-        }
-      } else {
-        nAlert('Email confirmed! Loading your account…', 'Welcome', 'success');
-        loadUserProfile(userId);
-      }
+    console.log('[confirm] token_hash found, type:', tokenType);
+    var vResult = await getSupabase().auth.verifyOtp({token_hash: tokenHash, type: tokenType || 'signup'});
+    if (vResult.error) {
+      console.error('[confirm] verifyOtp error:', vResult.error.message);
+      nAlert('Confirmation failed: ' + vResult.error.message, 'Error', 'warn');
       return;
     }
+    // Session established — onAuthStateChange SIGNED_IN will fire and write profile
+    console.log('[confirm] verifyOtp success');
+    return;
   }
-
-  // ── Check for invite/delegate URL params ─────────────────────────
-  var urlParams = new URLSearchParams(window.location.search);
   var inviteBrk  = urlParams.get('invite');   // brokerage lic
   var inviteSc   = urlParams.get('sc');        // SC id
   var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
