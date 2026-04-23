@@ -8298,203 +8298,32 @@ async function init(){
   }
 
   try{
-    var savedUser = await ld('currentUser', null);
-    var savedSC   = await ld('sc', []);
-    var savedBrk  = await ld('brokerage', {});
-
-    // Check for live Supabase session too (covers cases where localStorage is stale)
+    // Always use live Supabase session — no localStorage
     var supaSession = await getSupabase().auth.getSession();
-    var isLoggedIn = (savedUser && savedUser.name) || (supaSession.data && supaSession.data.session);
+    var session = supaSession.data && supaSession.data.session;
 
-    if (isLoggedIn) {
+    if (session) {
+      // Check email is confirmed before loading platform
+      if (!session.user.email_confirmed_at) {
+        showScr('scr-check-email');
+        var emailEl = document.getElementById('check-email-address');
+        if (emailEl) emailEl.textContent = session.user.email;
+        return;
+      }
       if (hasInvite) {
-        // Someone is already logged in — prompt to sign out and follow invite
-        var displayName = savedUser ? savedUser.name : 'your current account';
-        var displayEmail = savedUser ? (savedUser.email||savedUser.lic||'') : '';
         nConfirm(
-          'You are currently signed in as ' + displayName + (displayEmail ? ' (' + displayEmail + ')' : '') + '. ' +
-          'This invitation link is for a different account. Sign out now and continue with the invitation?',
+          'You are currently signed in. This invitation is for a different account. Sign out and continue?',
           function(ok) {
-            if (ok) {
-              getSupabase().auth.signOut().then(function() {
-                showScr('scr-login');
-              });
-            } else {
-              // Stay logged in — discard invite, proceed normally
-              window._inviteContext = null;
-              if (savedUser && savedUser.name) {
-                APP.currentUser = savedUser;
-                if (savedSC && savedSC.length) APP.sc = savedSC;
-                if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
-                launchPlatform();
-              }
-            }
+            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-login'); }); }
+            else { window._inviteContext = null; loadUserProfile(session.user.id); }
           },
-          'Invitation Link Detected',
-          'info'
+          'Invitation Link Detected', 'info'
         );
         return;
       }
-      // Live session exists — always load fresh from Supabase, ignore SC cache
-      if (supaSession.data && supaSession.data.session) {
-        loadUserProfile(supaSession.data.session.user.id);
-      } else if (savedUser && savedUser.name) {
-        // Fallback: no live session but have cache — try to restore
-        APP.currentUser = savedUser;
-        if (savedSC && savedSC.length) APP.sc = savedSC;
-        if (savedBrk && savedBrk.lic) APP.brokerage = savedBrk;
-        launchPlatform();
-      }
+      loadUserProfile(session.user.id);
     } else if (hasInvite) {
-      // No session — show the invite signup screen
       showScr('scr-invited');
-      // lic is stored in _inviteContext for validation on submit — not prefilled
     }
     // else stay on login screen
-  }catch(e){}
-}
-init();
-</script>
-<!-- Attendance Modal -->
-<div class="mo" id="mo-attendance">
-  <div class="mo-box" style="max-width:480px">
-    <div class="mo-hd">
-      <div>
-        <div class="mo-t">Meeting Attendance</div>
-        <div style="font-size:11px;color:var(--g4)" id="att-quorum-label">Select present strata lot numbers</div>
-      </div>
-      <button class="mo-x" onclick="closeMo('mo-attendance')">×</button>
-    </div>
-    <div class="mo-bd">
-      <div style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
-        <button class="btn sm" onclick="attSelectAll()">Select All</button>
-        <button class="btn sm" onclick="attSelectNone()">Clear</button>
-        <span style="font-size:11px;color:var(--g4);margin-left:auto" id="att-count">0 present</span>
-      </div>
-      <div id="att-sl-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:300px;overflow-y:auto;padding:4px"></div>
-      <div id="att-quorum-result" style="margin-top:12px;padding:10px;border-radius:6px;font-size:12px;font-weight:600;text-align:center;display:none"></div>
-    </div>
-    <div class="mo-ft">
-      <button class="btn" onclick="closeMo('mo-attendance')">Cancel</button>
-      <button class="btn pri" onclick="saveAttendance()">Save Attendance</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- ── CUSTOM DIALOG ── -->
-<div id="cdlg-overlay">
-  <div id="cdlg-box">
-    <div id="cdlg-hd">
-      <div id="cdlg-icon">ℹ</div>
-      <div>
-        <div id="cdlg-title"></div>
-        <div id="cdlg-msg"></div>
-      </div>
-    </div>
-    <div id="cdlg-input-wrap" style="display:none;margin-top:10px">
-      <input id="cdlg-input" type="text" placeholder=""/>
-    </div>
-    <div id="cdlg-ft"></div>
-  </div>
-</div>
-
-
-<!-- Invite Rep to Corps Modal -->
-<div class="mo" id="mo-invite-rep-corps">
-  <div class="mo-box" style="max-width:520px">
-    <div class="mo-hd">
-      <div>
-        <div class="mo-t" id="invite-modal-title">Invite Representative</div>
-        <div style="font-size:11px;color:var(--g4)" id="invite-modal-sub">Select strata corporations to assign</div>
-      </div>
-      <button class="mo-x" onclick="closeMo('mo-invite-rep-corps')">×</button>
-    </div>
-    <div class="mo-bd" style="padding-bottom:0">
-      <div style="font-size:12px;color:var(--ch3);margin-bottom:10px">
-        Hold <kbd style="background:var(--g1);border:1px solid var(--g2);border-radius:3px;padding:1px 5px;font-size:11px">Shift</kbd> or
-        <kbd style="background:var(--g1);border:1px solid var(--g2);border-radius:3px;padding:1px 5px;font-size:11px">Ctrl/⌘</kbd>
-        to select multiple. Click to toggle individual corporations.
-      </div>
-      <div style="font-size:12px;font-weight:600;color:var(--g4);margin-bottom:6px">
-        <span id="invite-select-count">0 selected</span>
-        &nbsp;·&nbsp;
-        <button class="btn xs ghost" onclick="inviteSelectAll()">Select All</button>
-        &nbsp;
-        <button class="btn xs ghost" onclick="inviteSelectNone()">Clear</button>
-      </div>
-      <div id="invite-corps-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--g2);border-radius:6px"></div>
-    </div>
-    <div class="mo-ft">
-      <button class="btn" onclick="closeMo('mo-invite-rep-corps')">Cancel</button>
-      <button class="btn pri" onclick="saveInviteCorps()">Save &amp; Send Invite</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- Add/Edit Council Member Modal -->
-<div class="mo" id="mo-council-member">
-  <div class="mo-box" style="max-width:480px">
-    <div class="mo-hd">
-      <div class="mo-t" id="cm-modal-title">Add Council Member</div>
-      <button class="mo-x" onclick="closeMo('mo-council-member')">×</button>
-    </div>
-    <div class="mo-bd">
-      <div class="cm-form-row">
-        <div>
-          <div class="cm-label">Full Name *</div>
-          <input class="cm-input" id="cm-name" type="text" placeholder="e.g. Jane Smith"/>
-        </div>
-        <div>
-          <div class="cm-label">Email</div>
-          <input class="cm-input" id="cm-email" type="email" placeholder="jane@example.com"/>
-        </div>
-      </div>
-      <div class="cm-form-row">
-        <div>
-          <div class="cm-label">Strata Lot *</div>
-          <select class="cm-select" id="cm-sl"></select>
-        </div>
-        <div>
-          <div class="cm-label">Council Role</div>
-          <select class="cm-select" id="cm-role">
-            <option value="">Owner only (not on council)</option>
-            <option value="President">President</option>
-            <option value="Vice President">Vice President</option>
-            <option value="Treasurer">Treasurer</option>
-            <option value="Secretary">Secretary</option>
-            <option value="Member at Large">Member at Large</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="mo-ft">
-      <button class="btn" onclick="closeMo('mo-council-member')">Cancel</button>
-      <button class="btn pri" onclick="saveCouncilMember()">Save</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- Invite Council Delegate Modal -->
-<div class="mo" id="mo-invite-delegate">
-  <div class="mo-box" style="max-width:500px">
-    <div class="mo-hd">
-      <div>
-        <div class="mo-t">Invite Council Delegate</div>
-        <div style="font-size:11px;color:var(--g4)" id="del-invite-scname"></div>
-      </div>
-      <button class="mo-x" onclick="closeMo('mo-invite-delegate')">×</button>
-    </div>
-    <div class="mo-bd" id="del-invite-body"></div>
-    <div class="mo-ft">
-      <button class="btn" onclick="closeMo('mo-invite-delegate')">Cancel</button>
-      <button class="btn pri" onclick="saveDelegate()">Send Invitation</button>
-    </div>
-  </div>
-</div>
-
-
-</body>
-</html>
+  }catch(e){ console.error('init error:', e); }
