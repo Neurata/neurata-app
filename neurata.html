@@ -8298,9 +8298,18 @@ async function init(){
   }
 
   try{
-    // Always use live Supabase session — no localStorage
     var supaSession = await getSupabase().auth.getSession();
     var session = supaSession.data && supaSession.data.session;
+
+    if (hasInvite) {
+      // Invite link always goes to invite screen
+      // Sign out any existing session first so they can sign up fresh
+      if (session) {
+        await getSupabase().auth.signOut();
+      }
+      showScr('scr-invited');
+      return;
+    }
 
     if (session) {
       // Check email is confirmed before loading platform
@@ -8310,20 +8319,7 @@ async function init(){
         if (emailEl) emailEl.textContent = session.user.email;
         return;
       }
-      if (hasInvite) {
-        nConfirm(
-          'You are currently signed in. This invitation is for a different account. Sign out and continue?',
-          function(ok) {
-            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-login'); }); }
-            else { window._inviteContext = null; loadUserProfile(session.user.id); }
-          },
-          'Invitation Link Detected', 'info'
-        );
-        return;
-      }
       loadUserProfile(session.user.id);
-    } else if (hasInvite) {
-      showScr('scr-invited');
     }
     // else stay on login screen
   }catch(e){ console.error('init error:', e); }
