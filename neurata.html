@@ -8303,7 +8303,6 @@ async function init(){
 
     if (hasInvite) {
       if (session) {
-        // Already logged in — ask before going to invite screen
         nConfirm(
           'You are signed in to another account. Sign out to accept this invitation?',
           function(ok) {
@@ -8319,12 +8318,6 @@ async function init(){
     }
 
     if (session) {
-      if (!session.user.email_confirmed_at) {
-        showScr('scr-check-email');
-        var emailEl = document.getElementById('check-email-address');
-        if (emailEl) emailEl.textContent = session.user.email;
-        return;
-      }
       loadUserProfile(session.user.id);
     }
     // else stay on login screen
