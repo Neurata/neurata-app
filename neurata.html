@@ -5693,29 +5693,86 @@ function renderAdminBrokerages() {
       el.innerHTML = '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages found.</div></div>';
       return;
     }
+    APP._allBrokerages = r.data;
     var html = '<div class="card"><table class="tbl"><thead><tr>'
-      + '<th>Brokerage</th><th>BCFSA Lic</th><th>Address</th><th>Status</th><th>Trial Used</th><th>SCs</th>'
+      + '<th>Brokerage</th><th>BCFSA Lic</th><th>Address</th><th>Status</th><th>Trial</th><th>SCs</th><th></th>'
       + '</tr></thead><tbody>';
     r.data.forEach(function(b) {
       var scCount = (APP.sc || []).filter(function(s){ return s.brokerage_id === b.bcfsa_lic; }).length;
       var status = b.subscription_status || 'trial';
-      var statusTag = status === 'active'
-        ? '<span class="tag grn">Active</span>'
-        : status === 'trial'
-        ? '<span class="tag amb">Trial</span>'
+      var statusTag = status === 'active' ? '<span class="tag grn">Active</span>'
+        : status === 'trial' ? '<span class="tag amb">Trial</span>'
         : '<span class="tag gy">'+status+'</span>';
       html += '<tr>'
         + '<td><strong>' + escHtml(b.name||'—') + '</strong></td>'
         + '<td style="font-size:12px;color:var(--g4)">' + escHtml(b.bcfsa_lic||'') + '</td>'
         + '<td style="font-size:12px;color:var(--g4)">' + escHtml(b.address||'') + '</td>'
         + '<td>' + statusTag + '</td>'
-        + '<td style="font-size:12px">' + (b.trial_meetings_used||0) + ' / ' + (b.trial_meetings_allowed||2) + '</td>'
+        + '<td style="font-size:12px">' + (b.trial_meetings_used||0) + ' / 2</td>'
         + '<td style="font-size:12px">' + scCount + '</td>'
+        + '<td><button class="btn xs pri" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="adminEnterBrokerage(this.dataset.lic)">Enter →</button></td>'
         + '</tr>';
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
   });
+}
+
+function adminEnterBrokerage(brkLic) {
+  var b = (APP._allBrokerages || []).find(function(x){ return x.bcfsa_lic === brkLic; });
+  if (!b) return;
+  // Store admin context so we can return
+  APP._adminContext = {
+    brokerage: APP.brokerage,
+    sc: APP.sc,
+    role: APP.currentUser.role
+  };
+  // Set brokerage
+  APP.brokerage = {
+    name: b.name, lic: b.bcfsa_lic, addr: b.address||'', phone: b.phone||'',
+    email: b.email||'', logoUrl: b.logo_url||'', docs: b.docs||[],
+    trialMeetingsUsed: b.trial_meetings_used||0,
+    subscriptionStatus: b.subscription_status||'trial'
+  };
+  // Load SCs for this brokerage
+  getSupabase().from('strata_corps').select('*').eq('brokerage_id', brkLic)
+  .then(function(r) {
+    APP.sc = (r.data||[]).map(function(sc) {
+      return {
+        id: sc.plan_number, plan: sc.plan_number, name: sc.name,
+        lots: sc.lots||1, addr: sc.address||'', brokerage_id: sc.brokerage_id,
+        mgr: '', mgrLic: '', mmStatus: sc.is_subscribed?'ACTIVE':'',
+        adjCount: 0, meetings: [], decisions: [], docs: [],
+        councilMembers: [], repIds: [], delegateIds: []
+      };
+    });
+    // Switch to MB view
+    APP.currentUser = Object.assign({}, APP.currentUser, { role: 'Managing Broker', initials: 'SA' });
+    renderNav();
+    renderSuperAdminBar();
+    showPg('strata');
+    // Show "viewing as" banner in super admin bar
+    var bar = document.getElementById('super-admin-bar');
+    if (bar) {
+      bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
+        + '<span style="font-size:11px;color:#fff;margin-right:8px">Viewing: <strong>' + escHtml(b.name) + '</strong></span>'
+        + '<button onclick="adminExitBrokerage()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.5);background:none;color:#fff;cursor:pointer">← Exit</button>';
+    }
+  });
+}
+
+function adminExitBrokerage() {
+  if (!APP._adminContext) return;
+  APP.brokerage = APP._adminContext.brokerage;
+  APP.sc = APP._adminContext.sc;
+  APP.currentUser = Object.assign({}, APP.currentUser, {
+    role: 'Super Admin', initials: 'SA'
+  });
+  APP._adminContext = null;
+  renderNav();
+  renderSuperAdminBar();
+  showPg('admin-brokerages');
+  renderAdminBrokerages();
 }
 
 function renderBilling() {
