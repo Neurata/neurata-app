@@ -8181,10 +8181,16 @@ function obInviteComplete(){
       },{onConflict:'id'});
       if(ctx && ctx.scId){
         getSupabase().from('sc_users').upsert({sc_id:ctx.scId, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'});
-        getSupabase().from('reps').upsert({
-          brokerage_id:brkLic, bcfsa_lic:lic, name:dn,
-          sc_ids:JSON.stringify([ctx.scId])
-        },{onConflict:'brokerage_id,bcfsa_lic'});
+        // Merge sc_id into existing sc_ids
+        (function(b, l, n, s) {
+          getSupabase().from('reps').select('sc_ids').eq('brokerage_id',b).eq('bcfsa_lic',l).maybeSingle()
+          .then(function(ex) {
+            var ids = [];
+            if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
+            if (ids.indexOf(s) < 0) ids.push(s);
+            return getSupabase().from('reps').upsert({brokerage_id:b,bcfsa_lic:l,name:n,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
+          });
+        })(brkLic, lic, dn, ctx.scId);
       }
 
       // Step 4: Set APP state and launch
