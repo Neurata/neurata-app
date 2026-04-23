@@ -8179,9 +8179,9 @@ async function init(){
       }
       // Email confirmed — write pending profile then load
       var pending = null;
-      try { pending = JSON.parse(sessionStorage.getItem('_pendingProfile')||'null'); } catch(e){}
+      try { pending = JSON.parse(localStorage.getItem('_pendingProfile')||'null'); } catch(e){}
       if (pending && pending.userId === userId) {
-        sessionStorage.removeItem('_pendingProfile');
+        localStorage.removeItem('_pendingProfile');
         try {
           await getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}});
           var upsertResult = await getSupabase().from('users').upsert({
