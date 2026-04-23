@@ -8302,17 +8302,23 @@ async function init(){
     var session = supaSession.data && supaSession.data.session;
 
     if (hasInvite) {
-      // Invite link always goes to invite screen
-      // Sign out any existing session first so they can sign up fresh
       if (session) {
-        await getSupabase().auth.signOut();
+        // Already logged in — ask before going to invite screen
+        nConfirm(
+          'You are signed in to another account. Sign out to accept this invitation?',
+          function(ok) {
+            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-invited'); }); }
+            else { window._inviteContext = null; loadUserProfile(session.user.id); }
+          },
+          'Invitation Link', 'info'
+        );
+      } else {
+        showScr('scr-invited');
       }
-      showScr('scr-invited');
       return;
     }
 
     if (session) {
-      // Check email is confirmed before loading platform
       if (!session.user.email_confirmed_at) {
         showScr('scr-check-email');
         var emailEl = document.getElementById('check-email-address');
