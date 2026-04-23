@@ -5722,11 +5722,14 @@ function adminEnterBrokerage(brkLic) {
   var b = (APP._allBrokerages || []).find(function(x){ return x.bcfsa_lic === brkLic; });
   if (!b) return;
   // Store admin context so we can return
-  APP._adminContext = {
-    brokerage: APP.brokerage,
-    sc: APP.sc,
-    role: APP.currentUser.role
-  };
+  if (!APP._adminContext) {
+    APP._adminContext = {
+      brokerage: APP.brokerage,
+      sc: APP.sc,
+      reps: APP.reps,
+      role: APP.currentUser.role
+    };
+  }
   // Set brokerage
   APP.brokerage = {
     name: b.name, lic: b.bcfsa_lic, addr: b.address||'', phone: b.phone||'',
@@ -5734,10 +5737,12 @@ function adminEnterBrokerage(brkLic) {
     trialMeetingsUsed: b.trial_meetings_used||0,
     subscriptionStatus: b.subscription_status||'trial'
   };
-  // Load SCs for this brokerage
-  getSupabase().from('strata_corps').select('*').eq('brokerage_id', brkLic)
+  var db = getSupabase();
+  // Load SCs
+  db.from('strata_corps').select('*').eq('brokerage_id', brkLic)
   .then(function(r) {
-    APP.sc = (r.data||[]).map(function(sc) {
+    var rows = r.data || [];
+    var scList = rows.map(function(sc) {
       return {
         id: sc.plan_number, plan: sc.plan_number, name: sc.name,
         lots: sc.lots||1, addr: sc.address||'', brokerage_id: sc.brokerage_id,
@@ -5746,34 +5751,100 @@ function adminEnterBrokerage(brkLic) {
         councilMembers: [], repIds: [], delegateIds: []
       };
     });
-    // Switch to MB view
-    APP.currentUser = Object.assign({}, APP.currentUser, { role: 'Managing Broker', initials: 'SA' });
-    renderNav();
-    renderSuperAdminBar();
-    showPg('strata');
-    // Show "viewing as" banner in super admin bar
-    var bar = document.getElementById('super-admin-bar');
-    if (bar) {
-      var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
-      var roleLabels = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
-      bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
-        + '<span style="font-size:11px;color:#fff;margin-right:8px">Viewing: <strong>' + escHtml(b.name) + '</strong></span>'
-        + roles.map(function(r) {
-            var active = r === APP.currentUser.role;
-            return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">' + roleLabels[r] + '</button>';
-          }).join('')
-        + '<button onclick="adminExitBrokerage()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.5);background:none;color:#fff;cursor:pointer;margin-left:8px">← Exit</button>';
+    if (!scList.length) {
+      APP.sc = [];
+      _adminFinishEnter(brkLic, b);
+      return;
     }
+    var planNumbers = scList.map(function(s){ return s.plan; });
+    // Load all related data in parallel
+    Promise.all([
+      db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
+      db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
+      db.from('council_members').select('*').in('sc_id', planNumbers),
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id').in('sc_id', planNumbers),
+      db.from('reps').select('*').eq('brokerage_id', brkLic),
+      db.from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type', 'rep')
+    ]).then(function(results) {
+      var meetings   = results[0].data || [];
+      var decisions  = results[1].data || [];
+      var council    = results[2].data || [];
+      var documents  = results[3].data || [];
+      var repsData   = results[4].data || [];
+      var scUsers    = results[5].data || [];
+
+      // Map onto SC objects
+      scList.forEach(function(sc) {
+        sc.meetings = meetings.filter(function(m){ return m.sc_id === sc.plan; }).map(function(m){
+          return { id:m.id, scId:m.sc_id, type:m.type, date:m.date, time:m.time||'',
+            fmt:m.format||'', loc:m.location||'', status:m.status||'DRAFT',
+            agenda:m.agenda||[], attendees:m.attendees||[],
+            actualStartTime:m.actual_start_time||'', adjTime:m.adj_time||'',
+            minutesState:m.minutes_state||null, minutes:m.minutes_content||null };
+        });
+        sc.decisions = decisions.filter(function(d){ return d.sc_id === sc.plan; });
+        sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
+          return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council };
+        });
+        sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
+          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'' };
+        });
+      });
+
+      // Load reps
+      APP.reps = repsData.map(function(rep){
+        return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
+      });
+
+      // Restore repIds from sc_users
+      if (scUsers.length) {
+        var userIds = scUsers.map(function(r){ return r.user_id; });
+        db.from('users').select('id,bcfsa_lic').in('id', userIds).then(function(ur){
+          var userMap = {};
+          (ur.data||[]).forEach(function(u){ userMap[u.id] = u.bcfsa_lic; });
+          scUsers.forEach(function(row){
+            var lic = userMap[row.user_id];
+            if (!lic) return;
+            var sc_ = scList.find(function(s){ return s.plan === row.sc_id; });
+            if (sc_) {
+              if (!sc_.repIds) sc_.repIds = [];
+              if (sc_.repIds.indexOf(lic) < 0) sc_.repIds.push(lic);
+            }
+          });
+        });
+      }
+
+      APP.sc = scList;
+      _adminFinishEnter(brkLic, b);
+    });
   });
+}
+
+function _adminFinishEnter(brkLic, b) {
+  APP.currentUser = Object.assign({}, APP.currentUser, { role: 'Managing Broker', initials: 'SA' });
+  renderNav();
+  showPg('strata');
+  var bar = document.getElementById('super-admin-bar');
+  if (bar) {
+    bar.style.display = 'flex';
+    var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
+    var roleLabels = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
+    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
+      + '<span style="font-size:11px;color:#fff;margin-right:8px">Viewing: <strong>' + escHtml(b.name) + '</strong></span>'
+      + roles.map(function(r) {
+          var active = r === APP.currentUser.role;
+          return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">' + roleLabels[r] + '</button>';
+        }).join('')
+      + '<button onclick="adminExitBrokerage()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.5);background:none;color:#fff;cursor:pointer;margin-left:8px">← Exit</button>';
+  }
 }
 
 function adminExitBrokerage() {
   if (!APP._adminContext) return;
   APP.brokerage = APP._adminContext.brokerage;
   APP.sc = APP._adminContext.sc;
-  APP.currentUser = Object.assign({}, APP.currentUser, {
-    role: 'Super Admin', initials: 'SA'
-  });
+  APP.reps = APP._adminContext.reps || [];
+  APP.currentUser = Object.assign({}, APP.currentUser, { role: 'Super Admin', initials: 'SA' });
   APP._adminContext = null;
   renderNav();
   renderSuperAdminBar();
