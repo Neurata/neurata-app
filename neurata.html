@@ -5826,17 +5826,21 @@ function loadUserProfile(userId) {
     .single()
     .then(function(result) {
       if (result.error || !result.data) {
-        // Profile not found — could be race condition on first login, retry once
-        if (!loadUserProfile._retried) {
-          loadUserProfile._retried = true;
-          setTimeout(function(){ loadUserProfile(userId); }, 1500);
+        // Profile not found — retry up to 5 times with increasing delays
+        if (!loadUserProfile._retryCount) loadUserProfile._retryCount = 0;
+        loadUserProfile._retryCount++;
+        if (loadUserProfile._retryCount <= 5) {
+          var delay = loadUserProfile._retryCount * 1500;
+          console.log('[loadProfile] row not found, retry', loadUserProfile._retryCount, 'in', delay, 'ms');
+          setTimeout(function(){ loadUserProfile(userId); }, delay);
           return;
         }
-        loadUserProfile._retried = false;
+        loadUserProfile._retryCount = 0;
         nAlert('Account setup incomplete. Please contact support@neurata.ai', 'Setup Error', 'warn');
         getSupabase().auth.signOut();
         return;
       }
+      loadUserProfile._retryCount = 0; // reset on success
       var u = result.data;
       var b = u.brokerages || {};
       // Populate APP state from database
@@ -8159,40 +8163,49 @@ async function init(){
     window.history.replaceState({}, document.title, window.location.pathname);
     if (cbResult.data && cbResult.data.session) {
       var userId = cbResult.data.session.user.id;
-      // Check if this was a password recovery
       if (hash.indexOf('type=recovery') >= 0) {
         showNewPasswordPrompt();
         return;
       }
-      // Email confirmed — write pending profile if exists, then load
+      // Email confirmed — write pending profile then load
       var pending = null;
       try { pending = JSON.parse(sessionStorage.getItem('_pendingProfile')||'null'); } catch(e){}
       if (pending && pending.userId === userId) {
         sessionStorage.removeItem('_pendingProfile');
-        // Now write to Supabase — session is confirmed and active
-        await getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}});
-        await getSupabase().from('users').upsert({
-          id:           userId,
-          full_name:    pending.dn,
-          email:        pending.email,
-          bcfsa_lic:    pending.lic,
-          role:         pending.role,
-          brokerage_id: pending.brkLic
-        },{onConflict:'id'});
-        if (pending.scId) {
-          getSupabase().from('sc_users').upsert({
-            sc_id: pending.scId, user_id: userId, access_type:'rep'
-          },{onConflict:'sc_id,user_id'});
-          getSupabase().from('reps').upsert({
-            brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
-            name: pending.dn, sc_ids: JSON.stringify([pending.scId])
-          },{onConflict:'brokerage_id,bcfsa_lic'});
+        try {
+          await getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}});
+          var upsertResult = await getSupabase().from('users').upsert({
+            id:           userId,
+            full_name:    pending.dn,
+            email:        pending.email,
+            bcfsa_lic:    pending.lic,
+            role:         pending.role,
+            brokerage_id: pending.brkLic
+          },{onConflict:'id'});
+          if (upsertResult.error) {
+            console.error('[confirm] users upsert error:', upsertResult.error);
+          } else {
+            console.log('[confirm] users row written OK');
+          }
+          if (pending.scId) {
+            await getSupabase().from('sc_users').upsert({
+              sc_id: pending.scId, user_id: userId, access_type:'rep'
+            },{onConflict:'sc_id,user_id'});
+            await getSupabase().from('reps').upsert({
+              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
+              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
+            },{onConflict:'brokerage_id,bcfsa_lic'});
+          }
+          nAlert('Email confirmed! Welcome to Neurata.', 'Welcome ✓', 'success');
+          loadUserProfile(userId);
+        } catch(e) {
+          console.error('[confirm] error writing profile:', e);
+          nAlert('There was a problem setting up your account. Please try again.', 'Error', 'warn');
         }
-        nAlert('Email confirmed! Welcome to Neurata.', 'Welcome ✓', 'success');
       } else {
         nAlert('Email confirmed! Loading your account…', 'Welcome', 'success');
+        loadUserProfile(userId);
       }
-      setTimeout(function(){ loadUserProfile(userId); }, 800);
       return;
     }
   }
