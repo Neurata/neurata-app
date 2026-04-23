@@ -5618,7 +5618,7 @@ function saveInviteCorps() {
     var repLic = rep ? rep.lic : '';
     // Use first selected SC for invite URL context
     var firstSC = assignedSCs.length ? assignedSCs[0] : null;
-    if (firstSC) sendRepInviteEmail(email.trim(), _inviteRepName||'', firstSC.id, repLic);
+    if (firstSC) sendRepInviteEmail(email.trim(), _inviteRepName||'', firstSC.id, repLic, assignedSCs.map(function(s){return s.plan;}));
     renderBrokerage();
   }, '', 'Email Address');
 }
