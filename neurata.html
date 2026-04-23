@@ -8212,8 +8212,30 @@ async function init(){
   var urlParams = new URLSearchParams(window.location.search);
   var tokenHash = urlParams.get('token_hash');
   var tokenType = urlParams.get('type');
+  var hashParams = new URLSearchParams(window.location.hash.replace('#',''));
+  var accessToken = hashParams.get('access_token');
+  var refreshToken = hashParams.get('refresh_token');
+  var hashType = hashParams.get('type');
 
-  // Handle Supabase email confirmation (token_hash flow)
+  // Handle Supabase confirmation via hash fragment (#access_token=...)
+  if (accessToken) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    console.log('[confirm] access_token in hash, type:', hashType);
+    var sResult = await getSupabase().auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken || ''
+    });
+    if (sResult.error) {
+      console.error('[confirm] setSession error:', sResult.error.message);
+      nAlert('Confirmation failed: ' + sResult.error.message, 'Error', 'warn');
+      return;
+    }
+    console.log('[confirm] session set from hash, userId:', sResult.data.session && sResult.data.session.user.id);
+    // onAuthStateChange SIGNED_IN fires and writes profile
+    return;
+  }
+
+  // Handle token_hash flow (?token_hash=...)
   if (tokenHash) {
     window.history.replaceState({}, document.title, window.location.pathname);
     console.log('[confirm] token_hash found, type:', tokenType);
@@ -8223,7 +8245,6 @@ async function init(){
       nAlert('Confirmation failed: ' + vResult.error.message, 'Error', 'warn');
       return;
     }
-    // Session established — onAuthStateChange SIGNED_IN will fire and write profile
     console.log('[confirm] verifyOtp success');
     return;
   }
