@@ -1053,6 +1053,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <div class="pb" id="brokerage-body"></div>
 </div>
 
+<!-- ADMIN BROKERAGES (Super Admin only) -->
+<div class="pg" id="pg-admin-brokerages">
+  <div class="ph"><div class="pt">Brokerages</div><div class="ps">All registered brokerages on the Neurata platform</div></div>
+  <div class="pb" id="admin-brokerages-body"></div>
+</div>
+
 <!-- BILLING (MB only) -->
 <div class="pg" id="pg-billing">
   <div class="ph"><div class="pt">Billing</div><div class="ps">Pre-Authorized Debit · Annual billing · Managing Broker only</div></div>
@@ -5677,6 +5683,41 @@ function sendInvite(){
 // ══════════════════════════════════════════
 // BILLING PAGE
 // ══════════════════════════════════════════
+function renderAdminBrokerages() {
+  var el = document.getElementById('admin-brokerages-body');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px">Loading brokerages...</div>';
+  getSupabase().from('brokerages').select('*').order('name')
+  .then(function(r) {
+    if (r.error || !r.data || !r.data.length) {
+      el.innerHTML = '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages found.</div></div>';
+      return;
+    }
+    var html = '<div class="card"><table class="tbl"><thead><tr>'
+      + '<th>Brokerage</th><th>BCFSA Lic</th><th>Address</th><th>Status</th><th>Trial Used</th><th>SCs</th>'
+      + '</tr></thead><tbody>';
+    r.data.forEach(function(b) {
+      var scCount = (APP.sc || []).filter(function(s){ return s.brokerage_id === b.bcfsa_lic; }).length;
+      var status = b.subscription_status || 'trial';
+      var statusTag = status === 'active'
+        ? '<span class="tag grn">Active</span>'
+        : status === 'trial'
+        ? '<span class="tag amb">Trial</span>'
+        : '<span class="tag gy">'+status+'</span>';
+      html += '<tr>'
+        + '<td><strong>' + escHtml(b.name||'—') + '</strong></td>'
+        + '<td style="font-size:12px;color:var(--g4)">' + escHtml(b.bcfsa_lic||'') + '</td>'
+        + '<td style="font-size:12px;color:var(--g4)">' + escHtml(b.address||'') + '</td>'
+        + '<td>' + statusTag + '</td>'
+        + '<td style="font-size:12px">' + (b.trial_meetings_used||0) + ' / ' + (b.trial_meetings_allowed||2) + '</td>'
+        + '<td style="font-size:12px">' + scCount + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  });
+}
+
 function renderBilling() {
   var el = document.getElementById('billing-body');
 
@@ -6835,6 +6876,7 @@ function showPg(pg) {
   if (pg === 'stratasphere')  renderSS();
   if (pg === 'brokerage')     renderBrokerage();
   if (pg === 'billing')       renderBilling();
+  if (pg === 'admin-brokerages') renderAdminBrokerages();
   if (pg === 'profile')       renderProfile();
   if (pg === 'mm')            initMM();
   // Show/hide sidebar
@@ -6845,6 +6887,7 @@ function showPg(pg) {
 
 
 var ROLE_TABS = {
+  'Super Admin':      ['dashboard','strata','admin-brokerages'],
   'Managing Broker':  ['dashboard','strata','brokerage','billing'],
   'Associate Broker': ['dashboard','strata','brokerage'],
   'Representative':   ['dashboard','strata'],
@@ -6855,6 +6898,8 @@ var ROLE_TABS = {
 var TAB_LABELS = {
   dashboard:'Dashboard', strata:'Strata Corps', meetings:'Meetings',
   stratasphere:'StrataSphere', brokerage:'Brokerage', billing:'Billing'
+,
+  'admin-brokerages': 'Brokerages'
 };
 
 
