@@ -6194,11 +6194,49 @@ window.addEventListener('load', function() {
       showScr('scr-login');
     }
     if (event === 'PASSWORD_RECOVERY') {
-      // User clicked the reset link — prompt for new password
       showNewPasswordPrompt();
     }
-    if (event === 'TOKEN_REFRESHED' && session) {
-      // Session refreshed silently — no action needed
+    if (event === 'SIGNED_IN' && session) {
+      // Fires after email confirmation — check for pending profile
+      var pending = null;
+      try { pending = JSON.parse(localStorage.getItem('_pendingProfile')||'null'); } catch(e){}
+      if (pending && pending.userId === session.user.id && !APP._profileWritten) {
+        APP._profileWritten = true;
+        localStorage.removeItem('_pendingProfile');
+        var userId = session.user.id;
+        console.log('[confirm] SIGNED_IN event — writing profile for', userId);
+        // Write all profile data now that session is confirmed
+        getSupabase().auth.updateUser({data:{brokerage_id: pending.brkLic}})
+        .then(function() {
+          return getSupabase().from('users').upsert({
+            id:           userId,
+            full_name:    pending.dn,
+            email:        pending.email,
+            bcfsa_lic:    pending.lic,
+            role:         pending.role,
+            brokerage_id: pending.brkLic
+          },{onConflict:'id'});
+        })
+        .then(function(r) {
+          if (r && r.error) { console.error('[confirm] users upsert error:', r.error); return; }
+          console.log('[confirm] users row written OK');
+          if (pending.scId) {
+            getSupabase().from('sc_users').upsert({
+              sc_id: pending.scId, user_id: userId, access_type:'rep'
+            },{onConflict:'sc_id,user_id'});
+            getSupabase().from('reps').upsert({
+              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
+              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
+            },{onConflict:'brokerage_id,bcfsa_lic'});
+          }
+          // Small delay then load profile
+          setTimeout(function(){
+            APP._profileWritten = false;
+            loadUserProfile(userId);
+          }, 500);
+        })
+        .catch(function(e){ console.error('[confirm] error:', e); });
+      }
     }
   });
 });
