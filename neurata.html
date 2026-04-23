@@ -808,6 +808,24 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- ═══════ INVITE REP TO CORP MODAL ═══════ -->
+<div class="mo" id="mo-invite-rep-corps">
+  <div class="mo-box" style="max-width:520px">
+    <div class="mo-hd">
+      <div class="mo-t" id="invite-modal-title">Invite Representative</div>
+      <button class="mo-x" onclick="closeMo('mo-invite-rep-corps')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div class="al info" style="margin-bottom:12px;font-size:12px" id="invite-modal-sub">Select a representative to assign to this corporation</div>
+      <div id="invite-corps-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-invite-rep-corps')">Cancel</button>
+      <button class="btn pri" onclick="saveSCInviteRep('')">Assign & Invite</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
