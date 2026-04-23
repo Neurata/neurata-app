@@ -8256,17 +8256,19 @@ function obInviteComplete(){
         bcfsa_lic:lic, role:rep.licensedAs||'Representative', brokerage_id:brkLic
       },{onConflict:'id'});
       if(ctx && ctx.scId){
-        getSupabase().from('sc_users').upsert({sc_id:ctx.scId, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'});
-        // Merge sc_id into existing sc_ids
-        (function(b, l, n, s) {
-          getSupabase().from('reps').select('sc_ids').eq('brokerage_id',b).eq('bcfsa_lic',l).maybeSingle()
-          .then(function(ex) {
-            var ids = [];
-            if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
-            if (ids.indexOf(s) < 0) ids.push(s);
-            return getSupabase().from('reps').upsert({brokerage_id:b,bcfsa_lic:l,name:n,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
-          });
-        })(brkLic, lic, dn, ctx.scId);
+        // Write sc_users rows for ALL assigned SCs (not just the first one)
+        var allPlans = (ctx.scPlans && ctx.scPlans.length) ? ctx.scPlans : [ctx.scId];
+        allPlans.forEach(function(plan) {
+          getSupabase().from('sc_users').upsert({sc_id:plan, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'}).then(function(){});
+        });
+        // Merge all plans into reps.sc_ids
+        getSupabase().from('reps').select('sc_ids').eq('brokerage_id',brkLic).eq('bcfsa_lic',lic).maybeSingle()
+        .then(function(ex) {
+          var ids = [];
+          if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
+          allPlans.forEach(function(p){ if (ids.indexOf(p) < 0) ids.push(p); });
+          return getSupabase().from('reps').upsert({brokerage_id:brkLic,bcfsa_lic:lic,name:dn,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
+        });
       }
 
       // Step 4: Set APP state and launch
