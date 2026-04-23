@@ -6019,6 +6019,10 @@ function loadUserSCs(userId) {
       });
 
       APP.sc = scList;
+      // Reset currentScId to first SC if previous value no longer valid
+      if (scList.length && (!APP.currentScId || !scList.find(function(s){return s.id===APP.currentScId;}))) {
+        APP.currentScId = scList[0].id;
+      }
       launchPlatform();
       // Load SS conversations after SC list is ready
       setTimeout(ssLoadConversations, 500);
@@ -8093,15 +8097,9 @@ function obInviteComplete(){
         addr:rep.brkAddress||rep.businessAddress||'',
         phone:rep.brkPhone||rep.businessPhone||''
       };
-      if(ctx && ctx.scId){
-        APP.sc = [{
-          id:ctx.scId, plan:ctx.scId, name:'', lots:0, mmStatus:'',
-          meetings:[], decisions:[], docs:[], councilMembers:[],
-          repIds:[lic], delegateIds:[]
-        }];
-      }
       window._inviteContext = null;
-      setTimeout(function(){ launchPlatform(); }, 300);
+      // Load full profile from Supabase — no stub SC
+      setTimeout(function(){ loadUserProfile(userId); }, 1000);
     });
   })
   .catch(function(e){
