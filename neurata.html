@@ -6226,8 +6226,24 @@ window.addEventListener('load', function() {
           if (r.error) { console.error('[confirm] users error:', r.error); return; }
           console.log('[confirm] users row written OK');
           if (pending.scId) {
-            getSupabase().from('sc_users').upsert({sc_id:pending.scId, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'});
-            getSupabase().from('reps').upsert({brokerage_id:pending.brkLic, bcfsa_lic:pending.lic, name:pending.dn, sc_ids:JSON.stringify([pending.scId])},{onConflict:'brokerage_id,bcfsa_lic'});
+            console.log('[confirm] writing sc_users for sc_id:', pending.scId, 'user_id:', userId);
+            getSupabase().from('sc_users').upsert({
+              sc_id: pending.scId, user_id: userId, access_type: 'rep'
+            },{onConflict:'sc_id,user_id'})
+            .then(function(sr){
+              if(sr.error) console.error('[confirm] sc_users error:', JSON.stringify(sr.error));
+              else console.log('[confirm] sc_users written OK');
+            });
+            getSupabase().from('reps').upsert({
+              brokerage_id: pending.brkLic, bcfsa_lic: pending.lic,
+              name: pending.dn, sc_ids: JSON.stringify([pending.scId])
+            },{onConflict:'brokerage_id,bcfsa_lic'})
+            .then(function(rr){
+              if(rr.error) console.error('[confirm] reps error:', JSON.stringify(rr.error));
+              else console.log('[confirm] reps written OK');
+            });
+          } else {
+            console.log('[confirm] no scId in pending — skipping sc_users/reps');
           }
           APP._profileWritten = false;
           loadUserProfile(userId);
