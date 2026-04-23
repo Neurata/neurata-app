@@ -841,6 +841,87 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- ═══════ ATTENDANCE MODAL ═══════ -->
+<div class="mo" id="mo-attendance">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t">Meeting Attendance</div>
+        <div style="font-size:11px;color:var(--g4)" id="att-quorum-label">Select present strata lot numbers</div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-attendance')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
+        <button class="btn sm" onclick="attSelectAll()">Select All</button>
+        <button class="btn sm" onclick="attSelectNone()">Clear</button>
+        <span style="font-size:11px;color:var(--g4);margin-left:auto" id="att-count">0 present</span>
+      </div>
+      <div id="att-sl-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:300px;overflow-y:auto;padding:4px"></div>
+      <div id="att-quorum-result" style="margin-top:12px;padding:10px;border-radius:6px;font-size:12px;font-weight:600;text-align:center;display:none"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-attendance')">Cancel</button>
+      <button class="btn pri" onclick="saveAttendance()">Save Attendance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ COUNCIL MEMBER MODAL ═══════ -->
+<div class="mo" id="mo-council-member">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-hd">
+      <div class="mo-t" id="cm-modal-title">Add Council Member</div>
+      <button class="mo-x" onclick="closeMo('mo-council-member')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div class="cm-form-row">
+        <div><div class="cm-label">Full Name *</div><input class="cm-input" id="cm-name" type="text" placeholder="e.g. Jane Smith"/></div>
+        <div><div class="cm-label">Email</div><input class="cm-input" id="cm-email" type="email" placeholder="jane@example.com"/></div>
+      </div>
+      <div class="cm-form-row">
+        <div><div class="cm-label">Strata Lot *</div><select class="cm-select" id="cm-sl"></select></div>
+        <div><div class="cm-label">Council Role</div><select class="cm-select" id="cm-role">
+          <option value="President">President</option>
+          <option value="Vice President">Vice President</option>
+          <option value="Treasurer">Treasurer</option>
+          <option value="Secretary">Secretary</option>
+          <option value="Member at Large">Member at Large</option>
+        </select></div>
+      </div>
+      <div class="cm-form-row full" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="cm-is-council" checked/> Council member (appears in quorum count)
+        </label>
+      </div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-council-member')">Cancel</button>
+      <button class="btn pri" onclick="saveCouncilMember()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ INVITE DELEGATE MODAL ═══════ -->
+<div class="mo" id="mo-invite-delegate">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t">Invite Council Delegate</div>
+        <div style="font-size:11px;color:var(--g4)" id="del-invite-scname"></div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-invite-delegate')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div id="del-invite-body"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-invite-delegate')">Cancel</button>
+      <button class="btn pri" onclick="sendDelegateInvite()">Send Invitation</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
