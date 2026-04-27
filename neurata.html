@@ -6767,7 +6767,7 @@ function launchPlatform(){
   showPg('dashboard');
   // Show onboarding for first-time users with no SCs
   var role = u.role || '';
-  var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
+  var canCreate = role === 'Managing Broker' || role === 'Associate Broker';
   if (canCreate && APP.sc.length === 0) {
     setTimeout(function(){ obShowOverlay(); }, 500);
   }
@@ -7465,12 +7465,22 @@ function saveCouncilMember() {
   var role  = document.getElementById('cm-role').value;
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   if(!slVal){ nAlert('Please select a strata lot.','Missing Lot','warn'); return; }
-  var member = {sl:slVal, name:name, email:email, role:role, isCouncil:role.length>0};
   if(!s.councilMembers) s.councilMembers=[];
+  // Officer roles (President, VP, Treasurer, Secretary) can only be held by one person
+  var officerRoles = ['President','Vice President','Treasurer','Secretary'];
+  if(officerRoles.indexOf(role) >= 0 && _cmExistingIdx < 0) {
+    var alreadyHas = s.councilMembers.find(function(m){ return m.role === role; });
+    if(alreadyHas) { nAlert('This council already has a '+role+'. Remove them first before assigning a new one.','Role Taken','warn'); return; }
+  }
+  // Each SL can only have one council member
+  if(_cmExistingIdx < 0) {
+    var slTaken = s.councilMembers.find(function(m){ return m.sl === slVal; });
+    if(slTaken) { nAlert('SL '+slVal+' is already assigned to '+slTaken.name+'.','SL Taken','warn'); return; }
+  }
+  var member = {sl:slVal, name:name, email:email, role:role, isCouncil:role.length>0};
   if(_cmExistingIdx>=0){
     s.councilMembers[_cmExistingIdx]=member;
   } else {
-    s.councilMembers=s.councilMembers.filter(function(m){return m.sl!==slVal;});
     s.councilMembers.push(member);
   }
   s.councilSLs=s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
