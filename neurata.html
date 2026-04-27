@@ -898,6 +898,72 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- ═══════ ONBOARDING OVERLAY ═══════ -->
+<div id="ob-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(17,16,16,.85);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+    <!-- Step 1: Add SC -->
+    <div id="ob-step-sc">
+      <div style="background:var(--ch);padding:28px 32px 20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:8px">Step 1 of 2</div>
+        <div style="font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Add your first strata corporation</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.55)">Upload the Strata Plan as filed with the Land Title and Survey Authority (LTSA), or enter the details manually.</div>
+      </div>
+      <div style="padding:24px 32px">
+        <!-- Upload option (primary) -->
+        <div id="ob-upz" onclick="document.getElementById('ob-pdf-input').click()" style="border:2px dashed var(--g2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:14px" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
+          <div style="font-size:28px;margin-bottom:8px">📄</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ch);margin-bottom:4px">Upload Strata Plan PDF</div>
+          <div style="font-size:12px;color:var(--g4)">Neurata will extract the plan number, name, and strata lot count automatically</div>
+          <input type="file" id="ob-pdf-input" accept=".pdf" style="display:none" onchange="obHandleFile(this.files[0])"/>
+        </div>
+        <div id="ob-parse-status" style="display:none;text-align:center;padding:16px;color:var(--g4);font-size:13px">
+          <div style="font-size:20px;margin-bottom:8px">⏳</div>Reading your Strata Plan…
+        </div>
+        <!-- Manual option (secondary) -->
+        <div style="text-align:center;margin-bottom:16px">
+          <button class="btn" onclick="obShowManual()" style="font-size:13px">Enter strata information manually →</button>
+        </div>
+        <!-- Manual form (hidden by default) -->
+        <div id="ob-manual-form" style="display:none">
+          <div class="fr fr2" style="margin-bottom:12px">
+            <div class="fg"><label>Strata Plan Number *</label><input type="text" id="ob-plan" placeholder="e.g. EPS 9048" style="text-transform:uppercase"/></div>
+            <div class="fg"><label>Strata Corporation Name *</label><input type="text" id="ob-name" placeholder="e.g. The Terminus"/></div>
+            <div class="fg"><label>Number of Strata Lots *</label><input type="number" id="ob-lots" placeholder="e.g. 42" min="1"/></div>
+            <div class="fg"><label>Address</label><input type="text" id="ob-addr" placeholder="123 Main St, Vancouver BC"/></div>
+          </div>
+        </div>
+        <!-- Parsed result -->
+        <div id="ob-parsed-result" style="display:none;background:var(--g1);border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px">
+          <div style="font-weight:700;color:var(--ch);margin-bottom:6px">✓ Strata Plan parsed</div>
+          <div id="ob-parsed-text" style="color:var(--g4)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button class="btn" onclick="obSkipAll()" style="color:var(--g4);font-size:13px">Skip for now</button>
+          <button class="btn pri" id="ob-sc-next" onclick="obCreateSC()" style="display:none">Create Corporation & Continue →</button>
+        </div>
+      </div>
+    </div>
+    <!-- Step 2: Create Meeting -->
+    <div id="ob-step-mtg" style="display:none">
+      <div style="background:var(--ch);padding:28px 32px 20px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:8px">Step 2 of 2</div>
+        <div style="font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Schedule your first meeting</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.55)">Set up your first strata council or AGM. You can always do this later.</div>
+      </div>
+      <div style="padding:24px 32px">
+        <div style="background:var(--g1);border-radius:10px;padding:20px;margin-bottom:20px;font-size:13px;color:var(--g4);line-height:1.7">
+          <div style="font-weight:700;color:var(--ch);margin-bottom:8px" id="ob-sc-created-label"></div>
+          You're ready to run your first meeting. Click below to set the date, type, and agenda — or skip and do it later from the Strata Corps page.
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button class="btn" onclick="obSkipMeeting()" style="color:var(--g4);font-size:13px">Skip for now</button>
+          <button class="btn pri" onclick="obStartMeeting()">Create First Meeting →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
@@ -6704,7 +6770,12 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
-  // Session managed by Supabase auth - no localStorage needed
+  // Show onboarding for first-time users (MB, AB, REP with no SCs)
+  var role = u.role || '';
+  var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
+  if (canCreate && APP.sc.length === 0) {
+    setTimeout(function(){ obShowOverlay(); }, 500);
+  }
 }
 
 
@@ -6739,6 +6810,132 @@ function launchPlatform(){
 // ONBOARDING FUNCTIONS
 // ══════════════════════════════════════════
 
+var _obParsedSC = null;
+
+function obShowOverlay() {
+  var el = document.getElementById('ob-overlay');
+  if (!el) return;
+  el.style.display = 'flex';
+  document.getElementById('ob-step-sc').style.display = '';
+  document.getElementById('ob-step-mtg').style.display = 'none';
+  document.getElementById('ob-manual-form').style.display = 'none';
+  document.getElementById('ob-parsed-result').style.display = 'none';
+  document.getElementById('ob-parse-status').style.display = 'none';
+  document.getElementById('ob-upz').style.display = '';
+  document.getElementById('ob-sc-next').style.display = 'none';
+  _obParsedSC = null;
+}
+
+function obHideOverlay() {
+  var el = document.getElementById('ob-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function obShowManual() {
+  document.getElementById('ob-manual-form').style.display = '';
+  document.getElementById('ob-sc-next').style.display = '';
+  document.getElementById('ob-upz').style.display = 'none';
+}
+
+function obHandleFile(file) {
+  if (!file) return;
+  if (file.type !== 'application/pdf') { nAlert('Please upload a PDF file.','','warn'); return; }
+  _scPlanPdfFile = file;
+  document.getElementById('ob-upz').style.display = 'none';
+  document.getElementById('ob-parse-status').style.display = '';
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var b64 = e.target.result.split(',')[1];
+    scParsePlan(b64, file.name);
+    // scParsePlan populates the add-sc modal fields; we read them after
+    setTimeout(function() {
+      var plan = (document.getElementById('sc-plan') && document.getElementById('sc-plan').value)||'';
+      var name = (document.getElementById('sc-name') && document.getElementById('sc-name').value)||'';
+      var lots = (document.getElementById('sc-lots') && document.getElementById('sc-lots').value)||'';
+      document.getElementById('ob-parse-status').style.display = 'none';
+      if (!plan) {
+        nAlert('Could not parse the PDF. Please enter details manually.','','warn');
+        obShowManual();
+        return;
+      }
+      _obParsedSC = { plan: plan, name: name, lots: parseInt(lots)||1 };
+      document.getElementById('ob-parsed-result').style.display = '';
+      document.getElementById('ob-parsed-text').textContent = plan + (name?' · '+name:'') + (lots?' · '+lots+' strata lots':'');
+      document.getElementById('ob-sc-next').style.display = '';
+    }, 4000); // wait for AI parse
+  };
+  reader.readAsDataURL(file);
+}
+
+function obCreateSC() {
+  var plan, name, lots, addr;
+  if (_obParsedSC) {
+    plan = _obParsedSC.plan;
+    name = _obParsedSC.name || '';
+    lots = _obParsedSC.lots || 1;
+    addr = '';
+  } else {
+    plan = (document.getElementById('ob-plan').value||'').trim().toUpperCase();
+    name = (document.getElementById('ob-name').value||'').trim();
+    lots = parseInt(document.getElementById('ob-lots').value||'0');
+    addr = (document.getElementById('ob-addr').value||'').trim();
+  }
+  if (!plan) { nAlert('Please enter a strata plan number.','','warn'); return; }
+  if (!lots || lots < 1) { nAlert('Please enter the number of strata lots.','','warn'); return; }
+
+  var newSC = mapSCRow({
+    plan_number: plan, name: name, lots: lots, address: addr,
+    brokerage_id: APP.brokerage.lic || '',
+    is_subscribed: false, ss_tier: null, mm_activated_at: null,
+    mm_pending_cancel: false, ss_pending_downgrade: null, ss_global_activated_at: null
+  });
+  newSC.mgr = APP.currentUser.name;
+  newSC.mgrLic = APP.currentUser.lic || '';
+  APP.sc.push(newSC);
+  APP.currentScId = plan;
+
+  getSupabase().from('strata_corps').upsert({
+    plan_number: plan, name: name, lots: lots,
+    address: addr, brokerage_id: APP.brokerage.lic || ''
+  }, {onConflict: 'plan_number'}).then(function(r){
+    if (r.error) console.error('SC save error:', r.error);
+    if (_scPlanPdfFile) {
+      var pdfFile = _scPlanPdfFile; _scPlanPdfFile = null;
+      var path = 'strata-plans/' + plan + '/' + pdfFile.name;
+      getSupabase().storage.from('neurata-documents').upload(path, pdfFile, {upsert:true}).then(function(ur){
+        if (!ur.error) {
+          var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
+          getSupabase().from('documents').insert({sc_id:plan,name:pdfFile.name,source:'strata-plan',source_label:'Strata Plan',mime_type:'application/pdf',storage_path:path,public_url:url,uploaded_at:new Date().toISOString()}).then(function(){});
+        }
+      });
+    }
+  });
+
+  renderSidebar('dashboard');
+  renderDash();
+  document.getElementById('ob-step-sc').style.display = 'none';
+  document.getElementById('ob-step-mtg').style.display = '';
+  var lbl = document.getElementById('ob-sc-created-label');
+  if (lbl) lbl.textContent = '✓ ' + plan + (name ? ' — ' + name : '') + ' created.';
+}
+
+function obStartMeeting() {
+  obHideOverlay();
+  showPg('strata');
+  setTimeout(function() {
+    APP.currentScId = APP.sc[APP.sc.length-1].id;
+    openNewMtgModal();
+  }, 300);
+}
+
+function obSkipMeeting() {
+  obHideOverlay();
+  showPg('strata');
+}
+
+function obSkipAll() {
+  obHideOverlay();
+}
 function renderMeetings() {
   var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : getVisibleSCs()[0];
   if (!sc && getVisibleSCs().length>0) sc = getVisibleSCs()[0];
