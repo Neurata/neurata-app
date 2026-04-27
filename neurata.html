@@ -878,6 +878,24 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- ═══════ INVITE ASSISTANT MODAL ═══════ -->
+<div class="mo" id="mo-invite-asst">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t">Invite Assistant</div>
+        <div style="font-size:11px;color:var(--g4)" id="asst-invite-scname"></div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-invite-asst')">×</button>
+    </div>
+    <div class="mo-bd" id="asst-invite-body"></div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-invite-asst')">Cancel</button>
+      <button class="btn pri" onclick="saveAsst()">Send Invitation</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ INVITE DELEGATE MODAL ═══════ -->
 <div class="mo" id="mo-invite-delegate">
   <div class="mo-box" style="max-width:480px">
@@ -953,6 +971,26 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <button class="btn" onclick="obSkipMeeting()" style="color:var(--g4);font-size:13px">Skip for now</button>
           <button class="btn pri" onclick="obStartMeeting()">Create First Meeting →</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ASSISTANT INVITE SCREEN ═══════ -->
+<div class="screen" id="scr-asst-invite">
+  <div class="ob-wrap">
+    <div class="ob">
+      <div class="ob-logo"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/NeurataLogoOrangeWhite.svg" alt="Neurata" style="height:36px"/></div>
+      <div class="ob-h">You've been invited as an Assistant</div>
+      <div class="ob-s">Create your account to access your assigned strata corporation.</div>
+      <div class="fr">
+        <div class="fg"><label>Full Name</label><input type="text" id="asst-inv-name" placeholder="Your full name"/></div>
+        <div class="fg"><label>Email</label><input type="email" id="asst-inv-email" placeholder="your@email.com"/></div>
+        <div class="fg"><label>Password</label><input type="password" id="asst-inv-pw" placeholder="At least 8 characters"/></div>
+      </div>
+      <button class="btn pri ob-cta" id="asst-inv-btn" onclick="obAsstSignup()">Create Account →</button>
+      <div style="text-align:center;margin-top:12px">
+        <a href="#" onclick="showScr('scr-login');return false;" style="font-size:13px;color:var(--g4)">Already have an account? Sign in</a>
       </div>
     </div>
   </div>
@@ -3021,6 +3059,44 @@ function prefillDelegateForm(name, email, role) {
   }
 }
 
+var _asstInviteScId = null;
+
+function openInviteAsst(scId) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  _asstInviteScId = scId;
+  var html = '<div class="cm-form-row">'
+    + '<div><div class="cm-label">Full Name *</div><input class="cm-input" id="asst-name" type="text" placeholder="e.g. Jane Smith"/></div>'
+    + '<div><div class="cm-label">Email *</div><input class="cm-input" id="asst-email" type="email" placeholder="jane@example.com"/></div>'
+    + '</div>'
+    + '<div class="al info" style="margin-top:12px;font-size:12px">The assistant will receive an invitation to create an account. They can create and run meetings for '+escHtml(s.plan)+' — '+escHtml(s.name)+', but cannot create new strata corporations.</div>';
+  document.getElementById('asst-invite-scname').textContent = s.plan + ' — ' + s.name;
+  document.getElementById('asst-invite-body').innerHTML = html;
+  openMo('mo-invite-asst');
+}
+
+function saveAsst() {
+  var scId = _asstInviteScId;
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  var name  = (document.getElementById('asst-name').value||'').trim();
+  var email = (document.getElementById('asst-email').value||'').trim();
+  if (!name)  { nAlert('Please enter the assistant name.','Missing Name','warn'); return; }
+  if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid email address.','Missing Email','warn'); return; }
+  var inviteUrl = 'https://app.neurata.ai/?asst='+encodeURIComponent(APP.brokerage.lic||'')
+    +'&sc='+encodeURIComponent(s.plan)
+    +'&email='+encodeURIComponent(email);
+  fetch(WORKER_URL+'/send-invite', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      type: 'asst_invite', to: email, toName: name,
+      fromName: APP.currentUser.name, brokerage: APP.brokerage.name||'',
+      scPlan: s.plan, scName: s.name||'', inviteUrl: inviteUrl
+    })
+  }).catch(function(e){ console.error('ASST invite email error:', e); });
+  closeMo('mo-invite-asst');
+  nAlert('Invitation sent to '+email+'.','Invite Sent ✓','success');
+  renderSCDetail(scId);
+}
+
 function saveDelegate() {
   var scId  = _delInviteScId;
   var s     = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
@@ -3119,7 +3195,8 @@ function renderSCReps(s) {
   var canInviteDel = canInviteRep; // REPs can invite council delegates to their SCs
   var html = '<div class="br" style="margin-bottom:12px">'
     +(canInviteRep?'<button class="btn pri" onclick="openSCInviteRep(\''+s.id+'\')">+ Invite Representative</button>':'')
-    +(canInviteDel?' <button class="btn pri" onclick="openInviteDelegate(\''+s.id+'\')">+ Invite Council Delegate</button>':'')
+    +(canInviteDel?' <button class="btn pri" onclick="openInviteDelegate(\''+s.id+'\')">+ Invite Council Delegate</button>'
+        + (canManage ? '<button class="btn sm" onclick="openInviteAsst(\''+s.id+'\')">+ Invite Assistant</button>' : ''):'')
     +'</div>';
 
   if (!rows.length) {
@@ -4723,7 +4800,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.2 build:1777314040 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.3 build:1777314439 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -9095,18 +9172,22 @@ async function init(){
   var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
   var delegateSc = urlParams.get('delegate'); // SC id for delegate
   var delegateSl = urlParams.get('sl');        // strata lot
+  var asstBrk    = urlParams.get('asst');      // brokerage lic for assistant invite
+  var asstSc     = urlParams.get('sc');        // SC plan for assistant invite
+  var asstEmail  = urlParams.get('email');     // pre-filled email for assistant
   var inviteScPlans = inviteSc ? inviteSc.split(',').map(function(p){return p.trim();}).filter(Boolean) : [];
-  var hasInvite  = !!(inviteBrk || delegateSc);
+  var hasInvite  = !!(inviteBrk || delegateSc || asstBrk);
 
   // Store invite context for use after login/signup
   if (hasInvite) {
     window._inviteContext = {
-      type:       delegateSc ? 'delegate' : 'rep',
-      brkLic:     inviteBrk  || '',
-      scId:       inviteScPlans[0] || delegateSc || '',
+      type:       delegateSc ? 'delegate' : asstBrk ? 'assistant' : 'rep',
+      brkLic:     inviteBrk  || asstBrk || '',
+      scId:       inviteScPlans[0] || delegateSc || asstSc || '',
       scPlans:    inviteScPlans,
       lic:        inviteLic  || '',
-      sl:         delegateSl || ''
+      sl:         delegateSl || '',
+      email:      asstEmail  || ''
     };
     // Clean up URL without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -9121,13 +9202,13 @@ async function init(){
         nConfirm(
           'You are signed in to another account. Sign out to accept this invitation?',
           function(ok) {
-            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-invited'); }); }
+            if (ok) { getSupabase().auth.signOut().then(function(){ showInviteScreen(); }); }
             else { window._inviteContext = null; loadUserProfile(session.user.id); }
           },
           'Invitation Link', 'info'
         );
       } else {
-        showScr('scr-invited');
+        showInviteScreen();
       }
       return;
     }
