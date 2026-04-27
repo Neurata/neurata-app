@@ -6014,7 +6014,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Active Services</div></div>';
   html += '<div class="cb">';
-  var activeSCs = sc.filter(function(s){ return s.mmStatus === 'ACTIVE' || s.mmActive; });
+  var activeSCs = sc.filter(function(s){ return scMmActive(s); });
   var pendingReqs = APP.pendingRequests || [];
 
   // Pending rep requests
