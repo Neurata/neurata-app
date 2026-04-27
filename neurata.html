@@ -6619,9 +6619,118 @@ function selectSCAndOpenMeeting(scId, mtgId) {
   setTimeout(function(){ agOpen(scId, mtgId); }, 100);
 }
 
+function renderSuperAdminDashboard(el) {
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px;padding:20px">Loading platform data…</div>';
+  var db = getSupabase();
+  Promise.all([
+    db.from('brokerages').select('*'),
+    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed'),
+    db.from('meetings').select('id,sc_id,date,status,type').eq('status','ADJOURNED').order('date',{ascending:false}).limit(10)
+  ]).then(function(results) {
+    var brokerages = results[0].data || [];
+    var corps      = results[1].data || [];
+    var meetings   = results[2].data || [];
+
+    // Stats
+    var totalBrokerages = brokerages.length;
+    var totalCorps = corps.length;
+    var mmActive = corps.filter(function(s){ return s.is_subscribed; }).length;
+    var mmMRR = mmActive * 39;
+    // Estimate SS MRR from strata lots (rough — we don't have tier per SC here)
+    var ssMRR = 0; // placeholder until we have SS subscription data
+
+    var html = '';
+
+    // ── Stat cards ──
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">';
+    [
+      { label: 'Brokerages', value: totalBrokerages, color: 'var(--ch)' },
+      { label: 'Strata Corps', value: totalCorps, color: 'var(--ch)' },
+      { label: 'MM Active', value: mmActive, color: '#1a9960' },
+      { label: 'Est. MRR', value: 'CA$'+mmMRR.toLocaleString(), color: 'var(--org)' }
+    ].forEach(function(s) {
+      html += '<div class="card" style="padding:20px 24px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:8px">'+s.label+'</div>'
+        + '<div style="font-size:32px;font-weight:800;color:'+s.color+';font-family:var(--display)">'+s.value+'</div>'
+        + '</div>';
+    });
+    html += '</div>';
+
+    // ── Two column layout: brokerage cards + recent activity ──
+    html += '<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">';
+
+    // Brokerage cards
+    html += '<div>';
+    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:12px">Registered Brokerages</div>';
+    if (!brokerages.length) {
+      html += '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages registered yet.</div></div>';
+    } else {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+      brokerages.forEach(function(b) {
+        var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
+        var bMM = bCorps.filter(function(s){ return s.is_subscribed; }).length;
+        var status = b.subscription_status || 'trial';
+        var statusTag = status === 'active'
+          ? '<span class="tag grn">Active</span>'
+          : '<span class="tag amb">Trial</span>';
+        html += '<div class="card" style="padding:16px 18px">'
+          + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">'
+          + '<div>'
+          + '<div style="font-size:14px;font-weight:700;color:var(--ch)">'+escHtml(b.name||'—')+'</div>'
+          + '<div style="font-size:11px;color:var(--g4);margin-top:1px">'+escHtml(b.bcfsa_lic||'')+'</div>'
+          + '</div>'+statusTag+'</div>'
+          + '<div style="display:flex;gap:16px;font-size:12px;color:var(--g4);margin-bottom:12px">'
+          + '<span>'+bCorps.length+' corps</span>'
+          + '<span>'+bMM+' MM active</span>'
+          + '<span>'+(b.trial_meetings_used||0)+'/2 trial used</span>'
+          + '</div>'
+          + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '')
+          + '<button class="btn xs pri" onclick="adminEnterBrokerage(\''+escHtml(b.bcfsa_lic)+'\')">Enter →</button>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // Recent activity
+    html += '<div>';
+    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:12px">Recent Meetings</div>';
+    html += '<div class="card" style="padding:0;overflow:hidden">';
+    if (!meetings.length) {
+      html += '<div style="padding:16px;color:var(--g4);font-size:13px">No meetings adjourned yet.</div>';
+    } else {
+      meetings.forEach(function(m) {
+        var sc_ = (APP.sc||[]).find(function(s){ return s.plan === m.sc_id; });
+        html += '<div style="padding:10px 14px;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between">'
+          + '<div>'
+          + '<div style="font-size:12px;font-weight:600;color:var(--ch)">'+escHtml(m.sc_id)+(sc_?' · '+escHtml(sc_.name):'')+'</div>'
+          + '<div style="font-size:11px;color:var(--g4)">'+escHtml(m.type||'Meeting')+' · '+escHtml(m.date||'')+'</div>'
+          + '</div>'
+          + '<span class="tag grn" style="font-size:10px">Adjourned</span>'
+          + '</div>';
+      });
+    }
+    html += '</div></div>';
+    html += '</div>'; // end two-col
+
+    el.innerHTML = html;
+  }).catch(function(e) {
+    el.innerHTML = '<div class="card"><div class="cb" style="color:var(--red)">Error loading platform data: '+escHtml(e.message||'unknown')+'</div></div>';
+  });
+}
+
 function renderDash() {
   var el = document.getElementById('dash-body');
   var sub = document.getElementById('dash-sub');
+
+  // Super admin outside brokerage — show platform overview
+  if (APP.currentUser.isSuperAdmin && !APP._adminContext) {
+    if (sub) sub.textContent = 'Platform Overview';
+    if (!el) return;
+    renderSuperAdminDashboard(el);
+    return;
+  }
+
   if (sub) sub.textContent = (APP.brokerage.name||APP.currentUser.brkName||'—') + (APP.brokerage.lic?' · BCFSA '+APP.brokerage.lic:'');
   if (!el) return;
   var sc = getVisibleSCs();
@@ -7222,7 +7331,13 @@ function renderSidebar(activePg) {
   if (!sb) return;
   var sc = getVisibleSCs();
   var role = APP.currentUser.role || '';
-  var tabs = ROLE_TABS[role] || ROLE_TABS['default'];
+  var isSuperAdmin = APP.currentUser.isSuperAdmin;
+  var tabs;
+  if (isSuperAdmin && !APP._adminContext) {
+    tabs = ['admin-brokerages'];
+  } else {
+    tabs = ROLE_TABS[role] || ROLE_TABS['default'];
+  }
   var isMB = (role === 'Managing Broker' || role === 'Associate Broker');
   var isSubscribed = APP.brokerage && APP.brokerage.subscriptionStatus === 'active';
   var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
