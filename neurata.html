@@ -7168,22 +7168,30 @@ function selectSCAndOpenMeeting(scId, mtgId) {
 
 
 function saManageTrial(brkLic, brkName, currentUsed, isActive) {
-  var isActiveStr = isActive ? 'true' : 'false';
-  var html = '<div style="display:flex;flex-direction:column;gap:14px">'
-    + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Subscription Status</div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button class="btn sm '+(isActive?'':'pri')+'" onclick="saSetStatus(\''+brkLic+'\',\'trial\',this)">Trial</button>'
-    + '<button class="btn sm '+(isActive?'pri':'')+'" onclick="saSetStatus(\''+brkLic+'\',\'active\',this)">Active (Paid)</button>'
-    + '</div></div>'
-    + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Trial Meetings Used: '+currentUsed+'</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-    + '<button class="btn xs" onclick="saSetTrialUsed(\''+brkLic+'\',0,this)">Reset to 0</button>'
-    + '<button class="btn xs" onclick="saSetTrialUsed(\''+brkLic+'\','+PRICING.trialMeetings+',this)">Mark Exhausted</button>'
-    + '<button class="btn xs" onclick="saSetTrialUsedCustom(\''+brkLic+'\')">Custom…</button>'
-    + '</div></div>'
-    + '<div style="font-size:12px;color:var(--g4)">Resetting to 0 gives the brokerage a fresh '+PRICING.trialMeetings+'-meeting trial. Marking active bypasses trial limits entirely.</div>'
-    + '</div>';
-  nDialog('Manage Trial — '+brkName, html, [{label:'Done', onclick:function(){closeMo('cdlg');renderDash();}}]);
+  var msg = brkName + ' — Trial Management\n\n'
+    + 'Current status: ' + (isActive ? 'Active (Paid)' : 'Trial') + '\n'
+    + 'Meetings used: ' + currentUsed + ' of ' + PRICING.trialMeetings + '\n\n'
+    + 'What would you like to do?\n'
+    + '1 = Reset trial to 0 (fresh start)\n'
+    + '2 = Mark as Active/Paid (no trial limits)\n'
+    + '3 = Set custom meetings used count\n'
+    + '4 = Revert to Trial status';
+  nPrompt(msg, function(choice) {
+    choice = (choice||'').trim();
+    if (choice === '1') {
+      saSetTrialUsed(brkLic, 0);
+    } else if (choice === '2') {
+      saSetStatus(brkLic, 'active');
+    } else if (choice === '3') {
+      nPrompt('Set "meetings used" to what number? (Use a negative number to grant extra meetings — e.g. -4 gives 4 extra beyond the normal limit)', function(val) {
+        var n = parseInt(val);
+        if (isNaN(n)) { nAlert('Please enter a valid number.','','warn'); return; }
+        saSetTrialUsed(brkLic, n);
+      }, currentUsed, 'Enter number');
+    } else if (choice === '4') {
+      saSetStatus(brkLic, 'trial');
+    }
+  }, '', 'Enter 1, 2, 3, or 4');
 }
 
 function saSetStatus(brkLic, status, btn) {
