@@ -5692,7 +5692,13 @@ function renderBrokerage() {
   html+='</div>';
 
   html+='</div>'; // close top g2
+  html+='</div>'; // close top g2
 
+  // ── AI Usage card (MB/AB only) ───────────────────────────────────
+  if (canSeeAll) {
+    html += '<div class="card" id="brk-ai-usage-card"><div class="ch_"><div class="ct">🤖 AI Usage This Month</div></div>'
+      + '<div class="cb" id="brk-ai-usage-body"><div style="color:var(--g4);font-size:13px">Loading…</div></div></div>';
+  }
   // ── Full width: Representatives ───────────────────────────────────
   if(canSeeAll||APP.currentUser.isSuperAdmin){
     html+='<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
@@ -5700,11 +5706,11 @@ function renderBrokerage() {
       +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
   }
 
-  // ── AI Usage card (MB/AB only) ───────────────────────────────────
-  if (canSeeAll) {
-    html += '<div class="card" id="brk-ai-usage-card"><div class="ch_"><div class="ct">🤖 AI Usage This Month</div></div>'
-      + '<div class="cb" id="brk-ai-usage-body"><div style="color:var(--g4);font-size:13px">Loading…</div></div></div>';
-  }
+
+
+
+
+
 
   el.innerHTML=html;
 
