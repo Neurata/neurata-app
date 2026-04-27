@@ -4723,7 +4723,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.1 build:1777313056 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.2 build:1777314040 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -6637,6 +6637,29 @@ function loadUserSCs(userId) {
           });
         }).catch(function(){});
       }
+      // For reps: populate repIds from sc_users so they see who else is on each SC
+      if (!isAdmin && planNumbers.length) {
+        getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type','rep')
+        .then(function(scur) {
+          if (scur.data && scur.data.length) {
+            var userIds = scur.data.map(function(r){ return r.user_id; });
+            getSupabase().from('users').select('id,bcfsa_lic').in('id', userIds)
+            .then(function(ur) {
+              var userMap = {};
+              (ur.data||[]).forEach(function(u){ userMap[u.id] = u.bcfsa_lic; });
+              scur.data.forEach(function(row) {
+                var lic = userMap[row.user_id];
+                if (!lic) return;
+                var sc_ = APP.sc.find(function(s){ return s.plan === row.sc_id; });
+                if (sc_) {
+                  if (!sc_.repIds) sc_.repIds = [];
+                  if (sc_.repIds.indexOf(lic) < 0) sc_.repIds.push(lic);
+                }
+              });
+            });
+          }
+        }).catch(function(){});
+      }
       // Reset currentScId to first SC if previous value no longer valid
       if (scList.length && (!APP.currentScId || !scList.find(function(s){return s.id===APP.currentScId;}))) {
         APP.currentScId = scList[0].id;
@@ -6767,7 +6790,7 @@ function launchPlatform(){
   showPg('dashboard');
   // Show onboarding for first-time users with no SCs
   var role = u.role || '';
-  var canCreate = role === 'Managing Broker' || role === 'Associate Broker';
+  var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
   if (canCreate && APP.sc.length === 0) {
     setTimeout(function(){ obShowOverlay(); }, 500);
   }
