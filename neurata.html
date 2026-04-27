@@ -5825,6 +5825,11 @@ function adminEnterBrokerage(brkLic) {
         id: sc.plan_number, plan: sc.plan_number, name: sc.name,
         lots: sc.lots||1, addr: sc.address||'', brokerage_id: sc.brokerage_id,
         mgr: '', mgrLic: '', mmStatus: sc.is_subscribed?'ACTIVE':'',
+        mmActivatedAt: sc.mm_activated_at||null,
+        ssTier: sc.ss_tier||null,
+        ssGlobalActivatedAt: sc.ss_global_activated_at||null,
+        mmPendingCancel: sc.mm_pending_cancel||false,
+        ssPendingDowngrade: sc.ss_pending_downgrade||null,
         adjCount: 0, meetings: [], decisions: [], docs: [],
         councilMembers: [], repIds: [], delegateIds: []
       };
@@ -5975,6 +5980,15 @@ function renderBilling() {
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   if (!el) return;
+  // Refresh pending requests from Supabase each time billing renders
+  if (isMB && APP.brokerage.lic) {
+    getSupabase().from('activation_requests').select('*')
+      .eq('brokerage_id', APP.brokerage.lic).eq('status','pending')
+      .then(function(r){ APP.pendingRequests = r.data || []; renderBilling(); })
+      .catch(function(){});
+    // Return early on first call — will re-render with data
+    if (APP.pendingRequests === undefined) { APP.pendingRequests = []; return; }
+  }
   var html = '<div class="g2">';
 
   // ── Left: Payment method ──────────────────────────────────────────
@@ -6604,6 +6618,11 @@ function loadSuperAdminData(userId, u) {
         lots: sc.lots || 1, addr: sc.address || '',
         mgr: '', mgrLic: '', brokerage_id: sc.brokerage_id,
         mmStatus: sc.is_subscribed ? 'ACTIVE' : '',
+        mmActivatedAt: sc.mm_activated_at||null,
+        ssTier: sc.ss_tier||null,
+        ssGlobalActivatedAt: sc.ss_global_activated_at||null,
+        mmPendingCancel: sc.mm_pending_cancel||false,
+        ssPendingDowngrade: sc.ss_pending_downgrade||null,
         adjCount: 0, meetings: [], decisions: [], docs: [],
         councilMembers: [], repIds: [], delegateIds: []
       };
@@ -6763,7 +6782,7 @@ function renderSuperAdminDashboard(el) {
   var db = getSupabase();
   Promise.all([
     db.from('brokerages').select('*'),
-    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed')
+    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier')
   ]).then(function(results) {
     var brokerages = results[0].data || [];
     var corps      = results[1].data || [];
