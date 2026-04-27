@@ -7556,6 +7556,10 @@ function renderSCOverview(s) {
   if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span>📍</span><span>'+escHtml(s.addr)+'</span></div>';
   // Manager — derive from assigned reps
   var mgrNames = (s.repIds||[]).map(function(lic){
+    // users.full_name = Known As name (set during BCFSA onboarding)
+    // reps.name = Legal name (from brokerage sync) or Known As (if signed up via Neurata)
+    // APP.currentUser has the known-as name if this rep is logged in
+    if (APP.currentUser && APP.currentUser.lic === lic) return APP.currentUser.name;
     var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
     return rep ? rep.name : lic;
   });
