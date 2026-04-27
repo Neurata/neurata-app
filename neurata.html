@@ -3322,7 +3322,7 @@ function renderMgmtStrataSphere(sc, el) {
         var lLbl = pendingLocal ? '&#9203; Local' : 'Local';
         var gLbl = pendingGlobal ? '&#9203; Global' : 'Global';
         return '<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08);background:var(--ch);flex-shrink:0;gap:12px">'
-          + '<span style="font-size:12px;color:rgba(255,255,255,.5);font-weight:500">' + escHtml(sc.plan) + '</span>'
+          
           + '<div style="margin-left:auto;display:flex;background:rgba(0,0,0,.25);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.12)">'
           + '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'local\')" style="border:none;padding:5px 16px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+(globalActive?'none':'var(--org)')+';color:'+(globalActive?'rgba(255,255,255,.3)':'#fff')+'">Local</button>'
           + '<button onclick="mgmtSsSwitchTier(\''+scId+'\',\'global\')" style="border:none;border-left:1px solid rgba(255,255,255,.1);padding:5px 16px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:'+(globalActive?'var(--org)':'none')+';color:'+(globalActive?'#fff':pendingGlobal?'rgba(255,255,255,.55)':'rgba(255,255,255,.3)')+'">'+(pendingGlobal?'&#9203; ':'')+'Global</button>'
@@ -5741,6 +5741,10 @@ function renderAdminBrokerages() {
 function adminEnterBrokerage(brkLic) {
   var b = (APP._allBrokerages || []).find(function(x){ return x.bcfsa_lic === brkLic; });
   if (!b) return;
+  // Show loading state immediately
+  var dashBody = document.getElementById('dash-body');
+  if (dashBody) dashBody.innerHTML = '<div style="color:var(--g4);font-size:13px;padding:20px">Loading '+escHtml(b.name)+'…</div>';
+  showPg('dashboard');
   // Store admin context so we can return
   if (!APP._adminContext) {
     APP._adminContext = {
@@ -6534,10 +6538,8 @@ getSupabase().auth.onAuthStateChange(function(event, session) {
     showNewPasswordPrompt();
   }
   if (event === 'SIGNED_IN' && session) {
-    // Only reload if already in the platform (handles token refresh)
-    if (APP.currentUser && APP.currentUser.name) {
-      loadUserProfile(session.user.id);
-    }
+    // Token refresh — do nothing, user is already in the platform
+    // loadUserProfile would reset the page to dashboard which we don't want
   }
 });
 
@@ -6634,17 +6636,18 @@ function renderSuperAdminDashboard(el) {
     var totalCorps = corps.length;
     var mmActive = corps.filter(function(s){ return s.is_subscribed; }).length;
     var mmMRR = mmActive * PRICING.perBuilding;
-    // Get SS data from brokerages — count SCs with global_ss flag
-    // For now approximate from APP.sc if loaded, else from corps
-    var localSS = 0, globalSS = 0;
+    // SS MRR — count actual active paid SS subscriptions with real lot counts
+    var localSS = 0, globalSS = 0, localMRR = 0, globalMRR = 0;
     (APP.sc||[]).forEach(function(s){
       var t = scSsTier(s);
-      if (t === 'local') localSS++;
-      if (t === 'global') globalSS++;
+      var lots = parseInt(s.lots) || 0;
+      if (t === 'local')  { localSS++;  localMRR  += PRICING.perLotLocal  * lots; }
+      if (t === 'global') { globalSS++; globalMRR += PRICING.perLotGlobal * lots; }
     });
-    var localMRR = localSS * PRICING.perLotLocal * 10; // rough avg 10 lots
-    var globalMRR = globalSS * PRICING.perLotGlobal * 10;
-    var totalMRR = mmMRR + localMRR + globalMRR;
+    // Only count MRR for paid subscriptions (trial = $0)
+    var brokerage = APP._allBrokerages || [];
+    var anyPaid = brokerage.some(function(b){ return b.subscription_status === 'active'; });
+    var totalMRR = anyPaid ? (mmMRR + localMRR + globalMRR) : 0;
 
     var html = '';
 
@@ -6656,7 +6659,7 @@ function renderSuperAdminDashboard(el) {
       { label: 'MM Active', value: mmActive, color: '#1a9960' },
       { label: 'Local SS', value: localSS, color: '#0077b6' },
       { label: 'Global SS', value: globalSS, color: '#023e8a' },
-      { label: 'Est. MRR', value: 'CA$'+totalMRR.toLocaleString(), color: 'var(--org)' }
+      { label: 'Est. MRR', value: 'CA$'+totalMRR.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','), color: 'var(--org)' }
     ].forEach(function(s) {
       html += '<div class="card" style="padding:16px 20px;text-align:center">'
         + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:6px">'+s.label+'</div>'
