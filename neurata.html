@@ -3146,7 +3146,7 @@ function removeDelegate(scId, uid) {
 
 function renderSCReps(s) {
   var role = APP.currentUser && APP.currentUser.role || '';
-  var canManage = role === 'Managing Broker' || role === 'Associate Broker';
+  var canManage = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
   // Collect all users connected to this SC across all role types
   var allReps = APP.reps || [];
   var rows = [];
