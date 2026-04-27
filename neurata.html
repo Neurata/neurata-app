@@ -1557,16 +1557,41 @@ function dismissActivationRequest(id) {
 
 function activateFromRequest(id, scId, requestType) {
   var sc_ = APP.sc.find(function(s){return s.plan===scId||s.id===scId;});
-  if (!sc_) return;
-  var tier = requestType==='ss_global'?'global':requestType==='ss_local'?'local':null;
-  // Mark request activated
-  getSupabase().from('activation_requests').update({status:'activated'}).eq('id',id).then(function(){});
-  if (tier) {
-    activateSCStrataSphere(sc_.id, tier);
-  } else {
-    activateSCMeetingMode(sc_.id);
-  }
-  if (APP.currentScId === sc_.id) renderMeetings();
+  if (!sc_) { nAlert('SC not found.','','warn'); return; }
+  var lots = parseInt(sc_.lots) || 0;
+  var label = requestType==='ss_global' ? 'Global StrataSphere'
+    : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
+  var pricing = requestType==='ss_global'
+    ? 'CA$'+PRICING.perLotGlobal+'/lot x '+lots+' lots = CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/month'
+    : requestType==='ss_local'
+    ? 'CA$'+PRICING.perLotLocal+'/lot x '+lots+' lots = CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/month'
+    : 'CA$'+PRICING.perBuilding+'/month';
+  nConfirm(
+    'Approve '+label+' for '+scId+'? '+pricing+'. Annual commitment, billed monthly.',
+    function(ok) {
+      if (!ok) return;
+      if (requestType === 'ss_global') {
+        sc_.ssTier = 'global';
+        sc_.ssGlobalActivatedAt = new Date().toISOString();
+        getSupabase().from('strata_corps').update({
+          ss_tier: 'global',
+          ss_global_activated_at: sc_.ssGlobalActivatedAt
+        }).eq('plan_number', sc_.plan).then(function(r){
+          if (r.error) { nAlert('Error saving. Please try again.','Error','warn'); return; }
+          getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){
+            APP.pendingRequests = undefined;
+            renderBilling();
+            nAlert(label+' approved for '+scId+'.','Approved','success');
+          });
+        });
+      } else {
+        getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){
+          APP.pendingRequests = undefined;
+          renderBilling();
+          nAlert(label+' approved for '+scId+'.','Approved','success');
+        });
+      }
+    }, 'Approve Request', 'info');
 }
 
 
@@ -6028,23 +6053,6 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="ch_"><div class="ct">Active Services</div></div>';
   html += '<div class="cb">';
   var activeSCs = sc.filter(function(s){ return scMmActive(s); });
-  var pendingReqs = APP.pendingRequests || [];
-
-  // Pending rep requests
-  if (pendingReqs.length) {
-    html += '<div class="al info" style="margin-bottom:12px"><strong>&#9203; Pending Requests</strong><br>';
-    pendingReqs.forEach(function(req) {
-      var label = req.request_type === 'ss_global' ? 'Global StrataSphere upgrade'
-        : req.request_type === 'ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
-      html += '<div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:space-between">'
-        + '<span>'+escHtml(req.sc_id)+' — '+label+' requested by '+escHtml(req.requester_name||'rep')+'</span>'
-        + '<div style="display:flex;gap:6px">'
-        + '<button class="btn xs pri" onclick="approveActivationRequest(\''+req.id+'\',\''+req.sc_id+'\',\''+req.request_type+'\')">Approve</button>'
-        + '<button class="btn xs" onclick="dismissActivationRequest(\''+req.id+'\')">Dismiss</button>'
-        + '</div></div>';
-    });
-    html += '</div>';
-  }
 
   if (!activeSCs.length) {
     html += '<div style="color:var(--g4);font-size:13px">No active services yet. Activate Meeting Mode on a strata corporation to get started.</div>';
