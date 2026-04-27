@@ -4723,7 +4723,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.3.0 build:1776924684 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.1 build:1777313056 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -7441,9 +7441,10 @@ function openAddCouncilMember(scId, sl) {
     slSel.appendChild(opt);
   }
 
-  // Build role dropdown — grey out roles already taken by other council members
+  // Only officer roles are unique — MaL is unlimited
+  var officerRoles = ['President','Vice President','Treasurer','Secretary'];
   var takenRoles = s.councilMembers
-    .filter(function(m,i){return i!==_cmExistingIdx && m.isCouncil;})
+    .filter(function(m,i){ return i!==_cmExistingIdx && m.isCouncil && officerRoles.indexOf(m.role)>=0; })
     .map(function(m){return m.role;});
   var roleSel = document.getElementById('cm-role');
   Array.from(roleSel.options).forEach(function(opt){
@@ -7452,7 +7453,7 @@ function openAddCouncilMember(scId, sl) {
     opt.textContent = opt.value + (opt.disabled?' (taken)':'');
     if(existing && existing.role===opt.value) opt.selected=true;
   });
-  if(!existing) roleSel.value='';
+  if(!existing) roleSel.value='Member at Large';
 
   openMo('mo-council-member');
 }
@@ -7465,6 +7466,7 @@ function saveCouncilMember() {
   var role  = document.getElementById('cm-role').value;
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   if(!slVal){ nAlert('Please select a strata lot.','Missing Lot','warn'); return; }
+  if(!role){ nAlert('Please select a role.','Missing Role','warn'); return; }
   if(!s.councilMembers) s.councilMembers=[];
   // Officer roles (President, VP, Treasurer, Secretary) can only be held by one person
   var officerRoles = ['President','Vice President','Treasurer','Secretary'];
