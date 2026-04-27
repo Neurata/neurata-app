@@ -8824,336 +8824,48 @@ function euaScrollCheck() {
 function obToggleCreateBtn(){var btn=document.getElementById('ob-create-btn');if(btn)btn.disabled=!document.getElementById('ob-ck1').checked;}
 function invToggleCreateBtn(){}
 
+
 function obComplete(){
-  if(!document.getElementById('ob-ck1').checked){nAlert('Please agree to the Terms of Service.');return;}
+  var userId = null;
   var email = (document.getElementById('ob-email')||{}).value||'';
   var pw    = (document.getElementById('ob-pw')||{}).value||'';
   var btn   = document.getElementById('ob-create-btn');
   if(btn){btn.disabled=true;btn.textContent='Creating account…';}
-
-  // Step 1: Create Supabase Auth account
   getSupabase().auth.signUp({email: email, password: pw})
-    .then(function(result) {
-      if (result.error) {
-        if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-        nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
-        return;
-      }
-      var userId = result.data.user.id;
-
-      // Step 2: Upsert brokerage record
-      return getSupabase().from('brokerages').upsert({
-        bcfsa_lic:           OB.brkLic,
-        name:                OB.brkName,
-        address:             OB.brkAddr,
-        phone:               OB.brkPhone,
-        subscription_status: 'trial',
-        trial_meetings_used: 0
-      }, {onConflict: 'bcfsa_lic'})
-      .then(function() {
-        // Step 3: Create user profile
-        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-        return getSupabase().from('users').insert({
-          id:           userId,
-          brokerage_id: OB.brkLic,
-          full_name:    OB.repName,
-          email:        email,
-          bcfsa_lic:    OB.lic,
-          role:         OB.repRole || 'Managing Broker'
-        });
-      })
-      .then(function() {
-        // Step 4: Write brokerage_id to JWT app_metadata
-        // This is critical — RLS policies read brokerage_id from the JWT token
-        return getSupabase().auth.updateUser({
-          data: { brokerage_id: OB.brkLic }
-        });
-      })
-      .then(function() {
-        // Step 5: Set local APP state and show confirmation
-        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-        APP.currentUser = {
-          name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
-          role:OB.repRole, licFor:OB.repLicFor, initials:initials,
-          brkLic:OB.brkLic, brkName:OB.brkName
-        };
-        APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
-        nAlert('Account created! Please check your email to confirm your address before signing in.', 'Account Created ✓', 'success');
-        showScr('scr-login');
-      });
-    })
-    .catch(function(err) {
+  .then(function(result) {
+    if (result.error) {
       if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-      nAlert('Account creation failed. Please try again.', 'Error', 'warn');
-    });
-}
-
-function invTogglePw(){
-  var inp = document.getElementById('inv-pw');
-  var btn = document.getElementById('inv-pw-toggle');
-  if (!inp) return;
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  if (btn) btn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
-}
-
-function invPwStrength(){
-  var pw  = (document.getElementById('inv-pw')||{}).value||'';
-  var el  = document.getElementById('inv-pw-strength');
-  if (!el) return;
-  var score = 0;
-  if (pw.length >= 8)  score++;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  var labels = ['Too short','Weak','Fair','Good','Strong','Very strong'];
-  var colors = ['var(--red)','var(--red)','var(--org)','var(--org)','var(--grn)','var(--grn)'];
-  el.textContent = pw.length === 0 ? 'Minimum 8 characters' : labels[score] || 'Very strong';
-  el.style.color  = pw.length === 0 ? 'var(--g4)' : colors[score] || 'var(--grn)';
-}
-
-function invCheckBtn(){
-  var lic   = (document.getElementById('inv-lic')||{}).value||'';
-  var email = (document.getElementById('inv-email')||{}).value||'';
-  var pw    = (document.getElementById('inv-pw')||{}).value||'';
-  var btn   = document.getElementById('inv-create-btn');
-  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8);
-}
-
-function obInviteComplete(){
-  var lic   = (document.getElementById('inv-lic')||{}).value.trim().toUpperCase();
-  var email = (document.getElementById('inv-email')||{}).value.trim();
-  var pw    = (document.getElementById('inv-pw')||{}).value.trim();
-  if(!lic)  { nAlert('Please enter your BCFSA licence number.'); return; }
-  if(!email){ nAlert('Please enter your brokerage email.'); return; }
-  if(pw.length<8){ nAlert('Please create a password (minimum 8 characters).'); return; }
-
-  // Validate lic matches invitation
-  if (window._inviteContext && window._inviteContext.lic) {
-    var expectedLic = window._inviteContext.lic.toUpperCase().replace(/[^A-Z0-9]/g,'');
-    var enteredLic  = lic.replace(/[^A-Z0-9]/g,'');
-    if (expectedLic && enteredLic !== expectedLic) {
-      nAlert('The licence number you entered does not match the invitation. Please use the licence associated with this invitation.', 'Licence Mismatch', 'warn');
-      return;
+      nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
+      return Promise.reject('handled');
     }
-  }
-
-  var btn = document.getElementById('inv-create-btn');
-  if(btn){ btn.disabled=true; btn.textContent='Verifying...'; }
-  var ctx = window._inviteContext;
-
-  // Step 1: Verify BCFSA licence
-  fetch(WORKER_URL+'/?lic='+encodeURIComponent(lic))
-  .then(function(r){ return r.json(); })
-  .then(function(rep){
-    if(rep.notFound||!rep.name){
-      if(btn){ btn.disabled=false; btn.textContent='Create Account'; }
-      nAlert('Licence '+lic+' was not found in the BCFSA registry.');
-      return Promise.reject('not_found');
-    }
-    var dn       = rep.knownAs||rep.name||lic;
-    var initials = dn.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-    var brkLic   = (ctx && ctx.brkLic) || rep.businessLicence || '';
-    if(btn){ btn.textContent='Creating account...'; }
-
-    // Step 2: Create auth account with metadata
-    // DB trigger will write users/sc_users/reps rows immediately on insert
-    return getSupabase().auth.signUp({
-      email: email,
-      password: pw,
-      options: {
-        data: {
-          full_name:    dn,
-          bcfsa_lic:    lic,
-          role:         rep.licensedAs || 'Representative',
-          brokerage_id: brkLic,
-          sc_id:        ctx ? ctx.scId : ''
-        }
-      }
-    })
-    .then(function(result){
-      if(result.error){ return Promise.reject(result.error.message||'Could not create account.'); }
-      var userId = result.data.user.id;
-
-      // Step 3: Metadata + profile + SC connection (fire and forget)
-      getSupabase().auth.updateUser({data:{brokerage_id:brkLic}});
-      getSupabase().from('users').upsert({
-        id:userId, full_name:dn, email:email,
-        bcfsa_lic:lic, role:rep.licensedAs||'Representative', brokerage_id:brkLic
-      },{onConflict:'id'});
-      if(ctx && ctx.scId){
-        // Write sc_users rows for ALL assigned SCs (not just the first one)
-        var allPlans = (ctx.scPlans && ctx.scPlans.length) ? ctx.scPlans : [ctx.scId];
-        allPlans.forEach(function(plan) {
-          getSupabase().from('sc_users').upsert({sc_id:plan, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'}).then(function(){});
-        });
-        // Merge all plans into reps.sc_ids
-        getSupabase().from('reps').select('sc_ids').eq('brokerage_id',brkLic).eq('bcfsa_lic',lic).maybeSingle()
-        .then(function(ex) {
-          var ids = [];
-          if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
-          allPlans.forEach(function(p){ if (ids.indexOf(p) < 0) ids.push(p); });
-          return getSupabase().from('reps').upsert({brokerage_id:brkLic,bcfsa_lic:lic,name:dn,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
-        });
-      }
-
-      // Step 4: Set APP state and launch
-      APP.currentUser = {
-        id:userId, name:dn, legalName:rep.name, lic:lic, email:email,
-        role:rep.licensedAs||'Representative', licFor:rep.licensedFor||'',
-        initials:initials, brkLic:brkLic, brkName:rep.businessName||''
-      };
-      APP.brokerage = {
-        name:rep.brkName||rep.businessName||'', lic:brkLic,
-        addr:rep.brkAddress||rep.businessAddress||'',
-        phone:rep.brkPhone||rep.businessPhone||''
-      };
-      window._inviteContext = null;
-      // Load full profile from Supabase — no stub SC
-      setTimeout(function(){ loadUserProfile(userId); }, 1000);
+    userId = result.data.user.id;
+    return getSupabase().from('brokerages').upsert({
+      bcfsa_lic: OB.brkLic, name: OB.brkName, address: OB.brkAddr,
+      phone: OB.brkPhone, subscription_status: 'trial', trial_meetings_used: 0
+    }, {onConflict: 'bcfsa_lic'});
+  })
+  .then(function() {
+    return getSupabase().from('users').insert({
+      id: userId, brokerage_id: OB.brkLic, full_name: OB.repName,
+      email: email, bcfsa_lic: OB.lic, role: OB.repRole || 'Managing Broker'
     });
   })
-  .catch(function(e){
-    if(e === 'not_found') return;
-    if(btn){ btn.disabled=false; btn.textContent='Create Account'; }
-    nAlert(typeof e==='string' ? e : 'Something went wrong. Please try again.','Error','warn');
-  });
-}
-
-
-// ══════════════════════════════════════════
-// MODALS
-// ══════════════════════════════════════════
-function openMo(id){document.getElementById(id)?.classList.add('open');if(id==='mo-edit-agenda')renderEditAgenda();}
-function closeMo(id){document.getElementById(id)?.classList.remove('open');}
-document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
-
-// ══════════════════════════════════════════
-// INIT — restore session on load
-// ══════════════════════════════════════════
-
-async function init(){
-  // Wire backdrop-click close for any modals added after script load
-  document.querySelectorAll('.mo').forEach(function(m){
-    if(!m._backdropWired){
-      m._backdropWired=true;
-      m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});
-    }
-  });
-
-  // ── Check URL params ─────────────────────────────────────────────
-  var urlParams = new URLSearchParams(window.location.search);
-  var tokenHash = urlParams.get('token_hash');
-  var tokenType = urlParams.get('type');
-  var hashParams = new URLSearchParams(window.location.hash.replace('#',''));
-  var accessToken = hashParams.get('access_token');
-  var refreshToken = hashParams.get('refresh_token');
-  var hashType = hashParams.get('type');
-
-  // Handle Supabase confirmation via hash fragment (#access_token=...)
-  if (accessToken) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-    // Sign out any unconfirmed session, then show login with success message
-    // The DB trigger already wrote users/sc_users/reps on signUp — just need to log in
-    await getSupabase().auth.signOut();
-    showScr('scr-login');
-    var errEl = document.getElementById('li-err');
-    if (errEl) {
-      errEl.style.display = '';
-      errEl.style.background = '#f0fdf4';
-      errEl.style.color = '#16a34a';
-      errEl.style.border = '1px solid #bbf7d0';
-      errEl.textContent = '✓ Email confirmed! Please sign in.';
-    }
-    return;
-  }
-
-  // Handle token_hash flow (?token_hash=...)
-  if (tokenHash) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-    console.log('[confirm] token_hash found, type:', tokenType);
-    var vResult = await getSupabase().auth.verifyOtp({token_hash: tokenHash, type: tokenType || 'signup'});
-    if (vResult.error) {
-      console.error('[confirm] verifyOtp error:', vResult.error.message);
-      nAlert('Confirmation failed: ' + vResult.error.message, 'Error', 'warn');
-      return;
-    }
-    console.log('[confirm] verifyOtp success');
-    return;
-  }
-  var inviteBrk  = urlParams.get('invite');   // brokerage lic
-  var inviteSc   = urlParams.get('sc');        // SC id
-  var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
-  var delegateSc = urlParams.get('delegate'); // SC id for delegate
-  var delegateSl = urlParams.get('sl');        // strata lot
-  var inviteScPlans = inviteSc ? inviteSc.split(',').map(function(p){return p.trim();}).filter(Boolean) : [];
-  var hasInvite  = !!(inviteBrk || delegateSc);
-
-  // Store invite context for use after login/signup
-  if (hasInvite) {
-    window._inviteContext = {
-      type:       delegateSc ? 'delegate' : 'rep',
-      brkLic:     inviteBrk  || '',
-      scId:       inviteScPlans[0] || delegateSc || '',
-      scPlans:    inviteScPlans,
-      lic:        inviteLic  || '',
-      sl:         delegateSl || ''
+  .then(function() {
+    return getSupabase().auth.updateUser({ data: { brokerage_id: OB.brkLic } });
+  })
+  .then(function() {
+    var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    APP.currentUser = {
+      name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
+      role:OB.repRole, licFor:OB.repLicFor, initials:initials,
+      brkLic:OB.brkLic, brkName:OB.brkName
     };
-    // Clean up URL without reloading
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  try{
-    var supaSession = await getSupabase().auth.getSession();
-    var session = supaSession.data && supaSession.data.session;
-
-    if (hasInvite) {
-      if (session) {
-        nConfirm(
-          'You are signed in to another account. Sign out to accept this invitation?',
-          function(ok) {
-            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-invited'); }); }
-            else { window._inviteContext = null; loadUserProfile(session.user.id); }
-          },
-          'Invitation Link', 'info'
-        );
-      } else {
-        showScr('scr-invited');
-      }
-      return;
-    }
-
-    if (session) {
-      // Don't load unconfirmed sessions — they have no data and break the app
-      if (!session.user.email_confirmed_at) {
-        // Show check-email screen for unconfirmed users
-        showScr('scr-check-email');
-        var emailEl = document.getElementById('check-email-address');
-        if (emailEl) emailEl.textContent = session.user.email;
-        return;
-      }
-      loadUserProfile(session.user.id);
-    }
-    // else stay on login screen
-  }catch(e){ console.error('init error:', e); }
+    APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
+    loadUserProfile(userId);
+  })
+  .catch(function(err) {
+    if (err === 'handled') return;
+    if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+    nAlert('Account creation failed. Please try again.', 'Error', 'warn');
+  });
 }
-
-init();
-</script>
-<!-- ═══════ CUSTOM DIALOG ═══════ -->
-<div id="cdlg-overlay">
-  <div id="cdlg-box">
-    <div id="cdlg-hd">
-      <span id="cdlg-icon" class="info"></span>
-      <span id="cdlg-title"></span>
-    </div>
-    <div id="cdlg-msg"></div>
-    <div id="cdlg-input-wrap" style="display:none">
-      <input id="cdlg-input" type="text"/>
-    </div>
-    <div id="cdlg-ft"></div>
-  </div>
-</div>
-
-</body>
-</html>
