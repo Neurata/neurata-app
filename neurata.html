@@ -1625,11 +1625,11 @@ function scMmActive(s) {
   return !scTrialExhausted(); // trial counts as active
 }
 function scSsTier(s) {
-  // During trial: local is free. After trial: must be explicitly activated.
   if (!s) return null;
   if (s.ssTier === 'global') return 'global';
+  // Local SS is always on if MM is active (paid or trial)
   if (s.ssTier === 'local') return 'local';
-  if (!scTrialExhausted()) return 'local'; // trial includes local SS
+  if (scMmActive(s)) return 'local'; // MM includes local SS
   return null;
 }
 function scCanUseMM(s) {
@@ -1644,7 +1644,34 @@ function activateSCMeetingMode(scId) {
     nConfirm('You need to set up billing before activating Meeting Mode. Go to Billing now?', function(ok){       if (ok) showPg('billing');     }, 'Billing Required', 'warn');
     return;
   }
-  nConfirm('Activate Meeting Mode for '+sc_.plan+'? CA$'+PRICING.perBuilding+'/month, billed annually. Deactivate at end of annual period.', function(ok){     if (!ok) return;     sc_.mmActive = true;     sc_.mmStatus = 'ACTIVE';     sc_.mmActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       is_subscribed: true,       mm_activated_at: sc_.mmActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate SC:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSidebar(APP.activePg);     renderSCDetail(scId);     nAlert('Meeting Mode activated for '+sc_.plan+'. You now have unlimited meetings.', 'Activated ✓', 'success');   }, 'Activate Meeting Mode', 'info');
+  var mmMonthly = PRICING.perBuilding;
+  var ssMonthly = (PRICING.perLotLocal * (sc_.lots||0)).toFixed(2);
+  var totalMonthly = (mmMonthly + PRICING.perLotLocal * (sc_.lots||0)).toFixed(2);
+  nConfirm(
+    'Activate Meeting Mode + Local StrataSphere for '+sc_.plan+'?\n\n'
+    + '  Meeting Mode: CA$'+mmMonthly+'/month\n'
+    + '  Local StrataSphere: CA$'+PRICING.perLotLocal+'/lot × '+sc_.lots+' lots = CA$'+ssMonthly+'/month\n'
+    + '  Total: CA$'+totalMonthly+'/month',
+    function(ok) {
+      if (!ok) return;
+      sc_.mmActive = true;
+      sc_.mmStatus = 'ACTIVE';
+      sc_.mmActivatedAt = new Date().toISOString();
+      sc_.ssTier = 'local';
+      sc_.ssActivatedAt = sc_.mmActivatedAt;
+      getSupabase().from('strata_corps').update({
+        is_subscribed: true,
+        mm_activated_at: sc_.mmActivatedAt,
+        ss_tier: 'local',
+        ss_activated_at: sc_.ssActivatedAt
+      }).eq('plan_number', sc_.plan).then(function(r){
+        if (r.error) console.error('Could not activate SC:', r.error);
+      });
+      sv('sc_'+sc_.id, sc_);
+      renderSidebar(APP.activePg);
+      renderSCDetail(scId);
+      nAlert('Meeting Mode + Local StrataSphere activated for '+sc_.plan+'.', 'Activated ✓', 'success');
+    }, 'Activate Meeting Mode', 'info');
 }
 function activateSCStrataSphere(scId, tier) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
@@ -3352,18 +3379,24 @@ function mgmtSsSwitchTier(scId, tier) {
   var isMB = role === 'Managing Broker';
   var currentTier = scSsTier(sc_);
 
-  // Check if upgrade or same
+  // Local SS is always on with MM — only allow local↔global toggle
+  if (!scMmActive(sc_)) { nAlert('Meeting Mode must be active to use StrataSphere.','','warn'); return; }
   if (tier === 'global' && currentTier === 'global') return;
-  if (tier === 'local' && (currentTier === 'local' || currentTier === 'global')) return;
+  if (tier === 'local' && currentTier === 'local') return;
 
   if (isMB) {
     // MB can activate directly
     if (tier === 'global' && currentTier === 'local') {
       upgradeSCStrataSphere(scId);
-    } else if (tier === 'local' && !currentTier) {
-      activateSCStrataSphere(scId, 'local');
-    } else if (tier === 'global' && !currentTier) {
-      activateSCStrataSphere(scId, 'global');
+    } else if (tier === 'local' && currentTier === 'global') {
+      // Downgrade global→local
+      nConfirm('Downgrade to Local StrataSphere for '+sc_.plan+'?', function(ok){
+        if (!ok) return;
+        sc_.ssTier = 'local';
+        getSupabase().from('strata_corps').update({ss_tier:'local'}).eq('plan_number',sc_.plan).then(function(){});
+        var el = document.getElementById('mtg-body');
+        if (el) renderMgmtStrataSphere(sc_, el);
+      }, 'Downgrade StrataSphere', 'warn');
     }
   } else {
     // Everyone else — send request to MB
@@ -6637,17 +6670,25 @@ function renderSuperAdminDashboard(el) {
     var mmActive = corps.filter(function(s){ return s.is_subscribed; }).length;
     var mmMRR = mmActive * PRICING.perBuilding;
     // SS MRR — count actual active paid SS subscriptions with real lot counts
+    // MRR: every active (paid) SC = MM + Local SS bundle. Global SS replaces Local.
     var localSS = 0, globalSS = 0, localMRR = 0, globalMRR = 0;
-    (APP.sc||[]).forEach(function(s){
-      var t = scSsTier(s);
+    corps.filter(function(s){ return s.is_subscribed; }).forEach(function(s){
       var lots = parseInt(s.lots) || 0;
-      if (t === 'local')  { localSS++;  localMRR  += PRICING.perLotLocal  * lots; }
-      if (t === 'global') { globalSS++; globalMRR += PRICING.perLotGlobal * lots; }
+      // Check if global SS (from APP.sc which has ssTier loaded)
+      var scObj = (APP.sc||[]).find(function(x){ return x.plan === s.plan_number; });
+      var tier = scObj ? scSsTier(scObj) : 'local';
+      if (tier === 'global') {
+        globalSS++;
+        globalMRR += PRICING.perBuilding + (PRICING.perLotGlobal * lots);
+      } else {
+        localSS++;
+        localMRR += PRICING.perBuilding + (PRICING.perLotLocal * lots);
+      }
     });
-    // Only count MRR for paid subscriptions (trial = $0)
-    var brokerage = APP._allBrokerages || [];
-    var anyPaid = brokerage.some(function(b){ return b.subscription_status === 'active'; });
-    var totalMRR = anyPaid ? (mmMRR + localMRR + globalMRR) : 0;
+    // MRR is $0 during trial (no paid subscriptions yet)
+    var anyPaid = (APP._allBrokerages||[]).some(function(b){ return b.subscription_status === 'active'; });
+    var totalMRR = anyPaid ? (localMRR + globalMRR) : 0;
+    var mmMRR = anyPaid ? mmActive * PRICING.perBuilding : 0; // for display only
 
     var html = '';
 
