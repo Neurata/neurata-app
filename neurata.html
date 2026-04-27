@@ -6014,23 +6014,63 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Active Services</div></div>';
   html += '<div class="cb">';
-  var activeSCs = sc.filter(function(s){ return scMmActive(s) || scSsTier(s); });
+  var activeSCs = sc.filter(function(s){ return s.mmStatus === 'ACTIVE' || s.mmActive; });
+  var pendingReqs = APP.pendingRequests || [];
+
+  // Pending rep requests
+  if (pendingReqs.length) {
+    html += '<div class="al info" style="margin-bottom:12px"><strong>&#9203; Pending Requests</strong><br>';
+    pendingReqs.forEach(function(req) {
+      var label = req.request_type === 'ss_global' ? 'Global StrataSphere upgrade'
+        : req.request_type === 'ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
+      html += '<div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:space-between">'
+        + '<span>'+escHtml(req.sc_id)+' — '+label+' requested by '+escHtml(req.requester_name||'rep')+'</span>'
+        + '<div style="display:flex;gap:6px">'
+        + '<button class="btn xs pri" onclick="approveActivationRequest(\''+req.id+'\',\''+req.sc_id+'\',\''+req.request_type+'\')">Approve</button>'
+        + '<button class="btn xs" onclick="dismissActivationRequest(\''+req.id+'\')">Dismiss</button>'
+        + '</div></div>';
+    });
+    html += '</div>';
+  }
+
   if (!activeSCs.length) {
-    html += '<div style="color:var(--g4);font-size:13px">No active services yet. Activate Meeting Mode or StrataSphere on a strata corporation to get started.</div>';
+    html += '<div style="color:var(--g4);font-size:13px">No active services yet. Activate Meeting Mode on a strata corporation to get started.</div>';
   } else {
     activeSCs.forEach(function(s) {
-      var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var services = [];
-      if (mmOn) services.push('<span class="tag grn">&#9654; Meeting Mode</span>');
-      if (ssTier === 'global') services.push('<span class="tag grn">&#129504; Global StrataSphere</span>');
-      else if (ssTier === 'local') services.push('<span class="tag grn">&#129504; Local StrataSphere</span>');
-      html += '<div style="padding:10px 0;border-bottom:1px solid var(--g2)">'
-        +'<div style="font-size:13px;font-weight:700">'+escHtml(s.plan)
-        +' <span style="font-weight:400;color:var(--g4);font-size:12px">'+escHtml(s.name||'')+'</span></div>'
-        +'<div style="font-size:11px;color:var(--g4);margin-bottom:6px">'+s.lots+' strata lots</div>'
-        +'<div style="display:flex;flex-wrap:wrap;gap:4px">'+services.join('')+'</div>'
-        +'</div>';
+      var lots = parseInt(s.lots) || 0;
+      var ssRate = ssTier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
+      var ssMonthly = (ssRate * lots).toFixed(2);
+      var totalMonthly = (PRICING.perBuilding + ssRate * lots).toFixed(2);
+      var ssTag = ssTier === 'global'
+        ? '<span class="tag" style="background:#e8f4fd;color:#023e8a">&#127760; Global SS</span>'
+        : '<span class="tag grn">&#128309; Local SS</span>';
+      var pendingCancel = s.mmPendingCancel;
+      var pendingDowngrade = s.ssPendingDowngrade;
+      html += '<div style="padding:12px 0;border-bottom:1px solid var(--g2)">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+        + '<div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--ch)">'+escHtml(s.plan)
+        + ' <span style="font-weight:400;color:var(--g4);font-size:12px">'+escHtml(s.name||'')+'</span></div>'
+        + '<div style="font-size:11px;color:var(--g4);margin:3px 0">'+lots+' strata lots</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'
+        + '<span class="tag grn">&#9654; Meeting Mode</span>'+ssTag
+        + (pendingCancel ? '<span class="tag amb">&#9203; MM cancels at year-end</span>' : '')
+        + (pendingDowngrade ? '<span class="tag amb">&#9203; SS downgrade scheduled</span>' : '')
+        + '</div>'
+        + '</div>'
+        + '<div style="text-align:right;flex-shrink:0">'
+        + '<div style="font-size:15px;font-weight:700;color:var(--ch)">CA$'+totalMonthly+'</div>'
+        + '<div style="font-size:10px;color:var(--g4)">/month</div>'
+        + '</div>'
+        + '</div>'
+        + (isMB ? '<div style="display:flex;gap:6px;margin-top:8px">'
+          + (ssTier !== 'global'
+            ? '<button class="btn xs" onclick="upgradeSCStrataSphere(\''+s.id+'\')">Upgrade to Global SS</button>'
+            : (!pendingDowngrade ? '<button class="btn xs" onclick="mgmtSsSwitchTier(\''+s.id+'\',\'local\')">Schedule Global→Local</button>' : ''))
+          + (!pendingCancel ? '<button class="btn xs" style="color:var(--red);border-color:var(--red)" onclick="scheduleCancelMM(\''+s.id+'\')">Cancel MM at Year-End</button>' : '')
+          + '</div>' : '')
+        + '</div>';
     });
   }
   html += '</div></div>';
