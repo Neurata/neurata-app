@@ -5841,7 +5841,10 @@ function adminEnterBrokerage(brkLic) {
 }
 
 function _adminFinishEnter(brkLic, b) {
-  APP.currentUser = Object.assign({}, APP.currentUser, { role: 'Managing Broker', initials: 'SA' });
+  var currentRole = APP.currentUser.role;
+  var validRoles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
+  var displayRole = validRoles.indexOf(currentRole) >= 0 ? currentRole : 'Managing Broker';
+  APP.currentUser = Object.assign({}, APP.currentUser, { role: displayRole, isSuperAdmin: true, initials: 'SA' });
   renderNav();
   showPg('strata');
   var bar = document.getElementById('super-admin-bar');
