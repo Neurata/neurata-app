@@ -5940,7 +5940,6 @@ function adminExitBrokerage() {
 
 function renderBilling() {
   var el = document.getElementById('billing-body');
-
   if (!el) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var isMB = role === 'Managing Broker';
@@ -5949,7 +5948,17 @@ function renderBilling() {
   var isSetup = APP.brokerage && APP.brokerage.billingSetup;
   var payMethod = (APP.brokerage && APP.brokerage.payMethod) || 'acss';
 
-  // Render static content first, then async requests section
+  // Load pending requests once, then render
+  if (isMB && APP.brokerage.lic && APP.pendingRequests === undefined) {
+    APP.pendingRequests = [];
+    getSupabase().from('activation_requests').select('*')
+      .eq('brokerage_id', APP.brokerage.lic).eq('status','pending')
+      .then(function(r){
+        APP.pendingRequests = r.data || [];
+        renderBilling();
+      }).catch(function(){ renderBilling(); });
+    return; // wait for data
+  }
   el.innerHTML = '<div id="billing-requests"></div><div id="billing-main"></div>';
   _renderBillingMain(document.getElementById('billing-main'), sc, isMB, trialEx, isSetup, payMethod);
   if (isMB) {
@@ -5980,21 +5989,7 @@ function renderBilling() {
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   if (!el) return;
-  // Refresh pending requests from Supabase each time billing renders
-  if (isMB && APP.brokerage.lic) {
-    if (!APP._pendingRequestsLoaded) {
-      APP._pendingRequestsLoaded = true;
-      getSupabase().from('activation_requests').select('*')
-        .eq('brokerage_id', APP.brokerage.lic).eq('status','pending')
-        .then(function(r){ 
-          APP.pendingRequests = r.data || [];
-          APP._pendingRequestsLoaded = false;
-          renderBilling();
-        })
-        .catch(function(){ APP._pendingRequestsLoaded = false; });
-      if (!APP.pendingRequests) { APP.pendingRequests = []; }
-    }
-  }
+  // Pending requests are loaded in renderBilling() before this is called
   var html = '<div class="g2">';
 
   // ── Left: Payment method ──────────────────────────────────────────
@@ -7354,7 +7349,7 @@ function showPg(pg) {
   if (pg === 'strata')        renderStrata();
   if (pg === 'meetings')      renderMeetings();
   if (pg === 'brokerage')     renderBrokerage();
-  if (pg === 'billing')       renderBilling();
+  if (pg === 'billing')       { APP.pendingRequests = undefined; renderBilling(); }
   if (pg === 'admin-brokerages') renderAdminBrokerages();
   if (pg === 'profile')       renderProfile();
   if (pg === 'mm')            initMM();
