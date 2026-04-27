@@ -6624,30 +6624,39 @@ function renderSuperAdminDashboard(el) {
   var db = getSupabase();
   Promise.all([
     db.from('brokerages').select('*'),
-    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed'),
-    db.from('meetings').select('id,sc_id,date,status,type').eq('status','ADJOURNED').order('date',{ascending:false}).limit(10)
+    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed')
   ]).then(function(results) {
     var brokerages = results[0].data || [];
     var corps      = results[1].data || [];
-    var meetings   = results[2].data || [];
 
     // Stats
     var totalBrokerages = brokerages.length;
     var totalCorps = corps.length;
     var mmActive = corps.filter(function(s){ return s.is_subscribed; }).length;
-    var mmMRR = mmActive * 39;
-    // Estimate SS MRR from strata lots (rough — we don't have tier per SC here)
-    var ssMRR = 0; // placeholder until we have SS subscription data
+    var mmMRR = mmActive * PRICING.perBuilding;
+    // Get SS data from brokerages — count SCs with global_ss flag
+    // For now approximate from APP.sc if loaded, else from corps
+    var localSS = 0, globalSS = 0;
+    (APP.sc||[]).forEach(function(s){
+      var t = scSsTier(s);
+      if (t === 'local') localSS++;
+      if (t === 'global') globalSS++;
+    });
+    var localMRR = localSS * PRICING.perLotLocal * 10; // rough avg 10 lots
+    var globalMRR = globalSS * PRICING.perLotGlobal * 10;
+    var totalMRR = mmMRR + localMRR + globalMRR;
 
     var html = '';
 
     // ── Stat cards ──
-    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">';
+    html += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px">';
     [
       { label: 'Brokerages', value: totalBrokerages, color: 'var(--ch)' },
       { label: 'Strata Corps', value: totalCorps, color: 'var(--ch)' },
       { label: 'MM Active', value: mmActive, color: '#1a9960' },
-      { label: 'Est. MRR', value: 'CA$'+mmMRR.toLocaleString(), color: 'var(--org)' }
+      { label: 'Local SS', value: localSS, color: '#0077b6' },
+      { label: 'Global SS', value: globalSS, color: '#023e8a' },
+      { label: 'Est. MRR', value: 'CA$'+totalMRR.toLocaleString(), color: 'var(--org)' }
     ].forEach(function(s) {
       html += '<div class="card" style="padding:20px 24px">'
         + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:8px">'+s.label+'</div>'
@@ -6656,10 +6665,7 @@ function renderSuperAdminDashboard(el) {
     });
     html += '</div>';
 
-    // ── Two column layout: brokerage cards + recent activity ──
-    html += '<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">';
-
-    // Brokerage cards
+    // ── Brokerage cards (full width) ──
     html += '<div>';
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:12px">Registered Brokerages</div>';
     if (!brokerages.length) {
@@ -6692,26 +6698,7 @@ function renderSuperAdminDashboard(el) {
     }
     html += '</div>';
 
-    // Recent activity
-    html += '<div>';
-    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:12px">Recent Meetings</div>';
-    html += '<div class="card" style="padding:0;overflow:hidden">';
-    if (!meetings.length) {
-      html += '<div style="padding:16px;color:var(--g4);font-size:13px">No meetings adjourned yet.</div>';
-    } else {
-      meetings.forEach(function(m) {
-        var sc_ = (APP.sc||[]).find(function(s){ return s.plan === m.sc_id; });
-        html += '<div style="padding:10px 14px;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between">'
-          + '<div>'
-          + '<div style="font-size:12px;font-weight:600;color:var(--ch)">'+escHtml(m.sc_id)+(sc_?' · '+escHtml(sc_.name):'')+'</div>'
-          + '<div style="font-size:11px;color:var(--g4)">'+escHtml(m.type||'Meeting')+' · '+escHtml(m.date||'')+'</div>'
-          + '</div>'
-          + '<span class="tag grn" style="font-size:10px">Adjourned</span>'
-          + '</div>';
-      });
-    }
-    html += '</div></div>';
-    html += '</div>'; // end two-col
+    html += '</div>'; // end brokerage cards
 
     el.innerHTML = html;
   }).catch(function(e) {
