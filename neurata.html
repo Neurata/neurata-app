@@ -1685,10 +1685,26 @@ function activateSCStrataSphere(scId, tier) {
   nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){     if (!ok) return;     sc_.ssTier = tier;     sc_.ssActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       ss_tier: tier,       ss_activated_at: sc_.ssActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate StrataSphere:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');   }, 'Activate StrataSphere', 'info');
 }
 function upgradeSCStrataSphere(scId) {
-  // Upgrade from local to global — effective immediately
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
-  var monthly = (PRICING.perLotGlobal * (sc_.lots||0)).toFixed(2);
-  nConfirm('Upgrade to Local + Global StrataSphere for '+sc_.plan+'?  CA$'+PRICING.perLotGlobal+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month. Effective immediately.', function(ok){     if (!ok) return;     sc_.ssTier = 'global';     getSupabase().from('strata_corps').update({ss_tier:'global'}).eq('plan_number', sc_.plan).then(function(){});     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert('Upgraded to Global StrataSphere for '+sc_.plan+'.', 'Upgraded ✓', 'success');   }, 'Upgrade StrataSphere', 'info');
+  var lots = parseInt(sc_.lots) || 0;
+  var monthly = (PRICING.perLotGlobal * lots).toFixed(2);
+  var diff = ((PRICING.perLotGlobal - PRICING.perLotLocal) * lots).toFixed(2);
+  nConfirm(
+    'Upgrade '+sc_.plan+' to Global StrataSphere?\n\n'
+    + 'CA$'+PRICING.perLotGlobal+'/lot × '+lots+' lots = CA$'+monthly+'/month\n'
+    + '(+CA$'+diff+'/month over Local SS)\n\n'
+    + 'Annual commitment — billed monthly. Downgrade to Local takes effect at your anniversary date.',
+    function(ok) {
+      if (!ok) return;
+      sc_.ssTier = 'global';
+      sc_.ssGlobalActivatedAt = new Date().toISOString();
+      getSupabase().from('strata_corps').update({
+        ss_tier: 'global',
+        ss_activated_at: sc_.ssGlobalActivatedAt
+      }).eq('plan_number', sc_.plan).then(function(r){
+        if (r.error) console.error('Could not upgrade SS:', r.error);
+      });
+      sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert('Upgraded to Global StrataSphere for '+sc_.plan+'.', 'Upgraded ✓', 'success');   }, 'Upgrade StrataSphere', 'info');
 }
 
 
@@ -3389,14 +3405,21 @@ function mgmtSsSwitchTier(scId, tier) {
     if (tier === 'global' && currentTier === 'local') {
       upgradeSCStrataSphere(scId);
     } else if (tier === 'local' && currentTier === 'global') {
-      // Downgrade global→local
-      nConfirm('Downgrade to Local StrataSphere for '+sc_.plan+'?', function(ok){
-        if (!ok) return;
-        sc_.ssTier = 'local';
-        getSupabase().from('strata_corps').update({ss_tier:'local'}).eq('plan_number',sc_.plan).then(function(){});
-        var el = document.getElementById('mtg-body');
-        if (el) renderMgmtStrataSphere(sc_, el);
-      }, 'Downgrade StrataSphere', 'warn');
+      // Downgrade global→local — takes effect at anniversary
+      var anniversaryDate = sc_.ssGlobalActivatedAt
+        ? new Date(new Date(sc_.ssGlobalActivatedAt).setFullYear(new Date(sc_.ssGlobalActivatedAt).getFullYear()+1)).toLocaleDateString('en-CA')
+        : 'your next anniversary date';
+      nConfirm(
+        'Downgrade '+sc_.plan+' to Local StrataSphere?\n\nYour Global SS subscription will continue until '+anniversaryDate+', then revert to Local SS.',
+        function(ok) {
+          if (!ok) return;
+          // Schedule downgrade — mark pending, actual tier change at anniversary
+          sc_.ssPendingDowngrade = 'local';
+          getSupabase().from('strata_corps').update({ss_pending_downgrade:'local'}).eq('plan_number',sc_.plan).then(function(){});
+          var el = document.getElementById('mtg-body');
+          if (el) renderMgmtStrataSphere(sc_, el);
+          nAlert('Downgrade scheduled. Global StrataSphere continues until '+anniversaryDate+'.','Scheduled','info');
+        }, 'Schedule Downgrade', 'warn');
     }
   } else {
     // Everyone else — send request to MB
@@ -6057,6 +6080,48 @@ function loadAccountStatements(el) {
       html += '</tbody></table>';
       el.innerHTML = html;
     });
+}
+
+function approveActivationRequest(reqId, scId, requestType) {
+  var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+  if (!sc_) { nAlert('SC not found.','','warn'); return; }
+  var label = requestType === 'ss_global' ? 'Global StrataSphere' : requestType === 'ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
+  nConfirm('Approve '+label+' for '+scId+'?', function(ok) {
+    if (!ok) return;
+    // Update SC
+    if (requestType === 'ss_global') {
+      sc_.ssTier = 'global';
+      sc_.ssGlobalActivatedAt = new Date().toISOString();
+      getSupabase().from('strata_corps').update({ss_tier:'global',ss_activated_at:sc_.ssGlobalActivatedAt}).eq('plan_number',sc_.plan).then(function(){});
+    }
+    // Mark request as approved
+    getSupabase().from('activation_requests').update({status:'approved'}).eq('id',reqId).then(function(){});
+    APP.pendingRequests = (APP.pendingRequests||[]).filter(function(r){ return r.id !== reqId; });
+    renderBilling();
+    nAlert(label+' approved for '+scId+'.','Approved ✓','success');
+  }, 'Approve Request', 'info');
+}
+
+function dismissActivationRequest(reqId) {
+  getSupabase().from('activation_requests').update({status:'dismissed'}).eq('id',reqId).then(function(){});
+  APP.pendingRequests = (APP.pendingRequests||[]).filter(function(r){ return r.id !== reqId; });
+  renderBilling();
+}
+
+function scheduleCancelMM(scId) {
+  var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
+  var anniversary = sc_.mmActivatedAt
+    ? new Date(new Date(sc_.mmActivatedAt).setFullYear(new Date(sc_.mmActivatedAt).getFullYear()+1)).toLocaleDateString('en-CA')
+    : 'your next anniversary date';
+  nConfirm(
+    'Cancel Meeting Mode for '+sc_.plan+'?\\n\\nMM + Local SS will remain active until '+anniversary+', then deactivate.',
+    function(ok) {
+      if (!ok) return;
+      sc_.mmPendingCancel = true;
+      getSupabase().from('strata_corps').update({mm_pending_cancel:true}).eq('plan_number',sc_.plan).then(function(){});
+      renderBilling();
+      nAlert('Cancellation scheduled. MM active until '+anniversary+'.','Scheduled','info');
+    }, 'Schedule Cancellation', 'danger');
 }
 
 function generateInvoice() {
