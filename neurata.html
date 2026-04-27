@@ -6658,9 +6658,9 @@ function renderSuperAdminDashboard(el) {
       { label: 'Global SS', value: globalSS, color: '#023e8a' },
       { label: 'Est. MRR', value: 'CA$'+totalMRR.toLocaleString(), color: 'var(--org)' }
     ].forEach(function(s) {
-      html += '<div class="card" style="padding:20px 24px">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:8px">'+s.label+'</div>'
-        + '<div style="font-size:32px;font-weight:800;color:'+s.color+';font-family:var(--display)">'+s.value+'</div>'
+      html += '<div class="card" style="padding:16px 20px;text-align:center">'
+        + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:6px">'+s.label+'</div>'
+        + '<div style="font-size:22px;font-weight:800;color:'+s.color+';font-family:var(--display)">'+s.value+'</div>'
         + '</div>';
     });
     html += '</div>';
