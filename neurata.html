@@ -3670,14 +3670,17 @@ function mgmtSsSend(scId) {
   var lastUser = history.pop();
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
+      _usageType: ssTier==='global'?'ss_global':'ss_local',
+      _brokerageId: APP.brokerage.lic||'',
+      _scId: sc.plan, _userId: APP.currentUser&&APP.currentUser.id||'',
       system:'You are StrataSphere, the AI governance assistant for '+sc.plan+' ('+sc.name+'). '+'You answer questions strictly based on: (1) the decision ledger provided, (2) uploaded minutes and documents for this corporation, and (3) established BC legislation and regulation including the Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), BCFSA rules, and SPABC guidance. '+'If a question requires SC-specific information not present in the provided data, say so clearly — do not invent or infer facts about this specific corporation. '+'Decision ledger (most recent 15): '+JSON.stringify(dec.slice(-15))+'. '+'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '+'Plain prose only — no markdown, no bullet dashes, no asterisks.',
       messages:history.concat([lastUser||{role:'user',content:msg}])})})
-  .then(function(r){return r.json();})
+   .then(function(r){return r.json();})
   .then(function(d){
     var typing=document.getElementById('mgmt-typing'); if(typing)typing.remove();
+    if(d.error==='usage_limit_exceeded'){nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn');if(sc)renderMgmtStrataSphere(sc,document.getElementById('mtg-body'));return;}
+    if(d._usageWarning){nAlert(d._usageWarning.message,'AI Usage Notice','info');}
     var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim()||'Unable to respond.';
-    conv.msgs.push({role:'assistant',text:txt});
-    ssPersistConv(scId, conv);
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   })
   .catch(function(){
@@ -3917,8 +3920,11 @@ function mmAiSend(){
   var el=document.getElementById('mm-aimsgs');
   el.innerHTML+='<div class="mm-aimsg usr">'+msg+'</div>';el.scrollTop=el.scrollHeight;
   var it=MM.agenda.find(function(a){return a.id===curItem;});
+  var mmScId = MM && MM.scId || APP.currentScId || '';
+  var mmBrkId = APP.brokerage && APP.brokerage.lic || '';
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
+      _usageType:'mm_ai',_brokerageId:mmBrkId,_scId:mmScId,_userId:APP.currentUser&&APP.currentUser.id||'',
       tools:[{type:'web_search_20250305',name:'web_search'}],
       system:'You are StrataSphere, the BC strata governance assistant. Active meeting item: "'+(it?it.text:'')+'" ('+(it?it.cat:'')+').' +' Provide concise procedural guidance strictly based on BC legislation: Strata Property Act, RESA, BCFSA rules, PIPA, and SPABC guidance.' +' If you are uncertain about a specific rule, say so rather than guessing.' +' Under 4 sentences. Plain prose — no markdown, no asterisks, no bullet dashes.' +' PIPA: owners by strata lot number only, never by name.',
       messages:[{role:'user',content:msg}]})})
@@ -4800,7 +4806,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.3 build:1777314439 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.4 build:1777320539 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -5279,10 +5285,16 @@ function ssSend() {
   });
   // Remove last user msg from history (we send it as the final message)
   var lastUser = history.pop();
+  var ssTierStandalone = (conv && conv.scope === 'global') ? 'global' : 'local';
+  var ssScIdStandalone = ssGetScId() || '';
 
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
+      _usageType: ssTierStandalone==='global'?'ss_global':'ss_local',
+      _brokerageId: APP.brokerage&&APP.brokerage.lic||'',
+      _scId: ssScIdStandalone,
+      _userId: APP.currentUser&&APP.currentUser.id||'',
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
       system: 'You are StrataSphere, the AI governance intelligence layer for a BC strata management platform. '
@@ -7047,12 +7059,17 @@ function selectSCAndOpenMeeting(scId, mtgId) {
 function renderSuperAdminDashboard(el) {
   el.innerHTML = '<div style="color:var(--g4);font-size:13px;padding:20px">Loading platform data…</div>';
   var db = getSupabase();
+  // Get current month for usage query
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   Promise.all([
     db.from('brokerages').select('*'),
-    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier')
+    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier'),
+    db.from('ai_usage').select('brokerage_id,usage_type').gte('created_at', monthStart)
   ]).then(function(results) {
     var brokerages = results[0].data || [];
     var corps      = results[1].data || [];
+    var aiUsage    = results[2].data || [];
 
     // Stats
     var totalBrokerages = brokerages.length;
@@ -7112,10 +7129,14 @@ function renderSuperAdminDashboard(el) {
       html += '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages registered yet.</div></div>';
     } else if (saView === 'list') {
       html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
-        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>Address</th>'
+        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>Address</th><th>AI Use</th>'
         + '</tr></thead><tbody>';
       brokerages.forEach(function(b) {
         var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
+        var bAiUsage = aiUsage.filter(function(u){return u.brokerage_id===b.bcfsa_lic;}).length;
+        var bAiLimit = bCorps.length*100+bMM*50;
+        var bAiPct = bAiLimit>0?Math.round(bAiUsage/bAiLimit*100):0;
+        var aiColor = bAiPct>=100?'var(--red)':bAiPct>=80?'var(--org)':'var(--g4)';
         var bMM = bCorps.filter(function(s){ return s.is_subscribed; }).length;
         var status = b.subscription_status || 'trial';
         var statusTag = status === 'active' ? '<span class="tag grn">Active</span>' : '<span class="tag amb">Trial</span>';
@@ -7125,6 +7146,7 @@ function renderSuperAdminDashboard(el) {
           + '<td style="font-size:12px">'+bCorps.length+'</td>'
           + '<td style="font-size:12px">'+bMM+'</td>'
           + '<td style="font-size:12px">'+(b.trial_meetings_used||0)+'/2</td>'
+          + (function(){ var u=aiUsage.filter(function(x){return x.brokerage_id===b.bcfsa_lic;}).length; var lim=bCorps.length*100+bMM*50; var p=lim>0?Math.round(u/lim*100):0; return '<td style="font-size:12px;color:'+(p>=80?(p>=100?'var(--red)':'var(--org)'):'var(--g4)')+'">'+p+'%</td>'; })()
           + '<td style="font-size:12px;color:var(--g4)">'+escHtml(b.address||'')+'</td>'
           + '</tr>';
       });
@@ -7148,6 +7170,7 @@ function renderSuperAdminDashboard(el) {
           + '<div style="display:flex;gap:16px;font-size:12px;color:var(--g4)">'
           + '<span>'+bCorps.length+' corps</span>'
           + '<span>'+bMM+' MM active</span>'
+          + '<span style="color:'+aiColor+';font-weight:'+(bAiPct>=80?700:400)+'">AI: '+bAiPct+'%</span>'
           + '<span>'+(b.trial_meetings_used||0)+'/2 trial</span>'
           + '</div>'
           + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+escHtml(b.address)+'</div>' : '')
@@ -8396,9 +8419,12 @@ function hmHandleFile(file) {
         statusEl.innerHTML='<div class="spin" style="margin:0 auto 8px"></div>'
           +'<div style="font-size:12px;color:var(--ch3)">Rate limit hit — retrying in 60 seconds… (attempt '+attempt+' of 3)</div>';
       }
+      var minsScId = APP.currentScId||'';
+      var minsBrkId = APP.brokerage&&APP.brokerage.lic||'';
       fetch(WORKER_URL+'/ai',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,
+          _usageType:'mm_ai',_brokerageId:minsBrkId,_scId:minsScId,_userId:APP.currentUser&&APP.currentUser.id||'',
           betas:['pdfs-2024-09-25'],
           messages:[{role:'user',content:[
             {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:b64}},
