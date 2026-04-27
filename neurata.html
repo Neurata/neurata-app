@@ -5982,12 +5982,18 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   if (!el) return;
   // Refresh pending requests from Supabase each time billing renders
   if (isMB && APP.brokerage.lic) {
-    getSupabase().from('activation_requests').select('*')
-      .eq('brokerage_id', APP.brokerage.lic).eq('status','pending')
-      .then(function(r){ APP.pendingRequests = r.data || []; renderBilling(); })
-      .catch(function(){});
-    // Return early on first call — will re-render with data
-    if (APP.pendingRequests === undefined) { APP.pendingRequests = []; return; }
+    if (!APP._pendingRequestsLoaded) {
+      APP._pendingRequestsLoaded = true;
+      getSupabase().from('activation_requests').select('*')
+        .eq('brokerage_id', APP.brokerage.lic).eq('status','pending')
+        .then(function(r){ 
+          APP.pendingRequests = r.data || [];
+          APP._pendingRequestsLoaded = false;
+          renderBilling();
+        })
+        .catch(function(){ APP._pendingRequestsLoaded = false; });
+      if (!APP.pendingRequests) { APP.pendingRequests = []; }
+    }
   }
   var html = '<div class="g2">';
 
