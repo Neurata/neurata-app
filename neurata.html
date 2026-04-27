@@ -7168,30 +7168,35 @@ function selectSCAndOpenMeeting(scId, mtgId) {
 
 
 function saManageTrial(brkLic, brkName, currentUsed, isActive) {
-  var msg = brkName + ' — Trial Management\n\n'
-    + 'Current status: ' + (isActive ? 'Active (Paid)' : 'Trial') + '\n'
-    + 'Meetings used: ' + currentUsed + ' of ' + PRICING.trialMeetings + '\n\n'
-    + 'What would you like to do?\n'
-    + '1 = Reset trial to 0 (fresh start)\n'
-    + '2 = Mark as Active/Paid (no trial limits)\n'
-    + '3 = Set custom meetings used count\n'
-    + '4 = Revert to Trial status';
-  nPrompt(msg, function(choice) {
-    choice = (choice||'').trim();
-    if (choice === '1') {
-      saSetTrialUsed(brkLic, 0);
-    } else if (choice === '2') {
-      saSetStatus(brkLic, 'active');
-    } else if (choice === '3') {
-      nPrompt('Set "meetings used" to what number? (Use a negative number to grant extra meetings — e.g. -4 gives 4 extra beyond the normal limit)', function(val) {
-        var n = parseInt(val);
-        if (isNaN(n)) { nAlert('Please enter a valid number.','','warn'); return; }
-        saSetTrialUsed(brkLic, n);
-      }, currentUsed, 'Enter number');
-    } else if (choice === '4') {
-      saSetStatus(brkLic, 'trial');
-    }
-  }, '', 'Enter 1, 2, 3, or 4');
+  var isUnlimited = isActive; // 'active' status = unlimited trial
+  var options = [
+    { label: 'Reset Trial', desc: 'Resets to ' + PRICING.trialMeetings + ' free meetings', value: 'reset' },
+    { label: isUnlimited ? 'End Unlimited Trial' : 'Unlimited Trial', 
+      desc: isUnlimited 
+        ? 'Switch off unlimited — brokerage will be charged if trial meetings exhausted'
+        : 'No charge until switched off', 
+      value: isUnlimited ? 'end_unlimited' : 'unlimited' }
+  ];
+  var optStr = options.map(function(o, i){ return (i+1)+'. '+o.label+' — '+o.desc; }).join('\n');
+  nPrompt(
+    brkName + '\nMeetings used: ' + currentUsed + '\nStatus: ' + (isUnlimited ? 'Unlimited Trial' : 'Trial') + '\n\n' + optStr,
+    function(choice) {
+      choice = (choice||'').trim();
+      if (choice === '1') {
+        // Reset trial
+        saSetTrialUsed(brkLic, 0);
+        saSetStatus(brkLic, 'trial');
+      } else if (choice === '2' && !isUnlimited) {
+        // Enable unlimited trial
+        saSetStatus(brkLic, 'active');
+        nAlert('Unlimited Trial enabled for ' + brkName + '. No charges until switched off.', '', 'success');
+      } else if (choice === '2' && isUnlimited) {
+        // End unlimited trial — if meetings >= limit, start charging
+        saSetStatus(brkLic, 'trial');
+        nAlert('Unlimited Trial ended. ' + (currentUsed >= PRICING.trialMeetings ? 'Brokerage will now be charged.' : 'Brokerage still has ' + (PRICING.trialMeetings - currentUsed) + ' trial meeting(s) remaining.'), '', 'info');
+      }
+    }, '', 'Enter 1 or 2'
+  );
 }
 
 function saSetStatus(brkLic, status, btn) {
@@ -7308,7 +7313,7 @@ function renderSuperAdminDashboard(el) {
         var bAiPct = bAiLimit>0?Math.round(bAiUsage/bAiLimit*100):0;
         var aiColor = bAiPct>=100?'var(--red)':bAiPct>=80?'var(--org)':'var(--g4)';
 
-        var statusTag = status === 'active' ? '<span class="tag grn">Active</span>' : '<span class="tag amb">Trial</span>';
+        var statusTag = status === 'active' ? '<span class="tag grn">✓ Unlimited Trial</span>' : '<span class="tag amb">Trial</span>';
         html += '<tr style="cursor:pointer" onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'\'">'
           + '<td><strong>'+escHtml(b.name||'—')+'</strong> '+statusTag+'</td>'
           + '<td style="font-size:12px;color:var(--g4)">'+escHtml(b.bcfsa_lic||'')+'</td>'
