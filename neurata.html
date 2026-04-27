@@ -7554,8 +7554,16 @@ function renderSCOverview(s) {
 
   // Address
   if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span>📍</span><span>'+escHtml(s.addr)+'</span></div>';
-  // Manager
-  html += '<div style="font-size:13px;margin-bottom:8px"><strong>Manager:</strong> '+escHtml(s.mgr||'—')+'</div>';
+  // Manager — derive from assigned reps
+  var mgrNames = (s.repIds||[]).map(function(lic){
+    var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
+    return rep ? rep.name : lic;
+  });
+  // If MB/AB viewing their own SC, also show current user
+  if (!mgrNames.length && APP.currentUser && (APP.currentUser.role==='Managing Broker'||APP.currentUser.role==='Associate Broker')) {
+    mgrNames = [APP.currentUser.name];
+  }
+  html += '<div style="font-size:13px;margin-bottom:8px"><strong>Manager:</strong> '+escHtml(mgrNames.length ? mgrNames.join(', ') : '—')+'</div>';
   // President contact
   if (president) {
     html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--g1);border-radius:6px;font-size:12px;margin-top:4px">';
