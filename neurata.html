@@ -7093,14 +7093,19 @@ var TAB_LABELS = {
 
 function renderNav() {
   var role = APP.currentUser.role || 'default';
-  var tabs = ROLE_TABS[role] || ROLE_TABS['default'];
+  var isSuperAdmin = APP.currentUser.isSuperAdmin;
+  var tabs;
+  if (isSuperAdmin && !APP._adminContext) {
+    tabs = ['admin-brokerages'];
+  } else {
+    tabs = ROLE_TABS[role] || ROLE_TABS['default'];
+  }
   var nav = document.getElementById('t-nav');
   if (!nav) return;
   nav.innerHTML = tabs.map(function(t) {
     return '<button class="t-tab" id="tab-'+t+'" onclick="showPg(\''+t+'\')">' + TAB_LABELS[t] + '</button>';
   }).join('') + '<button class="t-tab mm" id="tab-mm" onclick="showPg(\'mm\')" style="display:none">▶ Meeting Mode</button>';
 }
-
 function showLaunchConfirm(scId, mtgId) {
   var sc  = APP.sc.find(function(s){return s.id===scId;});
   var mtg = sc && sc.meetings ? sc.meetings.find(function(m){return String(m.id)===String(mtgId);}) : null;
@@ -7237,7 +7242,7 @@ function renderSidebar(activePg) {
   });
   html += '</div>';
 
-  if (sc.length > 0) {
+  if (sc.length > 0 && !(APP.currentUser.isSuperAdmin && !APP._adminContext)) {
     html += '<div class="s-sec"><div class="s-lbl">Management</div>';
     sc.forEach(function(s) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
