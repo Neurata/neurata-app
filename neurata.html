@@ -5555,6 +5555,83 @@ function updateTopbarAvatar() {
 }
 
 
+function renderBrokerageAiUsage() {
+  var el = document.getElementById('brk-ai-usage-body');
+  if (!el) return;
+  var brkLic = APP.brokerage && APP.brokerage.lic;
+  if (!brkLic) { el.innerHTML = '<div style="color:var(--g4);font-size:13px">No brokerage data.</div>'; return; }
+
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  var monthName = now.toLocaleString('en-CA', {month:'long', year:'numeric'});
+
+  getSupabase().from('ai_usage')
+    .select('usage_type,sc_id,input_tokens,output_tokens')
+    .eq('brokerage_id', brkLic)
+    .gte('created_at', monthStart)
+    .then(function(r) {
+      var rows = r.data || [];
+      if (!rows.length) {
+        el.innerHTML = '<div style="color:var(--g4);font-size:13px">No AI usage recorded for '+monthName+'.</div>';
+        return;
+      }
+
+      // Summarize by type
+      var byType = {};
+      rows.forEach(function(row) {
+        if (!byType[row.usage_type]) byType[row.usage_type] = {count:0, input:0, output:0};
+        byType[row.usage_type].count++;
+        byType[row.usage_type].input  += row.input_tokens  || 0;
+        byType[row.usage_type].output += row.output_tokens || 0;
+      });
+
+      var typeLabels = {
+        ss_local:        { label:'Local StrataSphere queries',  limit: 100, perSC: true },
+        ss_global:       { label:'Global StrataSphere queries', limit: 200, perSC: false },
+        mm_ai:           { label:'Meeting Mode AI calls',       limit: 50,  perSC: true },
+        parse_plan:      { label:'Strata plan parsing',         limit: null },
+        parse_agenda:    { label:'Agenda parsing',              limit: null },
+        parse_minutes:   { label:'Minutes parsing',             limit: null }
+      };
+
+      var scCount = (APP.sc || []).length;
+      var html = '<div style="font-size:11px;color:var(--g4);margin-bottom:12px">'+monthName+'</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:10px">';
+
+      Object.keys(byType).forEach(function(type) {
+        var d = byType[type];
+        var meta = typeLabels[type] || { label: type, limit: null };
+        var effectiveLimit = meta.limit ? (meta.perSC ? meta.limit * scCount : meta.limit) : null;
+        var pct = effectiveLimit ? Math.min(100, Math.round(d.count / effectiveLimit * 100)) : null;
+        var barColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--org)' : 'var(--ch)';
+
+        html += '<div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">';
+        html += '<span style="font-weight:500">'+meta.label+'</span>';
+        html += '<span style="color:var(--g4)">'+d.count+' calls';
+        if (effectiveLimit) html += ' / '+effectiveLimit+' limit';
+        html += '</span></div>';
+
+        if (pct !== null) {
+          html += '<div style="background:var(--g2);border-radius:4px;height:6px;overflow:hidden">'
+            + '<div style="background:'+barColor+';height:100%;width:'+pct+'%;transition:width .3s"></div></div>';
+          if (pct >= 80) {
+            html += '<div style="font-size:11px;color:'+barColor+';margin-top:3px">'
+              + (pct >= 100 ? '⚠ Limit reached — contact support@neurata.ai' : '⚠ '+pct+'% of monthly limit used')
+              + '</div>';
+          }
+        }
+        html += '</div>';
+      });
+
+      html += '</div>';
+      el.innerHTML = html;
+    })
+    .catch(function() {
+      el.innerHTML = '<div style="color:var(--g4);font-size:13px">Could not load AI usage data.</div>';
+    });
+}
+
 function renderBrokerage() {
   var el=document.getElementById('brokerage-body');if(!el)return;
   var u=APP.currentUser;
@@ -5623,8 +5700,17 @@ function renderBrokerage() {
       +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
   }
 
+  // ── AI Usage card (MB/AB only) ───────────────────────────────────
+  if (canSeeAll) {
+    html += '<div class="card" id="brk-ai-usage-card"><div class="ch_"><div class="ct">🤖 AI Usage This Month</div></div>'
+      + '<div class="cb" id="brk-ai-usage-body"><div style="color:var(--g4);font-size:13px">Loading…</div></div></div>';
+  }
+
   el.innerHTML=html;
-  // Populate invite SC checkboxes
+
+  // Load AI usage async
+  if (canSeeAll) { renderBrokerageAiUsage(); }
+
   var chks=document.getElementById('inv-rep-sc-chks');
   if(chks)chks.innerHTML=APP.sc.map(function(s){return'<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox"> '+s.plan+' — '+s.name+'</label>';}).join('');
 }
