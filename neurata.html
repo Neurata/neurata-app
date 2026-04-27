@@ -7205,7 +7205,7 @@ function renderNav() {
   var isSuperAdmin = APP.currentUser.isSuperAdmin;
   var tabs;
   if (isSuperAdmin && !APP._adminContext) {
-    tabs = ['admin-brokerages'];
+    tabs = ['dashboard','admin-brokerages'];
   } else {
     tabs = ROLE_TABS[role] || ROLE_TABS['default'];
   }
@@ -7334,7 +7334,7 @@ function renderSidebar(activePg) {
   var isSuperAdmin = APP.currentUser.isSuperAdmin;
   var tabs;
   if (isSuperAdmin && !APP._adminContext) {
-    tabs = ['admin-brokerages'];
+    tabs = ['dashboard','admin-brokerages'];
   } else {
     tabs = ROLE_TABS[role] || ROLE_TABS['default'];
   }
