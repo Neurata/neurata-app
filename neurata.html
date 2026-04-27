@@ -5855,16 +5855,7 @@ function adminEnterBrokerage(brkLic) {
     var rows = r.data || [];
     var scList = rows.map(function(sc) {
       return {
-        id: sc.plan_number, plan: sc.plan_number, name: sc.name,
-        lots: sc.lots||1, addr: sc.address||'', brokerage_id: sc.brokerage_id,
-        mgr: '', mgrLic: '', mmStatus: sc.is_subscribed?'ACTIVE':'',
-        mmActivatedAt: sc.mm_activated_at||null,
-        ssTier: sc.ss_tier||null,
-        ssGlobalActivatedAt: sc.ss_global_activated_at||null,
-        mmPendingCancel: sc.mm_pending_cancel||false,
-        ssPendingDowngrade: sc.ss_pending_downgrade||null,
-        adjCount: 0, meetings: [], decisions: [], docs: [],
-        councilMembers: [], repIds: [], delegateIds: []
+        ...mapSCRow(sc)
       };
     });
     if (!scList.length) {
@@ -6430,6 +6421,33 @@ function loadUserProfile(userId) {
     });
 }
 
+// ── Single source of truth for mapping a strata_corps DB row to an SC object ──
+function mapSCRow(sc) {
+  return {
+    id:                  sc.plan_number,
+    plan:                sc.plan_number,
+    name:                sc.name,
+    lots:                sc.lots || 1,
+    addr:                sc.address || '',
+    brokerage_id:        sc.brokerage_id || '',
+    mgr:                 '',
+    mgrLic:              '',
+    mmStatus:            sc.is_subscribed ? 'ACTIVE' : '',
+    mmActivatedAt:       sc.mm_activated_at || null,
+    mmPendingCancel:     sc.mm_pending_cancel || false,
+    ssTier:              sc.ss_tier || null,
+    ssGlobalActivatedAt: sc.ss_global_activated_at || null,
+    ssPendingDowngrade:  sc.ss_pending_downgrade || null,
+    adjCount:            0,
+    meetings:            [],
+    decisions:           [],
+    docs:                [],
+    councilMembers:      [],
+    repIds:              [],
+    delegateIds:         []
+  };
+}
+
 function loadUserSCs(userId) {
   var role = APP.currentUser.role;
   var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
@@ -6455,27 +6473,7 @@ function loadUserSCs(userId) {
       var sc = r; // both paths now return strata_corps rows directly
       if (!sc) return null;
       return {
-        id:        sc.plan_number,
-        plan:      sc.plan_number,
-        name:      sc.name,
-        lots:      sc.lots || 1,
-        addr:      sc.address || '',
-        brokerage_id: sc.brokerage_id || APP.brokerage.lic || '',
-        mgr:       APP.currentUser.name,
-        mgrLic:    APP.currentUser.lic || '',
-        mmStatus:  sc.is_subscribed ? 'ACTIVE' : '',
-        mmActivatedAt: sc.mm_activated_at || null,
-        ssTier:    sc.ss_tier || null,
-        ssGlobalActivatedAt: sc.ss_global_activated_at || null,
-        mmPendingCancel: sc.mm_pending_cancel || false,
-        ssPendingDowngrade: sc.ss_pending_downgrade || null,
-        adjCount:  0,
-        meetings:  [],
-        decisions: [],
-        docs:      [],
-        councilMembers: [],
-        repIds:    [],
-        delegateIds: []
+        ...mapSCRow(sc)
       };
     }).filter(Boolean);
 
@@ -6637,17 +6635,7 @@ function loadSuperAdminData(userId, u) {
     var rows = r.data || [];
     APP.sc = rows.map(function(sc) {
       return {
-        id: sc.plan_number, plan: sc.plan_number, name: sc.name,
-        lots: sc.lots || 1, addr: sc.address || '',
-        mgr: '', mgrLic: '', brokerage_id: sc.brokerage_id,
-        mmStatus: sc.is_subscribed ? 'ACTIVE' : '',
-        mmActivatedAt: sc.mm_activated_at||null,
-        ssTier: sc.ss_tier||null,
-        ssGlobalActivatedAt: sc.ss_global_activated_at||null,
-        mmPendingCancel: sc.mm_pending_cancel||false,
-        ssPendingDowngrade: sc.ss_pending_downgrade||null,
-        adjCount: 0, meetings: [], decisions: [], docs: [],
-        councilMembers: [], repIds: [], delegateIds: []
+        ...mapSCRow(sc)
       };
     });
     // Load all brokerages for switcher
