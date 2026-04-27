@@ -1578,7 +1578,15 @@ function activateFromRequest(id, scId, requestType) {
           ss_global_activated_at: sc_.ssGlobalActivatedAt
         }).eq('plan_number', sc_.plan).then(function(r){
           if (r.error) { nAlert('Error saving. Please try again.','Error','warn'); return; }
-          getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){
+          // Mark request approved
+          getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
+          // Reload SC from DB to refresh in-memory state
+          getSupabase().from('strata_corps').select('*').eq('plan_number', sc_.plan).single()
+          .then(function(fresh){
+            if (fresh.data) {
+              sc_.ssTier = fresh.data.ss_tier || 'global';
+              sc_.ssGlobalActivatedAt = fresh.data.ss_global_activated_at || sc_.ssGlobalActivatedAt;
+            }
             APP.pendingRequests = undefined;
             renderBilling();
             nAlert(label+' approved for '+scId+'.','Approved','success');
