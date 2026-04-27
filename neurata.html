@@ -5854,9 +5854,7 @@ function adminEnterBrokerage(brkLic) {
   .then(function(r) {
     var rows = r.data || [];
     var scList = rows.map(function(sc) {
-      return {
-        ...mapSCRow(sc)
-      };
+      return mapSCRow(sc);
     });
     if (!scList.length) {
       APP.sc = [];
@@ -6472,9 +6470,7 @@ function loadUserSCs(userId) {
     var scList = rows.map(function(r) {
       var sc = r; // both paths now return strata_corps rows directly
       if (!sc) return null;
-      return {
-        ...mapSCRow(sc)
-      };
+      return mapSCRow(sc);
     }).filter(Boolean);
 
     if (!scList.length) { APP.sc = []; launchPlatform(); return; }
@@ -6634,9 +6630,7 @@ function loadSuperAdminData(userId, u) {
   .then(function(r) {
     var rows = r.data || [];
     APP.sc = rows.map(function(sc) {
-      return {
-        ...mapSCRow(sc)
-      };
+      return mapSCRow(sc);
     });
     // Load all brokerages for switcher
     getSupabase().from('brokerages').select('*')
