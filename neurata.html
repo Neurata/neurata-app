@@ -1038,7 +1038,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 <!-- STRATA CORPORATIONS -->
 <div class="pg" id="pg-strata">
-  <div class="ph"><div class="ph-row"><div><div class="pt">Strata Corporations</div><div class="ps">Your managed strata corporations · Each is an independent, immutable entity</div></div><button class="btn pri" onclick="openAddSC()">+ Add Strata Corporation</button></div></div>
+  <div class="ph"><div class="ph-row"><div><div class="pt">Strata Corporations</div><div class="ps">Your managed strata corporations · Each is an independent, immutable entity</div></div><button class="btn pri" id="btn-add-sc" onclick="openAddSC()">+ Add Strata Corporation</button></div></div>
   <div class="pb" id="strata-body"></div>
 </div>
 
@@ -7773,7 +7773,16 @@ function showPg(pg) {
   renderSidebar(pg);
   // Render page content
   if (pg === 'dashboard')     renderDash();
-  if (pg === 'strata')        renderStrata();
+  if (pg === 'strata') {
+    renderStrata();
+    var addScBtn = document.getElementById('btn-add-sc');
+    if (addScBtn) {
+      var role = APP.currentUser && APP.currentUser.role || '';
+      var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
+      var isSAOutside = APP.currentUser && APP.currentUser.isSuperAdmin && !APP._adminContext;
+      addScBtn.style.display = (canCreate && !isSAOutside) ? '' : 'none';
+    }
+  }
   if (pg === 'meetings')      renderMeetings();
   if (pg === 'brokerage')     renderBrokerage();
   if (pg === 'billing')       { APP.pendingRequests = undefined; renderBilling(); }
