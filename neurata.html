@@ -6484,15 +6484,18 @@ function renderSuperAdminBar() {
   if (!bar) return;
   if (!APP.currentUser || !APP.currentUser.isSuperAdmin) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  var cur = APP.currentUser.role;
-  var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
-  bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
-    + roles.map(function(r) {
-        var active = r === cur;
-        return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(active?'.8':'.25')+');background:'+(active?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(active?'700':'400')+'">'
-          + {  'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'}[r]
-          + '</button>';
-      }).join('');
+  if (APP._adminContext) {
+    var cur = APP.currentUser.role;
+    var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
+    var rl = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
+    var btns = roles.map(function(r){
+      var a = r===cur;
+      return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(a?'.8':'.25')+');background:'+(a?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(a?'700':'400')+'">'+ rl[r] +'</button>';
+    }).join('');
+    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>' + btns;
+  } else {
+    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6)">SUPER ADMIN</span>';
+  }
 }
 
 function switchSuperAdminRole(role) {
