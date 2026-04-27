@@ -7133,12 +7133,12 @@ function renderSuperAdminDashboard(el) {
         + '</tr></thead><tbody>';
       brokerages.forEach(function(b) {
         var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
+        var bMM = bCorps.filter(function(s){ return s.is_subscribed; }).length;
         var bAiUsage = aiUsage.filter(function(u){return u.brokerage_id===b.bcfsa_lic;}).length;
         var bAiLimit = bCorps.length*100+bMM*50;
         var bAiPct = bAiLimit>0?Math.round(bAiUsage/bAiLimit*100):0;
         var aiColor = bAiPct>=100?'var(--red)':bAiPct>=80?'var(--org)':'var(--g4)';
-        var bMM = bCorps.filter(function(s){ return s.is_subscribed; }).length;
-        var status = b.subscription_status || 'trial';
+
         var statusTag = status === 'active' ? '<span class="tag grn">Active</span>' : '<span class="tag amb">Trial</span>';
         html += '<tr style="cursor:pointer" onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'\'">'
           + '<td><strong>'+escHtml(b.name||'—')+'</strong> '+statusTag+'</td>'
