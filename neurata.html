@@ -1767,26 +1767,17 @@ var APP = {
 // Returns only the SCs the current user is allowed to see
 function getVisibleSCs() {
   var role = APP.currentUser.role || '';
-  // MB and AB always see everything (and non-demo super admin users)
   var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
-  var isSuperButNotRestricted = APP.currentUser.isSuperAdmin && isAdmin;
-  var isRealAdmin = isAdmin && !APP.currentUser.isSuperAdmin;
-  if (isAdmin) {
-    return APP.sc;
-  }
-  var name = APP.currentUser.name || '';
-  var lic  = APP.currentUser.lic  || '';
-  var uid  = APP.currentUser.uid  || lic;
+  // Admins see all SCs
+  if (isAdmin || APP.currentUser.isSuperAdmin) return APP.sc;
+  // Reps/Assistants: APP.sc already filtered to their assigned SCs via sc_users query
+  if (role === 'Representative' || role === 'Assistant') return APP.sc;
+  // Council Delegates: filter by delegateIds
+  var uid  = APP.currentUser.uid  || APP.currentUser.lic || '';
+  var email = APP.currentUser.email || '';
   return APP.sc.filter(function(s) {
-    // Direct manager match
-    if (s.mgr === name || s.mgrLic === lic) return true;
-    // Rep/Assistant assigned via repIds array
-    if (s.repIds && s.repIds.indexOf(lic) >= 0) return true;
-    // Council Delegate assigned via delegateIds or delegates[]
-    if (role === 'Council Delegate') {
-      if (s.delegateIds && s.delegateIds.indexOf(uid) >= 0) return true;
-      if (s.delegates && s.delegates.find(function(d){return d.uid===uid||d.email===APP.currentUser.email;})) return true;
-    }
+    if (s.delegateIds && s.delegateIds.indexOf(uid) >= 0) return true;
+    if (s.delegates && s.delegates.find(function(d){return d.uid===uid||d.email===email;})) return true;
     return false;
   });
 }
