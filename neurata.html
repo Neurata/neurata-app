@@ -2381,8 +2381,12 @@ function agUploadPdf(file, statusEl, areaEl) {
         ]
       }]
     };
+    body._usageType = 'parse_agenda';
+    body._brokerageId = APP.brokerage&&APP.brokerage.lic||'';
+    body._scId = APP.currentScId||'';
+    body._userId = APP.currentUser&&APP.currentUser.id||'';
+
     fetch(WORKER_URL+'/ai', {
-      method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
     })
@@ -4330,7 +4334,7 @@ function generateItemSummaries(agenda, callback) {
   var pending = itemsWithNotes.length;
   itemsWithNotes.forEach(function(item) {
     fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:200,
+      body:JSON.stringify({_usageType:'parse_minutes',_brokerageId:APP.brokerage&&APP.brokerage.lic||'',_scId:APP.currentScId||'',_userId:APP.currentUser&&APP.currentUser.id||'',model:'claude-sonnet-4-6',max_tokens:200,
         system:'You are an expert strata property manager writing official meeting minutes for British Columbia strata corporations. Follow these rules strictly:\n\nVOICE: Neutral, factual, procedural. Past tense only. Third person only (never \'we\').\n\nSENTENCE PATTERNS:\n- Discussion: \"The council reviewed [topic] and discussed [key considerations].\"\n- Information items: \"The council received the report for information.\"\n- Deferrals: \"The council deferred the item to a future meeting pending [reason].\"\n- Follow-up: \"The manager will [action] and report back to council.\"\n\nAVOID: \"talked about\", \"went over\", \"a lot of discussion\", \"everyone agreed\", \"good discussion\", any opinion or commentary.\n\nUSE: \"reviewed\", \"discussed\", \"considered\", \"received\".\n\nDo NOT write motion text — motions are captured separately. Write only the Background/Discussion sentence (1-2 sentences maximum). Do NOT use markdown. Plain prose only. Refer to owners by strata lot number only (e.g. SL 061), never by name.',
         messages:[{role:'user',content:'Agenda item: "'+item.text+'". Manager notes: '+item.notes+'. Write the Background/Discussion sentence.'}]})})
     .then(function(r){return r.json();})
@@ -8356,10 +8360,11 @@ function scParsePlan(b64, filename){
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
+      _usageType:'parse_plan',_brokerageId:APP.brokerage&&APP.brokerage.lic||'',_scId:'',_userId:APP.currentUser&&APP.currentUser.id||'',
+      _usageType:'parse_plan', _brokerageId:APP.brokerage&&APP.brokerage.lic||'', _scId:APP.currentScId||'', _userId:APP.currentUser&&APP.currentUser.id||'',
       model: 'claude-sonnet-4-6', max_tokens: 600,
       betas: ['pdfs-2024-09-25'],
       messages: [{role:'user', content:[
-        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
         {type:'text', text:'This is a BC LTSA Strata Plan. Return ONLY a JSON object — no explanation, no markdown.\n'
           +'{"planNumber":"","phase":0,"name":"","lots":0,"address":"","totalUnitEntitlement":""}\n'
           +'planNumber: normalize e.g. "BCS 3229", "LMS 1501", "EPS 9048". '
@@ -8429,7 +8434,7 @@ function hmHandleFile(file) {
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,
           _usageType:'mm_ai',_brokerageId:minsBrkId,_scId:minsScId,_userId:APP.currentUser&&APP.currentUser.id||'',
-          betas:['pdfs-2024-09-25'],
+          _usageType:'parse_minutes',_brokerageId:minsBrkId,_scId:minsScId,_userId:APP.currentUser&&APP.currentUser.id||'',
           messages:[{role:'user',content:[
             {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:b64}},
             {type:'text',text:'These are strata council meeting minutes. '
