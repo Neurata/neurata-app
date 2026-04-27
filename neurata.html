@@ -898,72 +898,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
-<!-- ═══════ ONBOARDING OVERLAY ═══════ -->
-<div id="ob-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(17,16,16,.85);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px">
-  <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
-    <!-- Step 1: Add SC -->
-    <div id="ob-step-sc">
-      <div style="background:var(--ch);padding:28px 32px 20px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:8px">Step 1 of 2</div>
-        <div style="font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Add your first strata corporation</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.55)">Upload the Strata Plan as filed with the Land Title and Survey Authority (LTSA), or enter the details manually.</div>
-      </div>
-      <div style="padding:24px 32px">
-        <!-- Upload option (primary) -->
-        <div id="ob-upz" onclick="document.getElementById('ob-pdf-input').click()" style="border:2px dashed var(--g2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:14px" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
-          <div style="font-size:28px;margin-bottom:8px">📄</div>
-          <div style="font-size:14px;font-weight:700;color:var(--ch);margin-bottom:4px">Upload Strata Plan PDF</div>
-          <div style="font-size:12px;color:var(--g4)">Neurata will extract the plan number, name, and strata lot count automatically</div>
-          <input type="file" id="ob-pdf-input" accept=".pdf" style="display:none" onchange="obHandleFile(this.files[0])"/>
-        </div>
-        <div id="ob-parse-status" style="display:none;text-align:center;padding:16px;color:var(--g4);font-size:13px">
-          <div style="font-size:20px;margin-bottom:8px">⏳</div>Reading your Strata Plan…
-        </div>
-        <!-- Manual option (secondary) -->
-        <div style="text-align:center;margin-bottom:16px">
-          <button class="btn" onclick="obShowManual()" style="font-size:13px">Enter strata information manually →</button>
-        </div>
-        <!-- Manual form (hidden by default) -->
-        <div id="ob-manual-form" style="display:none">
-          <div class="fr fr2" style="margin-bottom:12px">
-            <div class="fg"><label>Strata Plan Number *</label><input type="text" id="ob-plan" placeholder="e.g. EPS 9048" style="text-transform:uppercase"/></div>
-            <div class="fg"><label>Strata Corporation Name *</label><input type="text" id="ob-name" placeholder="e.g. The Terminus"/></div>
-            <div class="fg"><label>Number of Strata Lots *</label><input type="number" id="ob-lots" placeholder="e.g. 42" min="1"/></div>
-            <div class="fg"><label>Address</label><input type="text" id="ob-addr" placeholder="123 Main St, Vancouver BC"/></div>
-          </div>
-        </div>
-        <!-- Parsed result -->
-        <div id="ob-parsed-result" style="display:none;background:var(--g1);border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px">
-          <div style="font-weight:700;color:var(--ch);margin-bottom:6px">✓ Strata Plan parsed</div>
-          <div id="ob-parsed-text" style="color:var(--g4)"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <button class="btn" onclick="obSkipAll()" style="color:var(--g4);font-size:13px">Skip for now</button>
-          <button class="btn pri" id="ob-sc-next" onclick="obCreateSC()" style="display:none">Create Corporation & Continue →</button>
-        </div>
-      </div>
-    </div>
-    <!-- Step 2: Create Meeting -->
-    <div id="ob-step-mtg" style="display:none">
-      <div style="background:var(--ch);padding:28px 32px 20px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:8px">Step 2 of 2</div>
-        <div style="font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Schedule your first meeting</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.55)">Set up your first strata council or AGM. You can always do this later.</div>
-      </div>
-      <div style="padding:24px 32px">
-        <div style="background:var(--g1);border-radius:10px;padding:20px;margin-bottom:20px;font-size:13px;color:var(--g4);line-height:1.7">
-          <div style="font-weight:700;color:var(--ch);margin-bottom:8px" id="ob-sc-created-label"></div>
-          You're ready to run your first meeting. Click below to set the date, type, and agenda — or skip and do it later from the Strata Corps page.
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <button class="btn" onclick="obSkipMeeting()" style="color:var(--g4);font-size:13px">Skip for now</button>
-          <button class="btn pri" onclick="obStartMeeting()">Create First Meeting →</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══════ PLATFORM ═══════ -->
 <div class="screen" id="scr-platform">
 <div id="topbar">
@@ -3465,8 +3399,9 @@ function renderMgmtStrataSphere(sc, el) {
         return '<div style="background:var(--g1);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--ch);line-height:1.6">'+ssFormatResponse(m.text)+'</div>';
       }).join('')
       : '<div style="color:var(--g4);font-size:13px;padding:40px 24px;text-align:center">'
-        + (ssTier === 'global' ? '<div style="font-weight:700;font-size:16px;color:var(--ch);margin-bottom:8px">Ask me anything about strata in BC</div><div style="font-size:13px;color:var(--g4);margin-bottom:20px">Every building. Every decision. Every bylaw.</div>' : '<div style="font-weight:700;font-size:16px;color:var(--ch);margin-bottom:8px">Ask me anything about '+escHtml(sc.plan)+'</div><div style="font-size:13px;color:var(--g4);margin-bottom:20px">Past decisions, bylaws, financials, governance, or BC strata law.</div>')
-        + '<button class="btn pri" onclick="mgmtSsNewConv(\\\'' + scId + '\\\')">' + '+ Start Your First Conversation</button>'
+        + '<div style="font-weight:700;font-size:16px;color:var(--ch);margin-bottom:8px">Ask me anything about '+escHtml(sc.plan)+'</div>'
+        + '<div style="font-size:13px;color:var(--g4);margin-bottom:20px">Past decisions, bylaws, financials, governance, or BC strata law.</div>'
+        + '<button class="btn pri" onclick="mgmtSsNewConv(\''+scId+'\')">+ Start Your First Conversation</button>'
         + '</div>')
     + '</div>'
     + '<div style="border-top:1px solid var(--g2);padding:10px;display:flex;gap:8px">'
@@ -4728,7 +4663,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.0 build:1777309043 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.3.0 build:1776924684 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -6770,12 +6705,7 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
-  // Show onboarding for first-time users (MB, AB, REP with no SCs)
-  var role = u.role || '';
-  var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
-  if (canCreate && APP.sc.length === 0) {
-    setTimeout(function(){ obShowOverlay(); }, 500);
-  }
+  // Session managed by Supabase auth - no localStorage needed
 }
 
 
@@ -6810,132 +6740,6 @@ function launchPlatform(){
 // ONBOARDING FUNCTIONS
 // ══════════════════════════════════════════
 
-var _obParsedSC = null;
-
-function obShowOverlay() {
-  var el = document.getElementById('ob-overlay');
-  if (!el) return;
-  el.style.display = 'flex';
-  document.getElementById('ob-step-sc').style.display = '';
-  document.getElementById('ob-step-mtg').style.display = 'none';
-  document.getElementById('ob-manual-form').style.display = 'none';
-  document.getElementById('ob-parsed-result').style.display = 'none';
-  document.getElementById('ob-parse-status').style.display = 'none';
-  document.getElementById('ob-upz').style.display = '';
-  document.getElementById('ob-sc-next').style.display = 'none';
-  _obParsedSC = null;
-}
-
-function obHideOverlay() {
-  var el = document.getElementById('ob-overlay');
-  if (el) el.style.display = 'none';
-}
-
-function obShowManual() {
-  document.getElementById('ob-manual-form').style.display = '';
-  document.getElementById('ob-sc-next').style.display = '';
-  document.getElementById('ob-upz').style.display = 'none';
-}
-
-function obHandleFile(file) {
-  if (!file) return;
-  if (file.type !== 'application/pdf') { nAlert('Please upload a PDF file.','','warn'); return; }
-  _scPlanPdfFile = file;
-  document.getElementById('ob-upz').style.display = 'none';
-  document.getElementById('ob-parse-status').style.display = '';
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var b64 = e.target.result.split(',')[1];
-    scParsePlan(b64, file.name);
-    // scParsePlan populates the add-sc modal fields; we read them after
-    setTimeout(function() {
-      var plan = (document.getElementById('sc-plan') && document.getElementById('sc-plan').value)||'';
-      var name = (document.getElementById('sc-name') && document.getElementById('sc-name').value)||'';
-      var lots = (document.getElementById('sc-lots') && document.getElementById('sc-lots').value)||'';
-      document.getElementById('ob-parse-status').style.display = 'none';
-      if (!plan) {
-        nAlert('Could not parse the PDF. Please enter details manually.','','warn');
-        obShowManual();
-        return;
-      }
-      _obParsedSC = { plan: plan, name: name, lots: parseInt(lots)||1 };
-      document.getElementById('ob-parsed-result').style.display = '';
-      document.getElementById('ob-parsed-text').textContent = plan + (name?' · '+name:'') + (lots?' · '+lots+' strata lots':'');
-      document.getElementById('ob-sc-next').style.display = '';
-    }, 4000); // wait for AI parse
-  };
-  reader.readAsDataURL(file);
-}
-
-function obCreateSC() {
-  var plan, name, lots, addr;
-  if (_obParsedSC) {
-    plan = _obParsedSC.plan;
-    name = _obParsedSC.name || '';
-    lots = _obParsedSC.lots || 1;
-    addr = '';
-  } else {
-    plan = (document.getElementById('ob-plan').value||'').trim().toUpperCase();
-    name = (document.getElementById('ob-name').value||'').trim();
-    lots = parseInt(document.getElementById('ob-lots').value||'0');
-    addr = (document.getElementById('ob-addr').value||'').trim();
-  }
-  if (!plan) { nAlert('Please enter a strata plan number.','','warn'); return; }
-  if (!lots || lots < 1) { nAlert('Please enter the number of strata lots.','','warn'); return; }
-
-  var newSC = mapSCRow({
-    plan_number: plan, name: name, lots: lots, address: addr,
-    brokerage_id: APP.brokerage.lic || '',
-    is_subscribed: false, ss_tier: null, mm_activated_at: null,
-    mm_pending_cancel: false, ss_pending_downgrade: null, ss_global_activated_at: null
-  });
-  newSC.mgr = APP.currentUser.name;
-  newSC.mgrLic = APP.currentUser.lic || '';
-  APP.sc.push(newSC);
-  APP.currentScId = plan;
-
-  getSupabase().from('strata_corps').upsert({
-    plan_number: plan, name: name, lots: lots,
-    address: addr, brokerage_id: APP.brokerage.lic || ''
-  }, {onConflict: 'plan_number'}).then(function(r){
-    if (r.error) console.error('SC save error:', r.error);
-    if (_scPlanPdfFile) {
-      var pdfFile = _scPlanPdfFile; _scPlanPdfFile = null;
-      var path = 'strata-plans/' + plan + '/' + pdfFile.name;
-      getSupabase().storage.from('neurata-documents').upload(path, pdfFile, {upsert:true}).then(function(ur){
-        if (!ur.error) {
-          var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
-          getSupabase().from('documents').insert({sc_id:plan,name:pdfFile.name,source:'strata-plan',source_label:'Strata Plan',mime_type:'application/pdf',storage_path:path,public_url:url,uploaded_at:new Date().toISOString()}).then(function(){});
-        }
-      });
-    }
-  });
-
-  renderSidebar('dashboard');
-  renderDash();
-  document.getElementById('ob-step-sc').style.display = 'none';
-  document.getElementById('ob-step-mtg').style.display = '';
-  var lbl = document.getElementById('ob-sc-created-label');
-  if (lbl) lbl.textContent = '✓ ' + plan + (name ? ' — ' + name : '') + ' created.';
-}
-
-function obStartMeeting() {
-  obHideOverlay();
-  showPg('strata');
-  setTimeout(function() {
-    APP.currentScId = APP.sc[APP.sc.length-1].id;
-    openNewMtgModal();
-  }, 300);
-}
-
-function obSkipMeeting() {
-  obHideOverlay();
-  showPg('strata');
-}
-
-function obSkipAll() {
-  obHideOverlay();
-}
 function renderMeetings() {
   var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : getVisibleSCs()[0];
   if (!sc && getVisibleSCs().length>0) sc = getVisibleSCs()[0];
@@ -8824,48 +8628,336 @@ function euaScrollCheck() {
 function obToggleCreateBtn(){var btn=document.getElementById('ob-create-btn');if(btn)btn.disabled=!document.getElementById('ob-ck1').checked;}
 function invToggleCreateBtn(){}
 
-
 function obComplete(){
-  var userId = null;
+  if(!document.getElementById('ob-ck1').checked){nAlert('Please agree to the Terms of Service.');return;}
   var email = (document.getElementById('ob-email')||{}).value||'';
   var pw    = (document.getElementById('ob-pw')||{}).value||'';
   var btn   = document.getElementById('ob-create-btn');
   if(btn){btn.disabled=true;btn.textContent='Creating account…';}
+
+  // Step 1: Create Supabase Auth account
   getSupabase().auth.signUp({email: email, password: pw})
-  .then(function(result) {
-    if (result.error) {
+    .then(function(result) {
+      if (result.error) {
+        if(btn){btn.disabled=false;btn.textContent='Create Account →';}
+        nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
+        return;
+      }
+      var userId = result.data.user.id;
+
+      // Step 2: Upsert brokerage record
+      return getSupabase().from('brokerages').upsert({
+        bcfsa_lic:           OB.brkLic,
+        name:                OB.brkName,
+        address:             OB.brkAddr,
+        phone:               OB.brkPhone,
+        subscription_status: 'trial',
+        trial_meetings_used: 0
+      }, {onConflict: 'bcfsa_lic'})
+      .then(function() {
+        // Step 3: Create user profile
+        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        return getSupabase().from('users').insert({
+          id:           userId,
+          brokerage_id: OB.brkLic,
+          full_name:    OB.repName,
+          email:        email,
+          bcfsa_lic:    OB.lic,
+          role:         OB.repRole || 'Managing Broker'
+        });
+      })
+      .then(function() {
+        // Step 4: Write brokerage_id to JWT app_metadata
+        // This is critical — RLS policies read brokerage_id from the JWT token
+        return getSupabase().auth.updateUser({
+          data: { brokerage_id: OB.brkLic }
+        });
+      })
+      .then(function() {
+        // Step 5: Set local APP state and show confirmation
+        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        APP.currentUser = {
+          name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
+          role:OB.repRole, licFor:OB.repLicFor, initials:initials,
+          brkLic:OB.brkLic, brkName:OB.brkName
+        };
+        APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
+        nAlert('Account created! Please check your email to confirm your address before signing in.', 'Account Created ✓', 'success');
+        showScr('scr-login');
+      });
+    })
+    .catch(function(err) {
       if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-      nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
-      return Promise.reject('handled');
+      nAlert('Account creation failed. Please try again.', 'Error', 'warn');
+    });
+}
+
+function invTogglePw(){
+  var inp = document.getElementById('inv-pw');
+  var btn = document.getElementById('inv-pw-toggle');
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  if (btn) btn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+}
+
+function invPwStrength(){
+  var pw  = (document.getElementById('inv-pw')||{}).value||'';
+  var el  = document.getElementById('inv-pw-strength');
+  if (!el) return;
+  var score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  var labels = ['Too short','Weak','Fair','Good','Strong','Very strong'];
+  var colors = ['var(--red)','var(--red)','var(--org)','var(--org)','var(--grn)','var(--grn)'];
+  el.textContent = pw.length === 0 ? 'Minimum 8 characters' : labels[score] || 'Very strong';
+  el.style.color  = pw.length === 0 ? 'var(--g4)' : colors[score] || 'var(--grn)';
+}
+
+function invCheckBtn(){
+  var lic   = (document.getElementById('inv-lic')||{}).value||'';
+  var email = (document.getElementById('inv-email')||{}).value||'';
+  var pw    = (document.getElementById('inv-pw')||{}).value||'';
+  var btn   = document.getElementById('inv-create-btn');
+  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8);
+}
+
+function obInviteComplete(){
+  var lic   = (document.getElementById('inv-lic')||{}).value.trim().toUpperCase();
+  var email = (document.getElementById('inv-email')||{}).value.trim();
+  var pw    = (document.getElementById('inv-pw')||{}).value.trim();
+  if(!lic)  { nAlert('Please enter your BCFSA licence number.'); return; }
+  if(!email){ nAlert('Please enter your brokerage email.'); return; }
+  if(pw.length<8){ nAlert('Please create a password (minimum 8 characters).'); return; }
+
+  // Validate lic matches invitation
+  if (window._inviteContext && window._inviteContext.lic) {
+    var expectedLic = window._inviteContext.lic.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    var enteredLic  = lic.replace(/[^A-Z0-9]/g,'');
+    if (expectedLic && enteredLic !== expectedLic) {
+      nAlert('The licence number you entered does not match the invitation. Please use the licence associated with this invitation.', 'Licence Mismatch', 'warn');
+      return;
     }
-    userId = result.data.user.id;
-    return getSupabase().from('brokerages').upsert({
-      bcfsa_lic: OB.brkLic, name: OB.brkName, address: OB.brkAddr,
-      phone: OB.brkPhone, subscription_status: 'trial', trial_meetings_used: 0
-    }, {onConflict: 'bcfsa_lic'});
-  })
-  .then(function() {
-    return getSupabase().from('users').insert({
-      id: userId, brokerage_id: OB.brkLic, full_name: OB.repName,
-      email: email, bcfsa_lic: OB.lic, role: OB.repRole || 'Managing Broker'
+  }
+
+  var btn = document.getElementById('inv-create-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Verifying...'; }
+  var ctx = window._inviteContext;
+
+  // Step 1: Verify BCFSA licence
+  fetch(WORKER_URL+'/?lic='+encodeURIComponent(lic))
+  .then(function(r){ return r.json(); })
+  .then(function(rep){
+    if(rep.notFound||!rep.name){
+      if(btn){ btn.disabled=false; btn.textContent='Create Account'; }
+      nAlert('Licence '+lic+' was not found in the BCFSA registry.');
+      return Promise.reject('not_found');
+    }
+    var dn       = rep.knownAs||rep.name||lic;
+    var initials = dn.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    var brkLic   = (ctx && ctx.brkLic) || rep.businessLicence || '';
+    if(btn){ btn.textContent='Creating account...'; }
+
+    // Step 2: Create auth account with metadata
+    // DB trigger will write users/sc_users/reps rows immediately on insert
+    return getSupabase().auth.signUp({
+      email: email,
+      password: pw,
+      options: {
+        data: {
+          full_name:    dn,
+          bcfsa_lic:    lic,
+          role:         rep.licensedAs || 'Representative',
+          brokerage_id: brkLic,
+          sc_id:        ctx ? ctx.scId : ''
+        }
+      }
+    })
+    .then(function(result){
+      if(result.error){ return Promise.reject(result.error.message||'Could not create account.'); }
+      var userId = result.data.user.id;
+
+      // Step 3: Metadata + profile + SC connection (fire and forget)
+      getSupabase().auth.updateUser({data:{brokerage_id:brkLic}});
+      getSupabase().from('users').upsert({
+        id:userId, full_name:dn, email:email,
+        bcfsa_lic:lic, role:rep.licensedAs||'Representative', brokerage_id:brkLic
+      },{onConflict:'id'});
+      if(ctx && ctx.scId){
+        // Write sc_users rows for ALL assigned SCs (not just the first one)
+        var allPlans = (ctx.scPlans && ctx.scPlans.length) ? ctx.scPlans : [ctx.scId];
+        allPlans.forEach(function(plan) {
+          getSupabase().from('sc_users').upsert({sc_id:plan, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'}).then(function(){});
+        });
+        // Merge all plans into reps.sc_ids
+        getSupabase().from('reps').select('sc_ids').eq('brokerage_id',brkLic).eq('bcfsa_lic',lic).maybeSingle()
+        .then(function(ex) {
+          var ids = [];
+          if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
+          allPlans.forEach(function(p){ if (ids.indexOf(p) < 0) ids.push(p); });
+          return getSupabase().from('reps').upsert({brokerage_id:brkLic,bcfsa_lic:lic,name:dn,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
+        });
+      }
+
+      // Step 4: Set APP state and launch
+      APP.currentUser = {
+        id:userId, name:dn, legalName:rep.name, lic:lic, email:email,
+        role:rep.licensedAs||'Representative', licFor:rep.licensedFor||'',
+        initials:initials, brkLic:brkLic, brkName:rep.businessName||''
+      };
+      APP.brokerage = {
+        name:rep.brkName||rep.businessName||'', lic:brkLic,
+        addr:rep.brkAddress||rep.businessAddress||'',
+        phone:rep.brkPhone||rep.businessPhone||''
+      };
+      window._inviteContext = null;
+      // Load full profile from Supabase — no stub SC
+      setTimeout(function(){ loadUserProfile(userId); }, 1000);
     });
   })
-  .then(function() {
-    return getSupabase().auth.updateUser({ data: { brokerage_id: OB.brkLic } });
-  })
-  .then(function() {
-    var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-    APP.currentUser = {
-      name:OB.repName, legalName:OB.repLegalName, lic:OB.lic,
-      role:OB.repRole, licFor:OB.repLicFor, initials:initials,
-      brkLic:OB.brkLic, brkName:OB.brkName
-    };
-    APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
-    loadUserProfile(userId);
-  })
-  .catch(function(err) {
-    if (err === 'handled') return;
-    if(btn){btn.disabled=false;btn.textContent='Create Account →';}
-    nAlert('Account creation failed. Please try again.', 'Error', 'warn');
+  .catch(function(e){
+    if(e === 'not_found') return;
+    if(btn){ btn.disabled=false; btn.textContent='Create Account'; }
+    nAlert(typeof e==='string' ? e : 'Something went wrong. Please try again.','Error','warn');
   });
 }
+
+
+// ══════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════
+function openMo(id){document.getElementById(id)?.classList.add('open');if(id==='mo-edit-agenda')renderEditAgenda();}
+function closeMo(id){document.getElementById(id)?.classList.remove('open');}
+document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
+
+// ══════════════════════════════════════════
+// INIT — restore session on load
+// ══════════════════════════════════════════
+
+async function init(){
+  // Wire backdrop-click close for any modals added after script load
+  document.querySelectorAll('.mo').forEach(function(m){
+    if(!m._backdropWired){
+      m._backdropWired=true;
+      m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});
+    }
+  });
+
+  // ── Check URL params ─────────────────────────────────────────────
+  var urlParams = new URLSearchParams(window.location.search);
+  var tokenHash = urlParams.get('token_hash');
+  var tokenType = urlParams.get('type');
+  var hashParams = new URLSearchParams(window.location.hash.replace('#',''));
+  var accessToken = hashParams.get('access_token');
+  var refreshToken = hashParams.get('refresh_token');
+  var hashType = hashParams.get('type');
+
+  // Handle Supabase confirmation via hash fragment (#access_token=...)
+  if (accessToken) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Sign out any unconfirmed session, then show login with success message
+    // The DB trigger already wrote users/sc_users/reps on signUp — just need to log in
+    await getSupabase().auth.signOut();
+    showScr('scr-login');
+    var errEl = document.getElementById('li-err');
+    if (errEl) {
+      errEl.style.display = '';
+      errEl.style.background = '#f0fdf4';
+      errEl.style.color = '#16a34a';
+      errEl.style.border = '1px solid #bbf7d0';
+      errEl.textContent = '✓ Email confirmed! Please sign in.';
+    }
+    return;
+  }
+
+  // Handle token_hash flow (?token_hash=...)
+  if (tokenHash) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    console.log('[confirm] token_hash found, type:', tokenType);
+    var vResult = await getSupabase().auth.verifyOtp({token_hash: tokenHash, type: tokenType || 'signup'});
+    if (vResult.error) {
+      console.error('[confirm] verifyOtp error:', vResult.error.message);
+      nAlert('Confirmation failed: ' + vResult.error.message, 'Error', 'warn');
+      return;
+    }
+    console.log('[confirm] verifyOtp success');
+    return;
+  }
+  var inviteBrk  = urlParams.get('invite');   // brokerage lic
+  var inviteSc   = urlParams.get('sc');        // SC id
+  var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
+  var delegateSc = urlParams.get('delegate'); // SC id for delegate
+  var delegateSl = urlParams.get('sl');        // strata lot
+  var inviteScPlans = inviteSc ? inviteSc.split(',').map(function(p){return p.trim();}).filter(Boolean) : [];
+  var hasInvite  = !!(inviteBrk || delegateSc);
+
+  // Store invite context for use after login/signup
+  if (hasInvite) {
+    window._inviteContext = {
+      type:       delegateSc ? 'delegate' : 'rep',
+      brkLic:     inviteBrk  || '',
+      scId:       inviteScPlans[0] || delegateSc || '',
+      scPlans:    inviteScPlans,
+      lic:        inviteLic  || '',
+      sl:         delegateSl || ''
+    };
+    // Clean up URL without reloading
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  try{
+    var supaSession = await getSupabase().auth.getSession();
+    var session = supaSession.data && supaSession.data.session;
+
+    if (hasInvite) {
+      if (session) {
+        nConfirm(
+          'You are signed in to another account. Sign out to accept this invitation?',
+          function(ok) {
+            if (ok) { getSupabase().auth.signOut().then(function(){ showScr('scr-invited'); }); }
+            else { window._inviteContext = null; loadUserProfile(session.user.id); }
+          },
+          'Invitation Link', 'info'
+        );
+      } else {
+        showScr('scr-invited');
+      }
+      return;
+    }
+
+    if (session) {
+      // Don't load unconfirmed sessions — they have no data and break the app
+      if (!session.user.email_confirmed_at) {
+        // Show check-email screen for unconfirmed users
+        showScr('scr-check-email');
+        var emailEl = document.getElementById('check-email-address');
+        if (emailEl) emailEl.textContent = session.user.email;
+        return;
+      }
+      loadUserProfile(session.user.id);
+    }
+    // else stay on login screen
+  }catch(e){ console.error('init error:', e); }
+}
+
+init();
+</script>
+<!-- ═══════ CUSTOM DIALOG ═══════ -->
+<div id="cdlg-overlay">
+  <div id="cdlg-box">
+    <div id="cdlg-hd">
+      <span id="cdlg-icon" class="info"></span>
+      <span id="cdlg-title"></span>
+    </div>
+    <div id="cdlg-msg"></div>
+    <div id="cdlg-input-wrap" style="display:none">
+      <input id="cdlg-input" type="text"/>
+    </div>
+    <div id="cdlg-ft"></div>
+  </div>
+</div>
+
+</body>
+</html>
