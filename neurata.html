@@ -6130,14 +6130,22 @@ function adminEnterBrokerage(brkLic) {
         return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
       });
 
-      // Restore repIds from sc_users
+      // Restore repIds from sc_users, and get full_name (Known As) from users table
       if (scUsers.length) {
         var userIds = scUsers.map(function(r){ return r.user_id; });
-        db.from('users').select('id,bcfsa_lic').in('id', userIds).then(function(ur){
+        db.from('users').select('id,bcfsa_lic,full_name').in('id', userIds).then(function(ur){
           var userMap = {};
-          (ur.data||[]).forEach(function(u){ userMap[u.id] = u.bcfsa_lic; });
+          (ur.data||[]).forEach(function(u){ userMap[u.id] = { lic: u.bcfsa_lic, name: u.full_name }; });
+          // Update rep display names with Known As from users table
           scUsers.forEach(function(row){
-            var lic = userMap[row.user_id];
+            var userData = userMap[row.user_id];
+            if (!userData) return;
+            var lic = userData.lic;
+            var knownAsName = userData.name;
+            if (lic && knownAsName) {
+              var rep = APP.reps.find(function(r){ return r.lic === lic; });
+              if (rep) rep.name = knownAsName; // override with Known As name
+            }
             if (!lic) return;
             var sc_ = scList.find(function(s){ return s.plan === row.sc_id; });
             if (sc_) {
@@ -6617,9 +6625,22 @@ function loadUserProfile(userId) {
           .then(function(r) {
             if (!r.error && r.data && r.data.length) {
               APP.reps = r.data.map(function(rep) {
-                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status: 'Active', scIds: rep.sc_ids || '[]' };
+
+                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status:'Active', scIds: rep.sc_ids||'[]' };
               });
-              // Restore rep-SC connections onto SC objects from sc_ids array
+              var repLics = r.data.map(function(rep){ return rep.bcfsa_lic; }).filter(Boolean);
+              if (repLics.length) {
+                getSupabase().from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', repLics)
+                .then(function(ur) {
+                  (ur.data||[]).forEach(function(u) {
+                    if (!u.full_name) return;
+                    var rep = APP.reps.find(function(r){ return r.lic === u.bcfsa_lic; });
+                    if (rep) rep.name = u.full_name; // use Known As from users
+                  });
+                }).catch(function(){});
+
+              }
+
               r.data.forEach(function(rep) {
                 var scIds = [];
                 if (rep.sc_ids) {
