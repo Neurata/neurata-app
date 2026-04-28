@@ -4866,7 +4866,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
   // Build HTML and use print-to-PDF via a new window
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.4.5 build:1777329890 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.5.0 build:1777359988 -->');
   lines.push('<style>');
   lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
   lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
@@ -6337,53 +6337,30 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '</div><div>';
 
   // Subscription Summary — active services per SC only
+  // ── SC Subscription Status ──────────────────────────────────────
   html += '<div class="card" style="margin-bottom:14px">';
-  html += '<div class="ch_"><div class="ct">Active Services</div></div>';
+  html += '<div class="ch_"><div class="ct">Strata Corporations</div></div>';
   html += '<div class="cb">';
-  var activeSCs = sc.filter(function(s){ return scMmActive(s); });
-
-  if (!activeSCs.length) {
-    html += '<div style="color:var(--g4);font-size:13px">No active services yet. Activate Meeting Mode on a strata corporation to get started.</div>';
+  var allSCs = getVisibleSCs();
+  if (!allSCs.length) {
+    html += '<div style="color:var(--g4);font-size:13px">No strata corporations yet.</div>';
   } else {
-    activeSCs.forEach(function(s) {
-      var ssTier = scSsTier(s);
-      var lots = parseInt(s.lots) || 0;
-      var ssRate = ssTier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
-      var ssMonthly = (ssRate * lots).toFixed(2);
-      var totalMonthly = (PRICING.perBuilding + ssRate * lots).toFixed(2);
-      var ssTag = ssTier === 'global'
-        ? '<span class="tag" style="background:#e8f4fd;color:#023e8a">&#127760; Global SS</span>'
-        : '<span class="tag grn">&#128309; Local SS</span>';
-      var pendingCancel = s.mmPendingCancel;
-      var pendingDowngrade = s.ssPendingDowngrade;
-      html += '<div style="padding:12px 0;border-bottom:1px solid var(--g2)">'
-        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-        + '<div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--ch)">'+escHtml(s.plan)
-        + ' <span style="font-weight:400;color:var(--g4);font-size:12px">'+escHtml(s.name||'')+'</span></div>'
-        + '<div style="font-size:11px;color:var(--g4);margin:3px 0">'+lots+' strata lots</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'
-        + '<span class="tag grn">&#9654; Meeting Mode</span>'+ssTag
-        + (pendingCancel ? '<span class="tag amb">&#9203; MM cancels at year-end</span>' : '')
-        + (pendingDowngrade ? '<span class="tag amb">&#9203; SS downgrade scheduled</span>' : '')
-        + '</div>'
-        + '</div>'
-        + '<div style="text-align:right;flex-shrink:0">'
-        + '<div style="font-size:15px;font-weight:700;color:var(--ch)">CA$'+totalMonthly+'</div>'
-        + '<div style="font-size:10px;color:var(--g4)">/month</div>'
-        + '</div>'
-        + '</div>'
-        + (isMB ? '<div style="display:flex;gap:6px;margin-top:8px">'
-          + (ssTier !== 'global'
-            ? '<button class="btn xs" onclick="upgradeSCStrataSphere(\''+s.id+'\')">Upgrade to Global SS</button>'
-            : (!pendingDowngrade ? '<button class="btn xs" onclick="mgmtSsSwitchTier(\''+s.id+'\',\'local\')">Schedule Global→Local</button>' : ''))
-          + (!pendingCancel ? '<button class="btn xs" style="color:var(--red);border-color:var(--red)" onclick="scheduleCancelMM(\''+s.id+'\')">Cancel MM at Year-End</button>' : '')
-          + '</div>' : '')
-        + '</div>';
+    allSCs.forEach(function(s, idx) {
+      var mmOn = scMmActive(s);
+      var tier = scSsTier(s);
+      var statusTag = mmOn
+        ? (tier === 'global'
+          ? '<span class="tag" style="background:#e8f4fd;color:#023e8a;font-size:11px">Global StrataSphere</span>'
+          : '<span class="tag grn" style="font-size:11px">Meeting Mode</span>')
+        : '<span class="tag gy" style="font-size:11px">Inactive</span>';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;'+(idx>0?'border-top:1px solid var(--g2)':'')+'">';
+      html += '<div><div style="font-size:13px;font-weight:600;color:var(--ch)">'+escHtml(s.plan)+'</div>';
+      html += '<div style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+(s.lots?' · '+s.lots+' lots':'')+'</div></div>';
+      html += statusTag;
+      html += '</div>';
     });
   }
   html += '</div></div>';
-
   // Account Statements
   html += '<div class="card">';
   html += '<div class="ch_"><div class="ct">Account Statements</div>'
@@ -7847,7 +7824,7 @@ function renderSCSubscription(s) {
     : 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"';
 
   function btn(label, type, action) {
-    return '<button class="btn'+(type==='pri'?' pri':'')+'" style="width:100%;font-size:12px" '+action+'>'+label+'</button>';
+    return '<button class="btn'+(type==='pri'?' pri':'')+'" style="width:100%;font-size:12px;text-align:center" '+action+'>'+label+'</button>';
   }
 
   function planCard(id, label, features, price, commitment, tag, action) {
@@ -7924,11 +7901,11 @@ function renderSCSubscription(s) {
   var gssTag = currentPlan === 'global' ? '<span class="tag grn">Active</span>' : '';
   var gssFeatures = [
     'Everything in Meeting Mode',
-    'Global StrataSphere &#8212; AI governance intelligence across the entire platform',
-    'Ask questions across hundreds of strata corporations simultaneously',
-    'Surface precedents and patterns you&#8217;d never find manually',
-    'See how buildings like yours have resolved disputes, set bylaws, and managed finances',
-    'PII-stripped and PIPA-compliant'
+    'Answer questions across hundreds of strata corporations simultaneously',
+    'Unlock precedents and patterns',
+    'Gain insight into similar buildings and geographic regions',
+    'PII-stripped and PIPA-compliant data',
+    'Global StrataSphere &#8212; AI governance intelligence across the entire platform'
   ];
   var gssPrice = 'CA$39/mo. + CA$2.49/strata lot';
   var gssCommit = 'Annual commitment, billed monthly';
@@ -8385,11 +8362,11 @@ function renderSidebar(activePg) {
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
       var badge = mmOn
-        ? '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Active</span>'
-        : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Inactive</span>';
-      if (ssTier === 'global') badge += '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8">SS+</span>';
-      else if (ssTier === 'local') badge += '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8">SS</span>';
-      html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">'        +'<span style="font-size:10px;color:var(--g4)">🏙</span>'        +'<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(s.plan)+'</span>'        + badge + '</div>';
+        ? (ssTier === 'global'
+          ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>'
+          : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>')
+        : '<span class="s-bdg" style="background:var(--g2);color:var(--g4);font-size:9px">Inactive</span>';
+
     });
     html += '</div>';
   }
