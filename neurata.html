@@ -6388,6 +6388,8 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
   html += '</div></div>';
   el.innerHTML = html;
+  // Auto-init Stripe card element if card tab is active
+  if (payMethod === 'card') { setTimeout(function(){ billingSelectMethod('card'); }, 100); }
 
   // Load statements async
   loadAccountStatements(document.getElementById('statements-body'));
@@ -6483,8 +6485,22 @@ function billingSelectMethod(method) {
     if (tabs[m])  { tabs[m].style.background  = method===m ? 'var(--ch)' : 'var(--wh)'; tabs[m].style.color  = method===m ? '#fff' : 'var(--ch3)'; }
     if (forms[m]) forms[m].style.display = method===m ? 'block' : 'none';
   });
+  if (method === 'card') {
+    if (window._stripeCardElement) { try { window._stripeCardElement.destroy(); } catch(e){} window._stripeCardElement = null; }
+    setTimeout(function() {
+      var el = document.getElementById('stripe-card-element');
+      if (!el) { console.error('stripe-card-element div not found'); return; }
+      try {
+        var elements = getStripe().elements();
+        window._stripeCardElement = elements.create('card', {
+          style: { base: { fontSize: '14px', color: '#1c1917' } }
+        });
+        window._stripeCardElement.mount('#stripe-card-element');
+        console.log('Stripe card element mounted');
+      } catch(e) { console.error('Card mount error:', e); }
+    }, 200);
+  }
 }
-
 function billingSubmit() {
   var payMethod = APP.brokerage.payMethod || 'acss';
   var btn = document.querySelector('[onclick="billingSubmit()"]');
