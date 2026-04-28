@@ -9232,7 +9232,13 @@ function _extractDocTextMultiPass(b64, docId, scId, accumulated, pass) {
       messages: messages
     })
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r){
+    var ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      return r.text().then(function(t){ throw new Error('Gateway error: ' + t.slice(0,80)); });
+    }
+    return r.json();
+  })
   .then(function(d){
     var chunk = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
     if (!chunk) {
@@ -9388,23 +9394,46 @@ function docExtractText(btn) {
   btn.disabled = true;
   btn.textContent = 'Indexing…';
 
-  // Step 1: fetch PDF via worker using service key (avoids CORS + private bucket)
-  fetch(WORKER_URL + '/fetch-pdf', {
+  // Single call to worker — fetches PDF, extracts full text (multi-pass), classifies, saves to DB
+  // All server-side — no browser timeout risk
+  fetch(WORKER_URL + '/extract-doc-text', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ storagePath: storagePath })
+    body: JSON.stringify({
+      storagePath: storagePath,
+      docId:       dbId,
+      brokerageId: APP.brokerage && APP.brokerage.lic || '',
+      scId:        scId || '',
+      userId:      APP.currentUser && APP.currentUser.id || ''
+    })
   })
-  .then(function(r){ return r.json(); })
-  .then(function(pd) {
-    if (pd.error) throw new Error(pd.error);
-    var b64 = pd.b64;
-    // Step 2: multi-pass extraction — handles large documents completely
-    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1, btn);
+  .then(function(r){
+    // Guard against non-JSON responses (e.g. Cloudflare 524 timeout)
+    var ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      return r.text().then(function(t){ throw new Error('Server error: ' + t.slice(0,100)); });
+    }
+    return r.json();
+  })
+  .then(function(d){
+    if (d.error) throw new Error(d.error);
+    // Update local doc object
+    var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+    if (sc_ && sc_.docs) {
+      var doc = sc_.docs.find(function(x){ return x.dbId === dbId; });
+      if (doc) { doc.documentText = d.text; doc.docType = d.docType; }
+    }
+    btn.textContent = '✓ Indexed';
+    btn.disabled = true;
+    btn.style.color = 'var(--grn)';
+    btn.style.borderColor = 'var(--grn)';
+    var el2 = document.getElementById('mtg-body');
+    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
   })
   .catch(function(e){
-    console.error('docExtractText fetch error:', e);
+    console.error('docExtractText error:', e);
     btn.textContent = 'Failed — retry';
     btn.disabled = false;
-    nAlert('Could not fetch document: ' + (e.message||'unknown error'), 'Error', 'warn');
+    nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
   });
 }
 
