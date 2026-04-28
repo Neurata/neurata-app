@@ -7891,7 +7891,7 @@ function renderSCSubscription(s) {
   var mmAction = '';
   if (canSee && currentPlan !== 'local') {
     if (currentPlan === 'trial') {
-      mmAction = btn(needsApproval ? 'Request Activation' : 'Activate', 'pri', _act);
+      mmAction = btn(needsApproval ? 'Request Activation' : 'Upgrade Subscription', 'pri', _act);
     } else if (currentPlan === 'global') {
       mmAction = btn(needsApproval ? 'Request Downgrade' : 'Downgrade Subscription', '', _dwn);
     }
