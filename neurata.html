@@ -7774,6 +7774,17 @@ function scDetailTab(scId, tab) {
   renderSCDetail(scId);
 }
 
+function cancelSCSubscription(scId) {
+  nConfirm(
+    'Are you sure you want to cancel the subscription for this strata corporation? Your annual commitment remains in effect until the end of the term.',
+    function(ok) {
+      if (!ok) return;
+      nAlert('Please contact support@neurata.ai to process your cancellation request.', 'Cancellation Request', 'info');
+    },
+    'Cancel Subscription', 'warn'
+  );
+}
+
 function renderSCSubscription(s) {
   var mmOn     = scMmActive(s);
   var ssTier   = scSsTier(s);
@@ -7783,72 +7794,68 @@ function renderSCSubscription(s) {
   var scIdSafe = escHtml(s.id);
   var trialUsed = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
   var trialLimit = PRICING.trialMeetings;
-  var trialLeft = Math.max(0, trialLimit - trialUsed);
   var trialDone = trialUsed >= trialLimit;
-
   var currentPlan = mmOn ? (ssTier === 'global' ? 'global' : 'local') : 'trial';
 
-  function planCard(id, label, features, price, tag, action, active) {
-    var border = active ? '2px solid var(--org)' : '2px solid var(--g2)';
-    var shadow = active ? '0 8px 32px rgba(246,146,30,0.18)' : 'none';
-    var scale  = active ? 'scale(1.03)' : 'scale(1)';
-    var labelColor = active ? 'var(--org)' : 'var(--g4)';
-    var html = '<div style="flex:1;min-width:0;border:'+border+';border-radius:12px;background:#fff;box-shadow:'+shadow+';transform:'+scale+';transition:all .2s;display:flex;flex-direction:column;padding:20px 18px;gap:0">';
-    // Header
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
-    html += '<div style="font-family:var(--display);font-size:15px;font-weight:800;color:'+labelColor+'">'+label+'</div>';
-    if (tag) html += tag;
-    html += '</div>';
+  // Pre-build onclick strings
+  var _act = 'onclick="activateSCMeetingMode(\'' + scIdSafe + '\')"';
+  var _upg = 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"';
+  var _can = 'onclick="cancelSCSubscription(\'' + scIdSafe + '\')"';
+
+  function planCard(id, label, features, price, commitment, tag, action) {
+    var active = currentPlan === id;
+    var bg     = active ? '#fff' : '#f7f6f4';
+    var border = active ? '2px solid var(--org)' : '2px solid #e8e5e0';
+    var shadow = active ? '0 8px 28px rgba(246,146,30,0.15)' : 'none';
+    var textCol = active ? 'var(--ch)' : '#aaa9a5';
+    var labelCol = active ? 'var(--dark)' : '#c0bebb';
+    var dotCol  = active ? 'var(--org)' : '#d0cdc8';
+    var priceCol = active ? 'var(--dark)' : '#c0bebb';
+
+    var h = '<div style="flex:1;min-width:0;border:'+border+';border-radius:12px;background:'+bg+';box-shadow:'+shadow+';display:flex;flex-direction:column;padding:20px 18px;position:relative">';
+    // Tag
+    if (tag) h += '<div style="position:absolute;top:14px;right:14px">'+tag+'</div>';
+    // Label
+    h += '<div style="font-family:var(--display);font-size:15px;font-weight:800;color:'+labelCol+';margin-bottom:14px">'+label+'</div>';
     // Features
-    html += '<div style="display:flex;flex-direction:column;gap:6px;flex:1;margin-bottom:16px">';
+    h += '<div style="display:flex;flex-direction:column;gap:7px;flex:1;margin-bottom:16px">';
     features.forEach(function(f) {
-      html += '<div style="display:flex;align-items:flex-start;gap:7px;font-size:12px;color:'+(active?'var(--ch)':'var(--g4)')+'">';
-      html += '<span style="color:'+(active?'var(--org)':'var(--g3)')+';margin-top:1px;flex-shrink:0">'+( active ? '●' : '○')+'</span>';
-      html += '<span>'+f+'</span></div>';
+      h += '<div style="display:flex;align-items:flex-start;gap:7px;font-size:12px;color:'+textCol+'">';
+      h += '<span style="color:'+dotCol+';flex-shrink:0;margin-top:1px">●</span>';
+      h += '<span>'+f+'</span></div>';
     });
-    html += '</div>';
+    h += '</div>';
     // Price
     if (price) {
-      html += '<div style="font-size:12px;font-weight:700;color:'+(active?'var(--org)':'var(--g4)')+';border-top:1px solid var(--g2);padding-top:12px;margin-bottom:12px">'+price+'</div>';
+      h += '<div style="font-size:13px;font-weight:700;color:'+priceCol+';border-top:1px solid #e8e5e0;padding-top:12px;margin-bottom:'+(commitment?'4px':'12px')+'">'+price+'</div>';
+    }
+    if (commitment) {
+      h += '<div style="font-size:11px;color:'+textCol+';margin-bottom:12px">'+commitment+'</div>';
     }
     // Action
-    if (action) html += action;
-    html += '</div>';
-    return html;
+    if (action) h += action;
+    h += '</div>';
+    return h;
   }
 
-  // Free Trial panel
-  var trialTag = trialDone
-    ? '<span class="tag red">Expired</span>'
-    : (currentPlan === 'trial' ? '<span class="tag amb">Current</span>' : '');
+  // ── Free Trial ──
+  var trialTag = trialDone ? '<span class="tag red">Expired</span>' : (currentPlan === 'trial' ? '<span class="tag amb">Active</span>' : '');
   var trialFeatures = [
     trialLimit + ' complimentary meetings',
     'Full Meeting Mode experience',
-    'Agenda uploads & AI parsing',
-    'Real-time Decision Ledger',
-    'Instant AI minutes generation',
-    'Historical minutes upload',
-    'Local StrataSphere access',
-    'Council member management'
+    'Historical minutes upload'
   ];
-  // Pre-build buttons to avoid quote escaping nightmares
-  var _act = 'onclick="activateSCMeetingMode(\'' + scIdSafe + '\')"';
-  var _upg = 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"';
-  var activateBtn     = canManage ? '<button class="btn pri" style="width:100%;font-size:12px" ' + _act + '>Activate</button>' : '';
-  var activateSecBtn  = canManage ? '<button class="btn" style="width:100%;font-size:12px" ' + _act + '>Activate Paid Plan</button>' : '';
-  var upgradeBtn      = canManage ? '<button class="btn pri" style="width:100%;font-size:12px" ' + _upg + '>Upgrade</button>' : '';
-  var downgradeBtn    = canManage ? '<button class="btn" style="width:100%;font-size:12px" ' + _upg + '>Downgrade</button>' : '';
-  var trialAction = (!mmOn && canManage && !trialDone) ? activateSecBtn : (trialDone && canManage && !mmOn ? activateBtn : '');
-  var mmPrice = 'CA$' + PRICING.perBuilding.toFixed(2) + '/SC/mo + CA$' + PRICING.perLotLocal + '/strata lot/mo';
-  var mmAction = '';
+  var trialAction = '';
   if (canManage) {
-    if (currentPlan === 'trial' || (!mmOn && trialDone)) { mmAction = activateBtn; }
-    else if (currentPlan === 'global') { mmAction = downgradeBtn; }
+    if (mmOn) {
+      trialAction = '<button class="btn" style="width:100%;font-size:12px;color:#aaa" ' + _can + '>Cancel Subscription</button>';
+    } else if (trialDone) {
+      trialAction = '<button class="btn pri" style="width:100%;font-size:12px" ' + _act + '>Activate</button>';
+    }
   }
-  var gssPrice = 'CA$' + PRICING.perBuilding.toFixed(2) + '/SC/mo + CA$' + PRICING.perLotGlobal + '/strata lot/mo';
-  var gssAction = (canManage && currentPlan === 'local') ? upgradeBtn : '';
-  // Meeting Mode features
-  var mmTag = (currentPlan === 'local') ? '<span class="tag grn">Current</span>' : '';
+
+  // ── Meeting Mode ──
+  var mmTag = currentPlan === 'local' ? '<span class="tag grn">Active</span>' : '';
   var mmFeatures = [
     'Unlimited strata meetings',
     'Agenda uploads &amp; AI parsing',
@@ -7859,24 +7866,37 @@ function renderSCSubscription(s) {
     'Strata lot management',
     'Local StrataSphere &#8212; AI governance search across your corporation'
   ];
-  // Global SS features
-  var gssTag = (currentPlan === 'global') ? '<span class="tag grn">Current</span>' : '';
+  var mmPrice = 'CA$' + PRICING.perBuilding.toFixed(2) + '/SC/mo + CA$' + PRICING.perLotLocal + '/strata lot/mo';
+  var mmCommit = 'Annual commitment, billed monthly';
+  var mmAction = '';
+  if (canManage && currentPlan !== 'local') {
+    if (currentPlan === 'trial') {
+      mmAction = '<button class="btn pri" style="width:100%;font-size:12px" ' + _act + '>Activate</button>';
+    } else if (currentPlan === 'global') {
+      mmAction = '<button class="btn" style="width:100%;font-size:12px" ' + _upg + '>Downgrade</button>';
+    }
+  }
+
+  // ── Global StrataSphere ──
+  var gssTag = currentPlan === 'global' ? '<span class="tag grn">Active</span>' : '';
   var gssFeatures = [
     'Everything in Meeting Mode',
-    'Global StrataSphere &#8212; AI across every SC on the platform',
+    'Global StrataSphere &#8212; AI intelligence across every SC on the platform',
     'Cross-portfolio decision search',
     'Platform-wide bylaw comparisons',
-    'PII-stripped PIPA-compliant data'
+    'PII-stripped, PIPA-compliant'
   ];
-  var html = '<div style="display:flex;gap:16px;align-items:stretch;padding:4px 0">';
-  html += planCard('trial',  'Free Trial',           trialFeatures, null,    trialTag, trialAction, currentPlan === 'trial');
-  html += planCard('local',  'Meeting Mode',         mmFeatures,    mmPrice, mmTag,    mmAction,    currentPlan === 'local');
-  html += planCard('global', 'Global StrataSphere',  gssFeatures,   gssPrice, gssTag,  gssAction,   currentPlan === 'global');
-  html += '</div>';
+  var gssPrice = 'CA$' + PRICING.perBuilding.toFixed(2) + '/SC/mo + CA$' + PRICING.perLotGlobal + '/strata lot/mo';
+  var gssCommit = 'Annual commitment, billed monthly';
+  var gssAction = (canManage && currentPlan === 'local')
+    ? '<button class="btn pri" style="width:100%;font-size:12px" ' + _upg + '>Upgrade</button>'
+    : '';
 
-  if (mmOn) {
-    html += '<div class="al info" style="font-size:12px;margin-top:16px">Annual commitment, billed monthly on the 1st. Contact <a href="mailto:support@neurata.ai">support@neurata.ai</a> for cancellations.</div>';
-  }
+  var html = '<div style="display:flex;gap:14px;align-items:stretch;padding:4px 0">';
+  html += planCard('trial',  'Free Trial',          trialFeatures, 'CA$0', null,      trialTag, trialAction);
+  html += planCard('local',  'Meeting Mode',        mmFeatures,    mmPrice, mmCommit, mmTag,    mmAction);
+  html += planCard('global', 'Global StrataSphere', gssFeatures,   gssPrice, gssCommit, gssTag, gssAction);
+  html += '</div>';
 
   return html;
 }
