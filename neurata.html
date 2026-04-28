@@ -7847,6 +7847,28 @@ function renderSCSubscription(s) {
   }
   var gssPrice = 'CA$' + PRICING.perBuilding.toFixed(2) + '/SC/mo + CA$' + PRICING.perLotGlobal + '/strata lot/mo';
   var gssAction = (canManage && currentPlan === 'local') ? upgradeBtn : '';
+  // Meeting Mode features
+  var mmTag = (currentPlan === 'local') ? '<span class="tag grn">Current</span>' : '';
+  var mmFeatures = [
+    'Unlimited strata meetings',
+    'Agenda uploads &amp; AI parsing',
+    'Real-time Decision Ledger',
+    'Instant AI minutes generation',
+    'Historical minutes upload',
+    'Council member management',
+    'Strata lot management',
+    'Local StrataSphere &#8212; AI governance search across your corporation'
+  ];
+  // Global SS features
+  var gssTag = (currentPlan === 'global') ? '<span class="tag grn">Current</span>' : '';
+  var gssFeatures = [
+    'Everything in Meeting Mode',
+    'Global StrataSphere &#8212; AI across every SC on the platform',
+    'Cross-portfolio decision search',
+    'Platform-wide bylaw comparisons',
+    'PII-stripped PIPA-compliant data'
+  ];
+  var html = '<div style="display:flex;gap:16px;align-items:stretch;padding:4px 0">';
   html += planCard('trial',  'Free Trial',           trialFeatures, null,    trialTag, trialAction, currentPlan === 'trial');
   html += planCard('local',  'Meeting Mode',         mmFeatures,    mmPrice, mmTag,    mmAction,    currentPlan === 'local');
   html += planCard('global', 'Global StrataSphere',  gssFeatures,   gssPrice, gssTag,  gssAction,   currentPlan === 'global');
