@@ -6175,7 +6175,20 @@ function adminEnterBrokerage(brkLic) {
             actualStartTime:m.actual_start_time||'', adjTime:m.adj_time||'',
             minutesState:m.minutes_state||null, minutes:m.minutes_content||null };
         });
-        sc.decisions = decisions.filter(function(d){ return d.sc_id === sc.plan; });
+        sc.decisions = decisions.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
+          return {
+            itemId:  d.id,
+            date:    d.meeting_date || '',
+            mtgType: d.meeting_type || '',
+            text:    d.item_text || '',
+            motion:  d.motion_text || '',
+            mover:   d.mover || '',
+            sec:     d.seconder || '',
+            outcome: d.outcome || '',
+            votes:   {for: d.votes_for||0, against: d.votes_against||0, abstain: d.votes_abstain||0},
+            source:  d.source || ''
+          };
+        });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council };
         });
