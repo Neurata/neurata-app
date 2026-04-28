@@ -9095,45 +9095,62 @@ function scUploadDoc(scId) {
       var reader = new FileReader();
       reader.onload = function(e) {
         var sc_ = APP.sc.find(function(s){return s.id===scId;});
-        var path = 'sc-docs/' + scId + '/' + Date.now() + '_' + f.name;
-        // Upload to Storage
+        if (!sc_) return;
+        var path = 'sc-docs/' + (sc_.plan||scId) + '/' + Date.now() + '_' + f.name;
+        // Convert to blob for Storage upload
         var b64 = e.target.result.split(',')[1];
         var raw = atob(b64);
         var arr = new Uint8Array(raw.length);
         for (var i=0; i<raw.length; i++) arr[i] = raw.charCodeAt(i);
-        var blob = new Blob([arr], {type: f.type});
+        var blob = new Blob([arr], {type: f.type || 'application/octet-stream'});
+
         getSupabase().storage.from('neurata-documents').upload(path, blob, {upsert:true})
         .then(function(r) {
-          if (r.error) { console.error('Upload failed:', r.error); return; }
+          if (r.error) {
+            nAlert('Upload failed: ' + (r.error.message||'unknown error'), 'Upload Error', 'warn');
+            console.error('Storage upload error:', r.error);
+            return;
+          }
           var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
-          // Insert into documents table and get back the id
-          return getSupabase().from('documents').insert({
-            sc_id:        sc_ ? sc_.plan : scId,
+
+          // Insert into documents table
+          getSupabase().from('documents').insert({
+            sc_id:        sc_.plan,
             name:         f.name,
             source:       'direct-upload',
             source_label: 'Uploaded Document',
-            mime_type:    f.type,
+            mime_type:    f.type || 'application/octet-stream',
             storage_path: path,
             public_url:   url,
             uploaded_at:  new Date().toISOString()
           }).select('id').single()
           .then(function(ins) {
+            if (ins.error) { console.error('Doc insert error:', ins.error); return; }
             var docId = ins.data && ins.data.id;
-            // Add to local SC docs
-            scAddDoc(scId, {
-              id: docId, dbId: docId,
-              name: f.name, url: url,
+            // Update local state directly — do NOT call sv() which doesn't persist docs
+            if (!sc_.docs) sc_.docs = [];
+            var localDoc = {
+              dbId: docId, name: f.name, url: url,
               source: 'direct-upload', sourceLabel: 'Uploaded Document',
-              mime: f.type, date: new Date().toLocaleDateString()
-            });
-            // Extract text in background
-            if (docId) extractAndStoreDocText(f, docId, sc_ ? sc_.plan : scId);
+              mime: f.type, date: new Date().toLocaleDateString('en-CA'),
+              documentText: '', docType: ''
+            };
+            sc_.docs.push(localDoc);
+            // Extract text + classify in background
+            if (docId && (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf') || f.type === 'text/plain')) {
+              extractAndStoreDocText(f, docId, sc_.plan);
+            }
             // Refresh docs tab
             var el2 = document.getElementById('mtg-body');
-            if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
-          });
+            if (el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+            nAlert(f.name + ' uploaded successfully.', 'Uploaded ✓', 'success');
+          })
+          .catch(function(e){ console.error('Doc insert error:', e); });
         })
-        .catch(function(e){ console.error('scUploadDoc error:', e); });
+        .catch(function(e){
+          nAlert('Upload failed: ' + e.message, 'Upload Error', 'warn');
+          console.error('scUploadDoc storage error:', e);
+        });
       };
       reader.readAsDataURL(f);
     });
