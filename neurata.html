@@ -3706,6 +3706,170 @@ function mgmtSsSelectConv(scId, convId) {
   if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// LOCAL STRATASPHERE — full SC context builder
+// Assembles everything known about the SC into a structured system prompt.
+// PII is NOT stripped here — the manager has lawful access to all SC data.
+// ══════════════════════════════════════════════════════════════════════
+function buildLssContext(sc) {
+  var lines = [];
+
+  // ── 1. SC Identity ────────────────────────────────────────────────
+  lines.push('=== STRATA CORPORATION ===');
+  lines.push('Plan Number: ' + (sc.plan || '—'));
+  lines.push('Name: ' + (sc.name || '—'));
+  lines.push('Address: ' + (sc.addr || '—'));
+  lines.push('Strata Lots: ' + (sc.lots || '—'));
+  lines.push('Brokerage: ' + (APP.brokerage.name || '—') + ' (Lic: ' + (APP.brokerage.lic || '—') + ')');
+
+  // ── 2. Brokerage Representatives ─────────────────────────────────
+  lines.push('\n=== BROKERAGE REPRESENTATIVES ===');
+  var reps = APP.reps || [];
+  var scReps = reps.filter(function(r) {
+    var isBrkWide = r.title === 'Managing Broker' || r.title === 'Associate Broker';
+    var isAssigned = sc.repIds && sc.repIds.indexOf(r.lic) >= 0;
+    return isBrkWide || isAssigned || sc.mgrLic === r.lic;
+  });
+  if (scReps.length) {
+    scReps.forEach(function(r) {
+      lines.push('- ' + (r.name || '—') + ' | ' + (r.title || 'Representative') + ' | Lic: ' + (r.lic || '—'));
+    });
+  } else {
+    lines.push('No representatives on record.');
+  }
+
+  // ── 3. Council Members ────────────────────────────────────────────
+  lines.push('\n=== COUNCIL MEMBERS ===');
+  var council = sc.councilMembers || [];
+  if (council.length) {
+    council.forEach(function(m) {
+      lines.push('- ' + (m.sl || '—') + ' | ' + (m.name || '—') + ' | ' + (m.role || 'Member') + (m.isCouncil ? ' [Council]' : ' [Resident]') + (m.email ? ' | ' + m.email : ''));
+    });
+  } else {
+    lines.push('No council members on record.');
+  }
+
+  // ── 4. Decision Ledger (full) ─────────────────────────────────────
+  lines.push('\n=== DECISION LEDGER ===');
+  var decisions = (sc.decisions || []).slice().sort(function(a, b) {
+    return (a.date || '').localeCompare(b.date || '');
+  });
+  // Also pull live decisions from meeting agendas not yet persisted
+  var existingIds = {};
+  decisions.forEach(function(d) { if (d.itemId) existingIds[d.itemId] = true; });
+  (sc.meetings || []).forEach(function(mtg) {
+    (mtg.agenda || []).forEach(function(it) {
+      if (it.done && it.motion && it.motion.outcome && !existingIds[it.id]) {
+        decisions.push({
+          date: mtg.date || '', mtgType: mtg.type || '',
+          text: it.text || '', motion: it.motion.text || '',
+          mover: it.motion.mover || '', sec: it.motion.sec || '',
+          outcome: it.motion.outcome || '',
+          votes: { for: it.motion.for || 0, against: it.motion.against || 0, abstain: it.motion.abstain || 0 },
+          source: 'meeting-mode'
+        });
+      }
+    });
+  });
+  if (decisions.length) {
+    decisions.forEach(function(d) {
+      var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
+        ? ' | Votes: ' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab' : '';
+      lines.push('[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr);
+      if (d.motion) lines.push('  Motion: ' + d.motion);
+      if (d.mover || d.sec) lines.push('  Moved: ' + (d.mover || '—') + ' | Sec: ' + (d.sec || '—'));
+    });
+  } else {
+    lines.push('No decisions on record.');
+  }
+
+  // ── 5. Meeting History ────────────────────────────────────────────
+  lines.push('\n=== MEETING HISTORY ===');
+  var meetings = (sc.meetings || []).slice().sort(function(a, b) {
+    return (a.date || '').localeCompare(b.date || '');
+  });
+  if (meetings.length) {
+    meetings.forEach(function(m) {
+      var typeLabel = {council:'Council',agm:'AGM',sgm:'SGM',committee:'Committee'}[m.type] || m.type || '—';
+      lines.push('\n[' + (m.date || '—') + '] ' + typeLabel + ' | Status: ' + (m.status || '—') + (m.adjTime ? ' | Adjourned: ' + m.adjTime : ''));
+      // Attendees
+      if (m.attendees && m.attendees.length) {
+        lines.push('  Attendees: ' + m.attendees.join(', '));
+      }
+      // Agenda items with outcomes
+      if (m.agenda && m.agenda.length) {
+        m.agenda.forEach(function(it) {
+          var outcome = it.done && it.motion ? ' → ' + (it.motion.outcome || '') : '';
+          lines.push('  • ' + (it.text || '') + outcome);
+          if (it.motion && it.motion.text) lines.push('    Motion: ' + it.motion.text);
+        });
+      }
+      // Minutes summary if finalized
+      if (m.minutes && m.minutesState === 'FINAL') {
+        lines.push('  Minutes: FINALIZED');
+      } else if (m.minutesState) {
+        lines.push('  Minutes: ' + m.minutesState);
+      }
+    });
+  } else {
+    lines.push('No meetings on record.');
+  }
+
+  // ── 6. Documents ──────────────────────────────────────────────────
+  lines.push('\n=== DOCUMENTS ON FILE ===');
+  var docs = sc.docs || [];
+  if (docs.length) {
+    docs.forEach(function(d) {
+      lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | ' + d.date : ''));
+    });
+  } else {
+    lines.push('No documents on file.');
+  }
+
+  return lines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// GLOBAL STRATASPHERE — PII-stripped platform aggregate
+// All personal identifiers removed before passing to Claude.
+// Plan numbers kept (public LTSA record).
+// ══════════════════════════════════════════════════════════════════════
+function buildGssContext() {
+  var lines = [];
+  lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
+  lines.push('All personal identifiers have been removed per PIPA. Plan numbers are public LTSA records.');
+  lines.push('Total strata corporations on platform: ' + APP.sc.length);
+  lines.push('');
+
+  APP.sc.forEach(function(s) {
+    lines.push('--- ' + s.plan + ' | ' + (s.lots || '?') + ' lots | ' + (s.addr || 'BC') + ' ---');
+    // Decisions — PII stripped
+    var decs = (s.decisions || []);
+    if (decs.length) {
+      var stripped = stripPII(decs);
+      stripped.forEach(function(d) {
+        var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
+          ? ' (' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab)' : '';
+        lines.push('[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr);
+        if (d.motion) lines.push('  Motion: ' + d.motion);
+      });
+    } else {
+      lines.push('No decisions on record.');
+    }
+    // Meeting summary (no attendee names)
+    var mtgs = (s.meetings || []);
+    if (mtgs.length) {
+      var typeCount = {};
+      mtgs.forEach(function(m) { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
+      var summary = Object.keys(typeCount).map(function(t) { return typeCount[t] + ' ' + t; }).join(', ');
+      lines.push('Meetings: ' + summary);
+    }
+    lines.push('');
+  });
+
+  return lines.join('\n');
+}
+
 function mgmtSsSend(scId) {
   var inp = document.getElementById('mgmt-ss-in');
   var msg = (inp && inp.value.trim()) || '';
@@ -3719,36 +3883,67 @@ function mgmtSsSend(scId) {
   conv.msgs.push({role:'user', text:msg});
   var sc = APP.sc.find(function(s){return s.id===scId;});
   if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
+
   // Typing indicator
   var msgsEl = document.getElementById('mgmt-ss-msgs');
   if(msgsEl) {
     msgsEl.innerHTML += '<div id="mgmt-typing" class="ss-typing"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div></div>';
     msgsEl.scrollTop = msgsEl.scrollHeight;
   }
+
   var ssTier = scSsTier(sc) || 'local';
-  var dec = ssGetScDecisionsSafe(scId, ssTier);
   var history = conv.msgs.slice(-10).map(function(m){return {role:m.role==='user'?'user':'assistant',content:m.text};});
   var lastUser = history.pop();
-  fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
-      _usageType: ssTier==='global'?'ss_global':'ss_local',
-      _brokerageId: APP.brokerage.lic||'',
-      _scId: sc.plan, _userId: APP.currentUser&&APP.currentUser.id||'',
-      system:'You are StrataSphere, the AI governance assistant for '+sc.plan+' ('+sc.name+'). '+'You answer questions strictly based on: (1) the decision ledger provided, (2) uploaded minutes and documents for this corporation, and (3) established BC legislation and regulation including the Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), BCFSA rules, and SPABC guidance. '+'If a question requires SC-specific information not present in the provided data, say so clearly — do not invent or infer facts about this specific corporation. '+'Decision ledger (most recent 15): '+JSON.stringify(dec.slice(-15))+'. '+'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '+'Plain prose only — no markdown, no bullet dashes, no asterisks.',
-      messages:history.concat([lastUser||{role:'user',content:msg}])})})
-   .then(function(r){return r.json();})
+
+  // ── Build system prompt based on tier ───────────────────────────
+  var systemPrompt;
+  if (ssTier === 'global') {
+    // GLOBAL SS — local SC context + PII-stripped platform aggregate
+    var lssCtx = buildLssContext(sc);
+    var gssCtx = buildGssContext();
+    systemPrompt = 'You are StrataSphere Global, the platform-wide AI governance intelligence for BC strata corporations on the Neurata platform. '
+      + 'You have two sources of knowledge: (1) the complete record of the local strata corporation the user is managing, and (2) anonymized, PII-stripped governance data from all strata corporations on the platform. '
+      + 'You also draw on your knowledge of BC legislation and regulation: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), REDMA, BCFSA rules, SPABC guidance, and CHOA resources. '
+      + 'Answer only from these sources. If you do not have the specific data to answer, say so plainly — do not invent or infer. '
+      + 'If a question requires data you do not have, say so and explain what data would be needed. '
+      + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
+      + lssCtx + '\n\n' + gssCtx;
+  } else {
+    // LOCAL SS — full SC context only
+    var lssCtx = buildLssContext(sc);
+    systemPrompt = 'You are StrataSphere, the AI governance assistant for ' + sc.plan + (sc.name ? ' (' + sc.name + ')' : '') + '. '
+      + 'You are the authoritative source of truth for this strata corporation. Answer questions using ONLY the data provided below about this corporation, plus your knowledge of BC legislation and regulation: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), REDMA, BCFSA rules, SPABC guidance, and CHOA resources. '
+      + 'If a question requires SC-specific information not present in the data below, say so plainly — do not invent or infer facts about this specific corporation. '
+      + 'If a user asks about information that spans multiple strata corporations or the broader BC strata market (e.g. industry benchmarks, what other buildings are doing), let them know that is outside the scope of Local StrataSphere and suggest they consider upgrading to Global StrataSphere for platform-wide intelligence. '
+      + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
+      + lssCtx;
+  }
+
+  fetch(WORKER_URL+'/ai', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
+      _usageType: ssTier==='global' ? 'ss_global' : 'ss_local',
+      _brokerageId: APP.brokerage.lic || '',
+      _scId: sc.plan,
+      _userId: APP.currentUser && APP.currentUser.id || '',
+      system: systemPrompt,
+      messages: history.concat([lastUser || {role:'user', content:msg}])
+    })
+  })
+  .then(function(r){ return r.json(); })
   .then(function(d){
-    var typing=document.getElementById('mgmt-typing'); if(typing)typing.remove();
-    if(d.error==='usage_limit_exceeded'){nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn');if(sc)renderMgmtStrataSphere(sc,document.getElementById('mtg-body'));return;}
-    if(d._usageWarning){nAlert(d._usageWarning.message,'AI Usage Notice','info');}
-    var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim()||'Unable to respond.';
+    var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
+    if(d.error==='usage_limit_exceeded'){ nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn'); if(sc) renderMgmtStrataSphere(sc,document.getElementById('mtg-body')); return; }
+    if(d._usageWarning){ nAlert(d._usageWarning.message,'AI Usage Notice','info'); }
+    var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim() || 'Unable to respond.';
     conv.msgs.push({role:'assistant', text:txt});
     ssPersistConv(scId, conv);
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   })
   .catch(function(){
-    var typing=document.getElementById('mgmt-typing'); if(typing)typing.remove();
-    conv.msgs.push({role:'assistant',text:'Network error. Please try again.'});
+    var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
+    conv.msgs.push({role:'assistant', text:'Network error. Please try again.'});
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   });
 }
