@@ -7735,8 +7735,8 @@ function renderSCDetail(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   if (!s) { renderStrata(); return; }
 
-  var tabs = ['overview','council','lots','reps'];
-  var tabLabels = {overview:'Overview', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
+  var tabs = ['overview','subscription','council','lots','reps'];
+  var tabLabels = {overview:'Overview', subscription:'Subscription', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
 
   var html = '<div class="sc-detail-hd">'
     +'<span class="sc-detail-back" onclick="renderStrata()">← All Corporations</span>'
@@ -7762,6 +7762,8 @@ function renderSCDetail(scId) {
     html += renderLotsPlan(s);
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
+  } else if (_scDetailTab === 'subscription') {
+    html += renderSCSubscription(s);
   }
 
   el.innerHTML = html;
@@ -7770,6 +7772,78 @@ function renderSCDetail(scId) {
 function scDetailTab(scId, tab) {
   _scDetailTab = tab;
   renderSCDetail(scId);
+}
+
+function renderSCSubscription(s) {
+  var mmOn   = scMmActive(s);
+  var ssTier = scSsTier(s);
+  var role   = APP.currentUser && APP.currentUser.role || '';
+  var canManage = role === 'Managing Broker' || role === 'Associate Broker';
+  var lots   = s.lots || 1;
+  var mmMonthly  = PRICING.perBuilding;
+  var ssMonthly  = ssTier === 'global' ? (PRICING.perLotGlobal * lots) : (PRICING.perLotLocal * lots);
+  var total  = mmOn ? (mmMonthly + ssMonthly) : 0;
+  var gst    = Math.round(total * 0.05 * 100) / 100;
+
+  var scIdSafe = escHtml(s.id);
+  var html = '<div style="display:flex;flex-direction:column;gap:14px;max-width:560px">';
+
+  // Current status card
+  html += '<div class="card">';
+  html += '<div class="ch_"><div class="ct">Current Subscription</div>';
+  if (mmOn) {
+    html += '<span class="tag grn">Active</span>';
+  } else {
+    html += '<span class="tag gy">Inactive</span>';
+  }
+  html += '</div><div class="cb">';
+
+  if (!mmOn) {
+    // Inactive state
+    html += '<div style="font-size:13px;color:var(--g4);margin-bottom:16px">This strata corporation is not currently subscribed. Activating includes Meeting Mode and Local StrataSphere.</div>';
+    html += '<div style="background:var(--g1);border-radius:8px;padding:14px 16px;margin-bottom:16px">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Meeting Mode</span><span style="font-weight:600">CA$'+mmMonthly.toFixed(2)+'/mo</span></div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Local StrataSphere ('+lots+' lots × CA$'+PRICING.perLotLocal+')</span><span style="font-weight:600">CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/mo</span></div>';
+    html += '<div style="border-top:1px solid var(--g2);margin:8px 0"></div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>Subtotal</span><span style="font-weight:600">CA$'+(mmMonthly+PRICING.perLotLocal*lots).toFixed(2)+'/mo</span></div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--g4)"><span>GST (5%)</span><span>CA$'+Math.round((mmMonthly+PRICING.perLotLocal*lots)*0.05*100)/100+'/mo</span></div>';
+    html += '</div>';
+    if (canManage) {
+      html += '<div style="display:flex;gap:8px">';
+      html += '<button class="btn pri" onclick="activateSCMeetingMode(\'' + scIdSafe + '\')">Activate with Local SS &#8212; CA$' + (mmMonthly+PRICING.perLotLocal*lots).toFixed(2) + '/mo + GST</button>';
+      html += '</div>';
+    }
+  } else {
+    // Active state
+    html += '<div style="background:var(--g1);border-radius:8px;padding:14px 16px;margin-bottom:16px">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Meeting Mode</span><span style="font-weight:600">CA$'+mmMonthly.toFixed(2)+'/mo</span></div>';
+    if (ssTier === 'global') {
+      html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Global StrataSphere ('+lots+' lots × CA$'+PRICING.perLotGlobal+')</span><span style="font-weight:600">CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/mo</span></div>';
+    } else {
+      html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Local StrataSphere ('+lots+' lots × CA$'+PRICING.perLotLocal+')</span><span style="font-weight:600">CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/mo</span></div>';
+    }
+    html += '<div style="border-top:1px solid var(--g2);margin:8px 0"></div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>Monthly total</span><span style="font-weight:700;color:var(--ch)">CA$'+total.toFixed(2)+'/mo</span></div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--g4)"><span>GST (5%)</span><span>CA$'+gst.toFixed(2)+'/mo</span></div>';
+    html += '</div>';
+    if (canManage) {
+      if (ssTier !== 'global') {
+        html += '<button class="btn" onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')">Upgrade to Global StrataSphere &#8212; CA$' + PRICING.perLotGlobal + '/lot/mo</button>';
+      } else if (s.ssPendingDowngrade) {
+        html += '<div style="font-size:12px;color:var(--org)">⚠ Scheduled to downgrade to Local SS at next anniversary date.</div>';
+      }
+    }
+  }
+
+  html += '</div></div>';
+
+  // Annual commitment notice
+  if (mmOn) {
+    html += '<div class="al info" style="font-size:12px">Annual commitment, billed monthly. Cancellations take effect at the end of your commitment period. Contact <a href="mailto:support@neurata.ai">support@neurata.ai</a> for changes.</div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function renderSCOverview(s) {
@@ -7792,31 +7866,23 @@ function renderSCOverview(s) {
 
   // ── Subscription status bar ─────────────────────────────────────────
   html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--g2)">';
-  // Meeting Mode status
+  // Subscription status — display only, actions in Subscription tab
   if (mmOn) {
     html += '<span class="tag grn">▶ Meeting Mode Active</span>';
   } else if (!trialExhausted) {
     var adjCount = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
     html += '<span class="tag amb">▶ Trial: '+(PRICING.trialMeetings - adjCount)+' meetings left</span>';
   } else {
-    html += '<span class="tag red">▶ Meeting Mode — Inactive</span>';
-    if (canManage) html += '<button class="btn xs pri" onclick="activateSCMeetingMode(\'\'+s.id+\'\')" >Activate &#8212; CA$'+PRICING.perBuilding+'/mo</button>';
+    html += '<span class="tag gy">▶ Inactive — <a href="#" onclick="scDetailTab(\''+s.id+'\',\'subscription\');return false;" style="color:var(--ch)">View Subscription</a></span>';
   }
-  // StrataSphere status
   if (ssTier === 'global') {
     html += '<span class="tag grn">🧠 Global StrataSphere</span>';
-    if (canManage) html += '<span style="font-size:10px;color:var(--g4)">CA$'+PRICING.perLotGlobal+'/lot/mo</span>';
   } else if (ssTier === 'local') {
     html += '<span class="tag grn">🧠 Local StrataSphere</span>';
-    if (canManage) html += '<button class="btn xs" onclick="upgradeSCStrataSphere(\'\'+s.id+\'\')" >Upgrade to Global</button>';
   } else {
     html += '<span class="tag gy">🧠 StrataSphere — Inactive</span>';
-    if (canManage) {
-      html += '<button class="btn xs pri" onclick="activateSCStrataSphere(\'\'+s.id+\'\',\'local\')" >Activate Local &#8212; CA$'+PRICING.perLotLocal+'/lot/mo</button>';
-    }
   }
   html += '</div>';
-
   // ── Stats row ────────────────────────────────────────────────────────
   html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:14px">';
   html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+s.lots+'</div><div style="font-size:11px;color:var(--g4)">Strata Lots</div></div>';
