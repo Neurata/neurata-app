@@ -7590,11 +7590,7 @@ function renderMeetings() {
   else if (currentMtgTab === 'docs') renderDocsList(sc, el);
   else if (currentMtgTab === 'decisions') renderDecisionLedger(sc, el);
   else if (currentMtgTab === 'stratasphere') {
-    if (!scMmActive(sc)) {
-      renderSsUpsell(sc, el);
-    } else {
-      renderMgmtStrataSphere(sc, el);
-    }
+    renderMgmtStrataSphere(sc, el);
   }
 
   // Update SS tab appearance based on MM status
@@ -7602,32 +7598,29 @@ function renderMeetings() {
   if (ssTab) {
     if (!scMmActive(sc)) {
       ssTab.style.opacity = '0.45';
-      ssTab.title = 'Activate Meeting Mode to access StrataSphere';
+      ssTab.style.cursor = 'pointer';
+      ssTab.title = 'Meeting Mode required — click to request activation';
     } else {
       ssTab.style.opacity = '';
+      ssTab.style.cursor = '';
       ssTab.title = '';
     }
   }
 }
 
-function renderSsUpsell(sc, el) {
-  var mmMonthly = PRICING.perBuilding;
-  var ssMonthly = (PRICING.perLotLocal * (sc.lots||0)).toFixed(2);
-  var totalMonthly = (mmMonthly + PRICING.perLotLocal * (sc.lots||0)).toFixed(2);
-  el.innerHTML = '<div class="empty-state">'
-    + '<div class="empty-ic">🧠</div>'
-    + '<div class="empty-h">StrataSphere is not active</div>'
-    + '<div class="empty-s">Activate Meeting Mode to unlock StrataSphere — your AI governance assistant. '
-    + 'Ask questions about bylaws, past decisions, strata law, and more. '
-    + 'Available during meetings and between them.</div>'
-    + '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:14px 18px;margin-bottom:20px;text-align:left;max-width:340px">'
-    + '<div style="font-size:11px;font-weight:700;color:var(--g4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">'+sc.plan+' — Pricing</div>'
-    + '<div style="font-size:13px;color:var(--ch);margin-bottom:4px">Meeting Mode &nbsp;<span style="color:var(--g4)">CA$'+mmMonthly+'/month</span></div>'
-    + '<div style="font-size:13px;color:var(--ch);margin-bottom:4px">Local StrataSphere &nbsp;<span style="color:var(--g4)">CA$'+PRICING.perLotLocal+'/lot × '+sc.lots+' lots = CA$'+ssMonthly+'/month</span></div>'
-    + '<div style="font-size:14px;font-weight:700;color:var(--org);border-top:1px solid var(--g2);padding-top:8px;margin-top:8px">Total CA$'+totalMonthly+'/month</div>'
-    + '</div>'
-    + '<button class="btn pri" onclick="showPg(\'billing\')">Activate on Billing Page →</button>'
-    + '</div>';
+function mmRequestActivation(scId) {
+  var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
+  var role = APP.currentUser && APP.currentUser.role || '';
+  var isMB = role === 'Managing Broker' || role === 'Associate Broker';
+  if (isMB) {
+    activateSCMeetingMode(scId);
+  } else {
+    nConfirm(
+      'Meeting Mode must be active to launch a meeting for ' + sc_.plan + '.\n\nSend an activation request to your Managing Broker?',
+      function(ok) { if (!ok) return; submitActivationRequest(scId, 'mm'); },
+      'Request Meeting Mode', 'info'
+    );
+  }
 }
 
 function selectSCAndOpenMeeting(scId, mtgId) {
@@ -8660,13 +8653,33 @@ function doLaunchMM() {
 }
 
 function switchMtgTab(tab, el) {
+  var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : null;
+
+  // Intercept SS tab when MM is inactive — trigger activation request instead
+  if (tab === 'stratasphere' && sc && !scMmActive(sc)) {
+    var role = APP.currentUser && APP.currentUser.role || '';
+    var isMB = role === 'Managing Broker' || role === 'Associate Broker';
+    if (isMB) {
+      // MB can activate directly
+      activateSCMeetingMode(sc.id);
+    } else {
+      // REP — submit activation request
+      nConfirm(
+        'Meeting Mode is required to access StrataSphere for ' + sc.plan + '.\n\nSend an activation request to your Managing Broker?',
+        function(ok) {
+          if (!ok) return;
+          submitActivationRequest(sc.id, 'mm');
+        },
+        'Request Meeting Mode', 'info'
+      );
+    }
+    return; // don't switch to the tab
+  }
+
   currentMtgTab = tab;
   document.querySelectorAll('.mtg-tab').forEach(function(b){b.classList.remove('on');});
   if (el) el.classList.add('on');
   renderMeetings();
-  // updateMtgHeaderBtn is called inside each render function with correct hasContent value
-  // But also set it immediately so the button appears without waiting for render
-  var sc = APP.currentScId ? APP.sc.find(function(s){return s.id===APP.currentScId;}) : null;
   if (sc) {
     var hasContent = false;
     if (tab === 'meetings') hasContent = (sc.meetings||[]).length > 0;
@@ -8886,11 +8899,11 @@ function renderDocsList(sc, el) {
     if (!isPdf) {
       statusPill = ''; // no pill for non-indexable files
     } else if (!hasText) {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px">⚠ Not Indexed</span>';
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
     } else if (isGssSafe) {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">🌐 Global</span>';
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--blul);color:var(--blu);padding:2px 7px;border-radius:10px">Global</span>';
     } else {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--blul);color:var(--blu);padding:2px 7px;border-radius:10px">🏠 Local Only</span>';
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--redl);color:var(--red);padding:2px 7px;border-radius:10px">Local Only</span>';
     }
     html += '<div class="card fi" style="margin-bottom:8px">'
       + '<div class="ch_">'
@@ -9916,6 +9929,7 @@ function renderMeetingsList(sc, el) {
     var label = {LIVE:'🔴 Live',DRAFT:'📝 Upcoming / Draft',ADJOURNED:'✓ Past'}[status];
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px;margin-top:4px">'+label+'</div>';
     group.forEach(function(m) {
+      var mmActive  = scMmActive(sc);
       var canLaunch = m.status === 'DRAFT' && m.agenda && m.agenda.length > 0;
       var canView   = m.status === 'ADJOURNED';
       html += '<div class="card fi" style="margin-bottom:10px">'
@@ -9933,7 +9947,9 @@ function renderMeetingsList(sc, el) {
         +'<div class="br">';
       if (m.status === 'DRAFT') {
         html += '<button class="btn sm" onclick="editMeeting(\''+sc.id+'\',\''+m.id+'\')">Edit Agenda</button>';
-        if (canLaunch) {
+        if (!mmActive) {
+          html += '<button class="btn sm" style="opacity:.5" onclick="mmRequestActivation(\''+sc.id+'\')" title="Meeting Mode required">▶ Launch (activation required)</button>';
+        } else if (canLaunch) {
           html += '<button class="btn sm red" onclick="showLaunchConfirm(\''+sc.id+'\',\''+m.id+'\')">▶ Launch Meeting Mode</button>';
         } else {
           html += '<button class="btn sm" disabled title="Add agenda items first">▶ Launch (add agenda items)</button>';
