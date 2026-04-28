@@ -9165,54 +9165,61 @@ function docExtractText(btn) {
   if (!url || !dbId) return;
   btn.disabled = true;
   btn.textContent = 'Indexing…';
-  // Fetch the PDF from Storage as blob, convert to base64, send to Claude
-  fetch(url)
-    .then(function(r){ return r.blob(); })
-    .then(function(blob) {
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var b64 = e.target.result.split(',')[1];
-        fetch(WORKER_URL + '/ai', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 4000,
-            betas: ['pdfs-2024-09-25'],
-            _usageType: 'parse_plan',
-            _brokerageId: APP.brokerage && APP.brokerage.lic || '',
-            _scId: scId || '',
-            _userId: APP.currentUser && APP.currentUser.id || '',
-            messages: [{role:'user', content:[
-              {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-              {type:'text', text:'Extract the full text content of this document. Return only the extracted text, preserving structure (sections, headings, numbered items). Do not summarize — return the actual text.'}
-            ]}]
-          })
-        })
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-          var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-          if (!txt) { btn.textContent = 'Failed'; return; }
-          // Classify and save
-          _classifyAndSaveDocText(dbId, scId, txt, null);
-          // Update local doc object
-          var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
-          if (sc_ && sc_.docs) {
-            var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
-            if (doc) doc.documentText = txt;
-          }
-          btn.textContent = '✓ Indexed';
-          btn.disabled = true;
-          btn.style.color = 'var(--grn)';
-          btn.style.borderColor = 'var(--grn)';
-          // Refresh docs tab
-          var el2 = document.getElementById('mtg-body');
-          if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
-        })
-        .catch(function(){ btn.textContent = 'Failed'; btn.disabled = false; });
-      };
-      reader.readAsDataURL(blob);
-    })
-    .catch(function(){ btn.textContent = 'Failed'; btn.disabled = false; });
+
+  // Step 1: fetch PDF via worker proxy (avoids browser CORS on Supabase Storage)
+  fetch(WORKER_URL + '/fetch-pdf', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ pdfUrl: url })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(pd) {
+    if (pd.error) throw new Error(pd.error);
+    var b64 = pd.b64;
+    // Step 2: send base64 PDF to Claude for text extraction
+    return fetch(WORKER_URL + '/ai', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        betas: ['pdfs-2024-09-25'],
+        _usageType: 'parse_plan',
+        _brokerageId: APP.brokerage && APP.brokerage.lic || '',
+        _scId: scId || '',
+        _userId: APP.currentUser && APP.currentUser.id || '',
+        messages: [{role:'user', content:[
+          {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+          {type:'text', text:'Extract the full text content of this document. Return only the extracted text, preserving structure (sections, headings, numbered items). Do not summarize — return the actual text.'}
+        ]}]
+      })
+    });
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) throw new Error(JSON.stringify(d.error));
+    var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+    if (!txt) throw new Error('No text extracted');
+    // Classify and save
+    _classifyAndSaveDocText(dbId, scId, txt, null);
+    // Update local doc object
+    var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+    if (sc_ && sc_.docs) {
+      var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
+      if (doc) doc.documentText = txt;
+    }
+    btn.textContent = '✓ Indexed';
+    btn.disabled = true;
+    btn.style.color = 'var(--grn)';
+    btn.style.borderColor = 'var(--grn)';
+    // Refresh docs tab
+    var el2 = document.getElementById('mtg-body');
+    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+  })
+  .catch(function(e){
+    console.error('docExtractText error:', e);
+    btn.textContent = 'Failed — retry';
+    btn.disabled = false;
+    nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
+  });
 }
 
 function downloadDoc(btn) {
