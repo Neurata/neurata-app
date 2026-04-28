@@ -6327,14 +6327,14 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     + '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>'
     + '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>'
     + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+    + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+  html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Payment Method</button>';
 
 
 
 
 
-
-  html += '<button class="btn pri" style="width:100%;margin-top:4px" onclick="billingSubmit()">Save Payment Method</button>';
-  html += '</div></div>';
+  html += '</div></div>'; // close payment method card
 
   // ── Right column: Subscription Summary + Account Statements ──────
   html += '</div><div>';
