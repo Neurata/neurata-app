@@ -3607,9 +3607,15 @@ function renderMgmtStrataSphere(sc, el) {
     + '<button onclick="mgmtSsSend(\''+scId+'\')" style="background:var(--org);color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Send</button>'
     + '</div></div>'
     + '</div>';
-}
 
-function mgmtSsSwitchTier(scId, tier) {
+  // Scroll to bottom of messages after render (preserves position for active conversations)
+  if (conv && conv.msgs && conv.msgs.length) {
+    setTimeout(function() {
+      var msgsEl = document.getElementById('mgmt-ss-msgs');
+      if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+    }, 0);
+  }
+}
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var isMB = role === 'Managing Broker';
