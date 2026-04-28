@@ -6841,18 +6841,79 @@ function dismissActivationRequest(reqId) {
 
 function scheduleCancelMM(scId) {
   var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
-  var anniversary = sc_.mmActivatedAt
-    ? new Date(new Date(sc_.mmActivatedAt).setFullYear(new Date(sc_.mmActivatedAt).getFullYear()+1)).toLocaleDateString('en-CA')
-    : 'your next anniversary date';
-  nConfirm(
-    'Cancel Meeting Mode for '+sc_.plan+'?\\n\\nMM + Local SS will remain active until '+anniversary+', then deactivate.',
-    function(ok) {
-      if (!ok) return;
-      sc_.mmPendingCancel = true;
-      getSupabase().from('strata_corps').update({mm_pending_cancel:true}).eq('plan_number',sc_.plan).then(function(){});
-      renderBilling();
-      nAlert('Cancellation scheduled. MM active until '+anniversary+'.','Scheduled','info');
-    }, 'Schedule Cancellation', 'danger');
+  var role = APP.currentUser && APP.currentUser.role || '';
+  var isMB = role === 'Managing Broker';
+  var isSA = APP.currentUser.isSuperAdmin;
+  if (!isMB && !isSA) { nAlert('Only the Managing Broker can cancel a subscription.','','warn'); return; }
+
+  if (!sc_.stripeSubscriptionId) {
+    nAlert('No active Stripe subscription found for '+sc_.plan+'. Please contact support@neurata.ai.','','warn');
+    return;
+  }
+
+  // Find the NEXT upcoming anniversary — always the end of the current annual commitment
+  var activatedAt = sc_.mmActivatedAt ? new Date(sc_.mmActivatedAt) : new Date();
+  var now = new Date();
+  var anniversary = new Date(activatedAt);
+  // Advance until we find the next future anniversary
+  while (anniversary <= now) {
+    anniversary.setFullYear(anniversary.getFullYear() + 1);
+  }
+  var endDateStr = anniversary.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'});
+  var monthlyTotal = (PRICING.perBuilding + PRICING.perLotLocal * (sc_.lots||0)).toFixed(2);
+
+  // Intentional two-step confirmation for cancellation
+  _dlgShow({
+    type: 'danger',
+    title: 'Cancel Subscription — ' + sc_.plan,
+    msg: 'This is an annual commitment billed monthly.\n\n'
+      + 'Meeting Mode and StrataSphere will remain fully active until your commitment ends on '
+      + endDateStr + '. You will continue to be billed CA$' + monthlyTotal + '/month until that date.\n\n'
+      + 'After ' + endDateStr + ', Meeting Mode and StrataSphere will be deactivated for ' + sc_.plan + '.\n\n'
+      + 'Type CANCEL to confirm.',
+    input: true,
+    inputPlaceholder: 'Type CANCEL to confirm',
+    buttons: [
+      { label: 'Keep Subscription', style: '', value: null },
+      { label: 'Cancel Subscription', style: 'red', value: true }
+    ],
+    cb: function(val) {
+      if (!val) return;
+      if ((val || '').trim().toUpperCase() !== 'CANCEL') {
+        nAlert('Please type CANCEL to confirm cancellation.', 'Confirmation Required', 'warn');
+        return;
+      }
+      var btn = document.querySelector('[onclick*="scheduleCancelMM"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+
+      fetch(WORKER_URL + '/stripe/cancel-sc', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          subscriptionId: sc_.stripeSubscriptionId,
+          cancelAt:       anniversary.getTime(),
+          scPlan:         sc_.plan
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) throw new Error(d.error);
+        sc_.mmPendingCancel = true;
+        renderBilling();
+        renderSCDetail(scId);
+        renderSidebar(APP.activePg);
+        nAlert(
+          'Cancellation confirmed for ' + sc_.plan + '.\n\n'
+          + 'Meeting Mode and StrataSphere remain active until ' + endDateStr + '.\n'
+          + 'No further action is required.',
+          'Cancellation Scheduled', 'info'
+        );
+      })
+      .catch(function(e){
+        if (btn) { btn.disabled = false; btn.textContent = 'Cancel Subscription'; }
+        nAlert('Could not schedule cancellation: ' + (e.message||'unknown error') + '\n\nPlease try again or contact support@neurata.ai.', 'Error', 'warn');
+      });
+    }
+  });
 }
 
 function generateInvoice() {
@@ -7222,6 +7283,7 @@ function mapSCRow(sc) {
     ssTier:              sc.ss_tier || null,
     ssGlobalActivatedAt: sc.ss_global_activated_at || null,
     ssPendingDowngrade:  sc.ss_pending_downgrade || null,
+    stripeSubscriptionId: sc.stripe_subscription_id || null,
     adjCount:            0,
     meetings:            [],
     decisions:           [],
@@ -8287,18 +8349,43 @@ function requestSCDowngrade(scId) {
 }
 
 function cancelSCSubscription(scId) {
-  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
-  var activatedAt = s.mmActivatedAt ? new Date(s.mmActivatedAt) : new Date();
-  var anniversary = new Date(activatedAt);
-  anniversary.setFullYear(anniversary.getFullYear() + 1);
-  var endDate = anniversary.toLocaleDateString('en-CA', {year:'numeric',month:'long',day:'numeric'});
+  // Route to the same proper flow
+  scheduleCancelMM(scId);
+}
+
+function reactivateSCSubscription(scId) {
+  var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
+  var role = APP.currentUser && APP.currentUser.role || '';
+  var isMB = role === 'Managing Broker';
+  var isSA = APP.currentUser.isSuperAdmin;
+  if (!isMB && !isSA) { nAlert('Only the Managing Broker can reactivate a subscription.','','warn'); return; }
+
+  if (!sc_.stripeSubscriptionId) {
+    nAlert('No Stripe subscription found. Please contact support@neurata.ai.','','warn');
+    return;
+  }
+
   nConfirm(
-    'Your subscription will remain active until your annual commitment ends on ' + endDate + '. After that date, Meeting Mode and StrataSphere will be deactivated for this strata corporation.\n\nAre you sure you want to cancel?',
+    'Reactivate subscription for ' + sc_.plan + '?\n\nThe scheduled cancellation will be removed and your subscription will continue to renew monthly.',
     function(ok) {
       if (!ok) return;
-      nAlert('Cancellation request noted. Your subscription will end on ' + endDate + '. Please contact support@neurata.ai if you have questions.', 'Cancellation Confirmed', 'info');
-    },
-    'Cancel Subscription', 'warn'
+      fetch(WORKER_URL + '/stripe/reactivate-sc', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ subscriptionId: sc_.stripeSubscriptionId, scPlan: sc_.plan })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) throw new Error(d.error);
+        sc_.mmPendingCancel = false;
+        renderBilling();
+        renderSCDetail(scId);
+        renderSidebar(APP.activePg);
+        nAlert('Subscription reactivated for ' + sc_.plan + '. Your monthly billing continues as normal.', 'Reactivated ✓', 'success');
+      })
+      .catch(function(e){
+        nAlert('Could not reactivate: ' + (e.message||'unknown error'), 'Error', 'warn');
+      });
+    }, 'Reactivate Subscription', 'info'
   );
 }
 
@@ -8374,10 +8461,11 @@ function renderSCSubscription(s) {
   ];
   var trialAction = '';
   if (canSee) {
-    if (mmOn) {
-      trialAction = btn('Cancel Subscription', '', _can);
+    if (mmOn && !s.mmPendingCancel) {
+      trialAction = btn('Cancel Subscription', '', 'onclick="scheduleCancelMM(\''+scIdSafe+'\')"');
+    } else if (mmOn && s.mmPendingCancel) {
+      trialAction = '<div style="text-align:center;font-size:11px;color:var(--red);font-weight:600;padding:8px 0">Cancellation scheduled</div>';
     }
-    // No button when trial is active
   }
 
   // ── Meeting Mode ──
@@ -8421,7 +8509,33 @@ function renderSCSubscription(s) {
     }
   }
 
-  var html = '<div style="display:flex;gap:14px;align-items:stretch;padding:4px 2px">';
+  var html = '';
+
+  // ── Status banner — shows renewal/cancellation/downgrade date ──────────
+  if (mmOn) {
+    var activatedAt = s.mmActivatedAt ? new Date(s.mmActivatedAt) : null;
+    var anniversaryDate = null;
+    if (activatedAt) {
+      anniversaryDate = new Date(activatedAt);
+      var now = new Date();
+      while (anniversaryDate <= now) {
+        anniversaryDate.setFullYear(anniversaryDate.getFullYear() + 1);
+      }
+    }
+    var anniversaryStr = anniversaryDate ? anniversaryDate.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'}) : null;
+
+    if (s.mmPendingCancel && anniversaryStr) {
+      html += '<div class="al red_" style="margin-bottom:14px">⚠ Cancels on ' + anniversaryStr + ' — Meeting Mode and StrataSphere will be deactivated at the end of your annual commitment.'
+        + (isMB && s.stripeSubscriptionId ? ' <button class="btn xs" onclick="reactivateSCSubscription(\''+scIdSafe+'\')">Undo Cancellation</button>' : '')
+        + '</div>';
+    } else if (s.ssPendingDowngrade && anniversaryStr) {
+      html += '<div class="al warn" style="margin-bottom:14px">⏳ Downgrades to Local StrataSphere on ' + anniversaryStr + ' — Global StrataSphere continues until your commitment ends.</div>';
+    } else if (anniversaryStr) {
+      html += '<div class="al info" style="margin-bottom:14px">↻ Renews ' + anniversaryStr + ' — Annual commitment, billed monthly.</div>';
+    }
+  }
+
+  html += '<div style="display:flex;gap:14px;align-items:stretch;padding:4px 2px">';
   html += planCard('trial',  'Free Trial',          trialFeatures, 'CA$0',    null,      trialTag, trialAction);
   html += planCard('local',  'Meeting Mode',        mmFeatures,    mmPrice,   mmCommit,  mmTag,    mmAction);
   html += planCard('global', 'Global StrataSphere', gssFeatures,   gssPrice,  gssCommit, gssTag,   gssAction);
