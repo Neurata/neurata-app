@@ -8361,18 +8361,17 @@ function renderSidebar(activePg) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var badge = mmOn
-        ? (ssTier === 'global'
-          ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>'
-          : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>')
+      var pill = mmOn
+        ? (ssTier === 'global' ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>' : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>')
         : '<span class="s-bdg" style="background:var(--g2);color:var(--g4);font-size:9px">Inactive</span>';
-
+      html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">';
+      html += '<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(s.plan+(s.name?' — '+s.name:''))+'</span>';
+      html += pill + '</div>';
     });
     html += '</div>';
   }
   sb.innerHTML = html;
 }
-
 function selectSC(id) {
   APP.currentScId = id;
   showPg('meetings');
