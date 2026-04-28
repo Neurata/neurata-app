@@ -8648,7 +8648,11 @@ function renderDecisionLedgerTable(decisions) {
     var moverText  = (d.mover || d.sec) ? 'Moved: '+(d.mover||'—')+' · Sec: '+(d.sec||'—') : '';
 
     html += '<tr>'
-      + '<td style="font-size:12px;white-space:nowrap;color:var(--ch3)">'+escHtml(d.date||'—')+'</td>'
+      + '<td style="font-size:12px;white-space:nowrap;color:var(--ch3)">'
+      +   (d.date
+          ? escHtml(d.date)
+          : '<button class="btn xs" style="color:var(--org);border-color:var(--org)" onclick="dlEditDate(this,\''+escHtml(d.itemId||'')+'\')">+ Add Date</button>')
+      + '</td>'
       + '<td><span class="tag gy" style="font-size:10px">'+escHtml(mtgTypeLabel[d.mtgType]||d.mtgType||'—')+'</span></td>'
       + '<td>'
       +   '<div style="font-weight:600;font-size:13px;color:var(--ch)">'+escHtml(d.text||'')+'</div>'
@@ -8680,6 +8684,38 @@ function filterDecisionLedger() {
         || (d.source  || '').toLowerCase().indexOf(q) >= 0;
   });
   renderDecisionLedgerTable(filtered);
+}
+
+function dlEditDate(btn, itemId) {
+  nPrompt('Enter the meeting date for this decision (YYYY-MM-DD):', function(val) {
+    if (!val || !val.trim()) return;
+    var date = val.trim();
+    // Basic format validation
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      nAlert('Please use YYYY-MM-DD format (e.g. 2024-03-15).', 'Invalid Format', 'warn');
+      return;
+    }
+    // Update in _dlAllDecisions
+    var all = window._dlAllDecisions || [];
+    var dec = all.find(function(d){ return d.itemId === itemId; });
+    if (dec) dec.date = date;
+    // Update in sc.decisions
+    var sc_ = APP.sc.find(function(s){ return s.id === APP.currentScId; });
+    if (sc_ && sc_.decisions) {
+      var sd = sc_.decisions.find(function(d){ return d.itemId === itemId; });
+      if (sd) sd.date = date;
+    }
+    // Persist to Supabase if we have a real UUID itemId
+    if (itemId && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(itemId)) {
+      getSupabase().from('decisions').update({ meeting_date: date }).eq('id', itemId)
+        .then(function(r){ if (r.error) console.error('Date save error:', r.error); });
+    }
+    // Re-render
+    var q = document.getElementById('dl-search');
+    var search = q ? q.value : '';
+    window._dlAllDecisions = all;
+    if (search) { filterDecisionLedger(); } else { renderDecisionLedgerTable(all); }
+  }, 'Add Meeting Date', 'YYYY-MM-DD');
 }
 
 function scUploadDoc(scId) {
@@ -9148,8 +9184,10 @@ function hmHandleFile(file) {
             {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:b64}},
             {type:'text',text:'These are strata council meeting minutes. '
               +'Find the strata plan number anywhere in the document (e.g. BCS 3229, LMS 1501, EPS 9048). '
-              +'Extract all decisions made. Return ONLY this JSON:\n'
-              +'{"planNumber":"","meetingDate":"","decisions":[{"item":"agenda item title","outcome":"CARRIED or DEFEATED or DEFERRED","summary":"one sentence describing what was decided"}]}\n'
+              +'Find the meeting date — it is usually near the top of the document (e.g. "January 15, 2024", "March 7th, 2023", "2024-06-12"). '
+              +'Extract all decisions made (motions that were CARRIED, DEFEATED, or DEFERRED). Return ONLY this JSON:\n'
+              +'{"planNumber":"","meetingDate":"YYYY-MM-DD","decisions":[{"item":"agenda item title","outcome":"CARRIED or DEFEATED or DEFERRED","summary":"one sentence describing what was decided"}]}\n'
+              +'meetingDate MUST be in YYYY-MM-DD format. If you cannot find the meeting date, set it to "NOT_FOUND". '
               +'If no plan number found, set planNumber to "NOT_FOUND".'}
           ]}]
         })
@@ -9191,7 +9229,9 @@ function hmHandleFile(file) {
           document.getElementById('hm-upz').style.display=''; return;
         }
         _hmDecisions=(res.decisions||[]).map(function(d){
-          return {item:d.item, outcome:d.outcome, summary:d.summary, meetingDate:res.meetingDate||''};
+          var md = res.meetingDate || '';
+          if (md === 'NOT_FOUND') md = '';
+          return {item:d.item, outcome:d.outcome, summary:d.summary, meetingDate:md};
         });
         _hmUploadedFile={name:file.name,data:e.target.result,mime:file.type||'application/pdf'};
         var ok=document.getElementById('hm-ok-msg');
