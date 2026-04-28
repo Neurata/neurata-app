@@ -6322,21 +6322,16 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
   html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
   html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
-  html += '</div></div>';
-  html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">'
-    + '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>'
-    + '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>'
-    + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
-    + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+  html += '</div></div>'; // close acss form
+  var cardDisp = payMethod==='card' ? 'block' : 'none';
+  html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
+  html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
+  html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
+  html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+  html += '</div>';
   html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Payment Method</button>';
+  html += '</div></div>';
 
-
-
-
-
-  html += '</div></div>'; // close payment method card
-
-  // ── Right column: Subscription Summary + Account Statements ──────
   html += '</div><div>';
 
   // Subscription Summary — active services per SC only
