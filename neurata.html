@@ -1013,12 +1013,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         </select>
       </div>
       <div id="sa-trial-reset-row" style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px">Trial Meetings Used: <span id="sa-trial-used-display"></span></div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-          <input type="checkbox" id="sa-trial-reset-ck" onchange="document.getElementById('sa-trial-reset-note').style.display=this.checked?'':'none'"/>
-          Reset trial counter to zero
-        </label>
-        <div id="sa-trial-reset-note" style="display:none;font-size:12px;color:var(--org);margin-top:6px">Counter will be reset — brokerage gets a fresh 2-meeting trial.</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px">Trial Meetings Used</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn xs" onclick="var el=document.getElementById('sa-trial-used-input');el.value=Math.max(0,parseInt(el.value||0)-1)">−</button>
+          <input type="number" id="sa-trial-used-input" min="0" style="width:70px;text-align:center;font-size:16px;font-weight:700;padding:6px;border:1px solid var(--g2);border-radius:6px"/>
+          <button class="btn xs" onclick="var el=document.getElementById('sa-trial-used-input');el.value=parseInt(el.value||0)+1">+</button>
+          <span style="font-size:12px;color:var(--g4)">of <span id="sa-trial-limit-display"></span> trial meetings</span>
+        </div>
+        <div style="font-size:12px;color:var(--g4);margin-top:8px">Set to 0 to reset. Set above the limit to exhaust the trial.</div>
       </div>
       <div id="sa-trial-unlimited-note" style="display:none;background:var(--g1);border-radius:8px;padding:12px;font-size:12px;color:var(--g4)">
         Unlimited Trial removes all meeting limits at no charge. When switched off, the brokerage will be charged if their trial meetings are exhausted.
@@ -7322,8 +7324,8 @@ function saManageTrial(brkLic, brkName, currentUsed, isActive) {
   document.getElementById('sa-trial-brkname').textContent = brkName;
   document.getElementById('sa-trial-used-display').textContent = currentUsed + ' of ' + PRICING.trialMeetings;
   document.getElementById('sa-trial-status').value = isActive ? 'active' : 'trial';
-  document.getElementById('sa-trial-reset-ck').checked = false;
-  document.getElementById('sa-trial-reset-note').style.display = 'none';
+  document.getElementById('sa-trial-used-input').value = currentUsed;
+  document.getElementById('sa-trial-limit-display').textContent = PRICING.trialMeetings;
   document.getElementById('sa-trial-reset-row').style.display = isActive ? 'none' : '';
   document.getElementById('sa-trial-unlimited-note').style.display = isActive ? '' : 'none';
   openMo('mo-sa-trial');
@@ -7336,9 +7338,9 @@ function saTrialStatusChange(val) {
 
 function saTrialSave() {
   var status = document.getElementById('sa-trial-status').value;
-  var reset = document.getElementById('sa-trial-reset-ck').checked;
-  var updates = { subscription_status: status };
-  if (reset) updates.trial_meetings_used = 0;
+  var usedInput = document.getElementById('sa-trial-used-input');
+  var usedVal = parseInt(usedInput && usedInput.value) || 0;
+  var updates = { subscription_status: status, trial_meetings_used: usedVal };
   getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', _saTrialBrkLic)
   .then(function(r) {
     if (r.error) { nAlert('Error saving changes.','','warn'); return; }
