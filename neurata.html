@@ -1709,46 +1709,90 @@ function activateFromRequest(id, scId, requestType) {
   if (!sc_) { nAlert('SC not found.','','warn'); return; }
   var lots = parseInt(sc_.lots) || 0;
   var label = requestType==='ss_global' ? 'Global StrataSphere'
-    : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
+    : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode + Local StrataSphere';
+  var mmMonthly  = PRICING.perBuilding;
+  var ssMonthly  = (PRICING.perLotLocal * lots).toFixed(2);
+  var totalMonthly = (mmMonthly + PRICING.perLotLocal * lots).toFixed(2);
   var pricing = requestType==='ss_global'
-    ? 'CA$'+PRICING.perLotGlobal+'/lot x '+lots+' lots = CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/month'
+    ? 'CA$'+PRICING.perLotGlobal+'/lot × '+lots+' lots = CA$'+(PRICING.perLotGlobal*lots).toFixed(2)+'/month'
     : requestType==='ss_local'
-    ? 'CA$'+PRICING.perLotLocal+'/lot x '+lots+' lots = CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/month'
-    : 'CA$'+PRICING.perBuilding+'/month';
+    ? 'CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/month'
+    : 'CA$'+mmMonthly+'/month (MM) + CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+totalMonthly+'/month total';
+
   nConfirm(
-    'Approve '+label+' for '+scId+'? '+pricing+'. Annual commitment, billed monthly.',
+    'Approve ' + label + ' for ' + scId + '?\n\n' + pricing + '\n\nAnnual commitment, billed monthly.',
     function(ok) {
       if (!ok) return;
+
       if (requestType === 'ss_global') {
+        // Global SS upgrade — update DB directly
         sc_.ssTier = 'global';
         sc_.ssGlobalActivatedAt = new Date().toISOString();
         getSupabase().from('strata_corps').update({
-          ss_tier: 'global',
-          ss_global_activated_at: sc_.ssGlobalActivatedAt
+          ss_tier: 'global', ss_global_activated_at: sc_.ssGlobalActivatedAt
         }).eq('plan_number', sc_.plan).then(function(r){
           if (r.error) { nAlert('Error saving. Please try again.','Error','warn'); return; }
-          // Mark request approved
           getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
-          // Reload SC from DB to refresh in-memory state
-          getSupabase().from('strata_corps').select('*').eq('plan_number', sc_.plan).single()
-          .then(function(fresh){
-            if (fresh.data) {
-              sc_.ssTier = fresh.data.ss_tier || 'global';
-              sc_.ssGlobalActivatedAt = fresh.data.ss_global_activated_at || sc_.ssGlobalActivatedAt;
-            }
-            APP.pendingRequests = undefined;
-            renderBilling();
-            nAlert(label+' approved for '+scId+'.','Approved','success');
-          });
-        });
-      } else {
-        getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){
           APP.pendingRequests = undefined;
           renderBilling();
-          nAlert(label+' approved for '+scId+'.','Approved','success');
+          nAlert(label+' approved for '+scId+'.','Approved ✓','success');
+        });
+        return;
+      }
+
+      if (requestType === 'ss_local' || requestType === 'mm') {
+        // Meeting Mode activation — requires billing to be set up
+        if (!hasBillingInfo() || !APP.brokerage.stripeCustomerId) {
+          // No billing set up — mark approved, send to billing page
+          getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
+          APP.pendingRequests = undefined;
+          nAlert('Please set up a payment method to complete activation for '+scId+'.', 'Payment Method Required', 'warn');
+          renderBilling();
+          return;
+        }
+
+        // Billing is set up — call Stripe activate-sc immediately
+        var btn = event && event.target;
+        if (btn) { btn.disabled = true; btn.textContent = 'Activating…'; }
+
+        fetch(WORKER_URL + '/stripe/activate-sc', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            customerId:      APP.brokerage.stripeCustomerId,
+            brkLic:          APP.brokerage.lic,
+            scPlan:          sc_.plan,
+            lots:            lots,
+            ssTier:          'local',
+            paymentMethodId: APP.brokerage.paymentMethodId || null
+          })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.error) throw new Error(d.error);
+          // Update local SC state
+          sc_.mmActive = true;
+          sc_.mmStatus = 'ACTIVE';
+          sc_.mmActivatedAt = new Date().toISOString();
+          sc_.ssTier = 'local';
+          // Mark request approved
+          getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
+          APP.pendingRequests = undefined;
+          renderBilling();
+          renderSidebar(APP.activePg);
+          var monthlyFmt = 'CA$' + (d.monthlyAmount/100).toFixed(2);
+          nAlert(
+            label + ' activated for ' + scId + '.\n\n'
+            + monthlyFmt + '/month recurring from 1st of next month.\n'
+            + (d.proratedAmount ? 'Prorated charge for this month: CA$' + (d.proratedAmount/100).toFixed(2) + ' + GST.' : ''),
+            'Activated ✓', 'success'
+          );
+        })
+        .catch(function(e){
+          if (btn) { btn.disabled = false; btn.textContent = 'Activate'; }
+          nAlert('Activation failed: ' + (e.message||'unknown error') + '\n\nPlease try again or contact support.', 'Error', 'warn');
         });
       }
-    }, 'Approve Request', 'info');
+    }, 'Approve & Activate', 'info');
 }
 
 
@@ -2781,7 +2825,7 @@ function saveMtg() {
   NM.agenda = [];
   closeMo('mo-new-mtg');
   renderMeetings();
-  // Open agenda builder immediately
+  // Open agenda builder — AG holds a reference to mtg object so UUID update propagates
   agOpen(sc_.id, mtg.id);
 }
 
@@ -6602,35 +6646,73 @@ function renderBilling() {
 
 function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   if (!el) return;
-  // Pending requests are loaded in renderBilling() before this is called
   var html = '<div class="g2">';
 
   // ── Left: Payment method ──────────────────────────────────────────
   html += '<div>';
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Payment Method</div>'
-    +'<span class="tag '+(isSetup?'grn':'amb')+'">'+(isSetup?'Active':'Not set up')+'</span></div>';
+    +'<span class="tag '+(isSetup?'grn':'amb')+'">'+(isSetup?'✓ Active':'Not set up')+'</span></div>';
   html += '<div class="cb">';
-  html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px">';
-  html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+'">&#127974; Pre-Authorized Debit<br><span style="font-size:10px;font-weight:400;opacity:.7">Recommended &middot; Canadian bank account</span></button>';
-  html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'">&#128179; Credit Card<br><span style="font-size:10px;font-weight:400;opacity:.7">Visa, Mastercard, Amex</span></button>';
-  html += '</div>';
-  html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
-  html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
-  html += '<div class="fr fr2">';
-  html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
-  html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
-  html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
-  html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
-  html += '</div></div>'; // close acss form
-  var cardDisp = payMethod==='card' ? 'block' : 'none';
-  html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
-  html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
-  html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
-  html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
-  html += '</div>';
-  html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Payment Method</button>';
-  html += '</div></div>';
+
+  if (isSetup) {
+    // Show saved method summary — don't show blank form again
+    var methodLabel = payMethod === 'card' ? '💳 Credit Card' : '🏦 Pre-Authorized Debit (ACSS)';
+    var methodDesc  = payMethod === 'card'
+      ? 'Credit card on file. Charges processed automatically each month.'
+      : 'Canadian bank account on file. Pre-authorized debit processed on the 1st of each month.';
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;margin-bottom:12px">';
+    html += '<div style="font-size:22px">'+( payMethod==='card'?'💳':'🏦')+'</div>';
+    html += '<div><div style="font-size:13px;font-weight:600;color:var(--ch)">'+methodLabel+'</div>';
+    html += '<div style="font-size:12px;color:var(--g4);margin-top:2px">'+methodDesc+'</div></div></div>';
+    html += '<div style="display:flex;gap:8px">';
+    html += '<button class="btn sm" onclick="billingShowUpdateForm()">Update Payment Method</button>';
+    html += '</div>';
+    html += '<div id="billing-update-form" style="display:none;margin-top:16px">';
+    // Update form — tabs + fields hidden by default
+    html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px">';
+    html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+'">🏦 Pre-Authorized Debit</button>';
+    html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'">💳 Credit Card</button>';
+    html += '</div>';
+    html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
+    html += '<div class="fr fr2">';
+    html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
+    html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
+    html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
+    html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
+    html += '</div></div>';
+    html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">';
+    html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
+    html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
+    html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+    html += '</div>';
+    html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Updated Payment Method</button>';
+    html += '</div>'; // close billing-update-form
+  } else {
+    // No billing set up — show full form
+    html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:14px">Set up a payment method to activate Meeting Mode and StrataSphere for your strata corporations.</div>';
+    html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px">';
+    html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+'">&#127974; Pre-Authorized Debit<br><span style="font-size:10px;font-weight:400;opacity:.7">Recommended &middot; Canadian bank account</span></button>';
+    html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'">&#128179; Credit Card<br><span style="font-size:10px;font-weight:400;opacity:.7">Visa, Mastercard, Amex</span></button>';
+    html += '</div>';
+    html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
+    html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
+    html += '<div class="fr fr2">';
+    html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
+    html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
+    html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
+    html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
+    html += '</div></div>';
+    var cardDisp = payMethod==='card' ? 'block' : 'none';
+    html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
+    html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
+    html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
+    html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
+    html += '</div>';
+    html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Payment Method</button>';
+  }
+
+  html += '</div></div>'; // close cb + card
 
   html += '</div><div>';
 
@@ -6788,6 +6870,15 @@ function billingSelectMethod(method) {
         });
       }).catch(function(e) { console.error('Stripe init error:', e); });
     }, 200);
+  }
+}
+
+function billingShowUpdateForm() {
+  var f = document.getElementById('billing-update-form');
+  if (f) { f.style.display = f.style.display === 'none' ? '' : 'none'; }
+  // Init card element if card tab is active
+  if (APP.brokerage.payMethod === 'card') {
+    setTimeout(function(){ billingSelectMethod('card'); }, 100);
   }
 }
 
