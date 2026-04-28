@@ -8742,8 +8742,8 @@ function scParsePlan(b64, filename){
       model: 'claude-sonnet-4-6', max_tokens: 600,
       betas: ['pdfs-2024-09-25'],
       messages: [{role:'user', content:[
+        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
         {type:'text', text:'This is a BC LTSA Strata Plan. Return ONLY a JSON object — no explanation, no markdown.\n'
-          +'{"planNumber":"","phase":0,"name":"","lots":0,"address":"","totalUnitEntitlement":""}\n'
           +'planNumber: normalize e.g. "BCS 3229", "LMS 1501", "EPS 9048". '
           +'phase: integer if phased, else 0. '
           +'lots: highest SL number or row count in unit entitlement schedule. '
