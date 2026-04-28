@@ -7455,15 +7455,15 @@ function renderSuperAdminDashboard(el) {
     // ── Brokerage cards (full width) ──
     html += '<div>';
     var saView = APP._saView || 'grid';
+    var saView = APP._saView || 'grid';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
       + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4)">Registered Brokerages</div>'
       + '<div style="display:flex;gap:4px">'
-      + '<button onclick="APP._saView=\'grid\';renderDash()" style="border:1px solid var(--g2);background:'+(saView==='grid'?'var(--ch)':'#fff')+';color:'+(saView==='grid'?'#fff':'var(--g4)')+';border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px">&#8862; Grid</button>'
-      + '<button onclick="APP._saView=\'list\';renderDash()" style="border:1px solid var(--g2);background:'+(saView==='list'?'var(--ch)':'#fff')+';color:'+(saView==='list'?'#fff':'var(--g4)')+';border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px">&#9776; List</button>'
+      + '<button onclick="APP._saView=\'grid\';renderDash()" style="border:1px solid var(--g2);background:'+(saView==='grid'?'var(--org)':'#fff')+';color:'+(saView==='grid'?'#fff':'var(--g4)')+';border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px">&#8862; Grid</button>'
+      + '<button onclick="APP._saView=\'list\';renderDash()" style="border:1px solid var(--g2);background:'+(saView==='list'?'var(--org)':'#fff')+';color:'+(saView==='list'?'#fff':'var(--g4)')+';border-radius:4px;padding:3px 8px;cursor:pointer;font-size:12px">&#9776; List</button>'
       + '</div></div>';
+
     if (!brokerages.length) {
-      html += '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages registered yet.</div></div>';
-    } else if (saView === 'list') {
       html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
         + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>Address</th><th>AI Use</th>'
         + '</tr></thead><tbody>';
@@ -7669,12 +7669,12 @@ function renderStrata() {
     return;
   }
 
+  var isGrid = (_strataView === 'grid');
+  var isList = (_strataView === 'list');
   var toggleHtml = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:4px">'
-    + '<button class="btn xs' + (_strataView==='grid'?' pri':'') + '" onclick="toggleStrataView(\'grid\')" title="Grid view">⊞</button>'
-    + '<button class="btn xs' + (_strataView==='list'?' pri':'') + '" onclick="toggleStrataView(\'list\')" title="List view">☰</button>'
+    + '<button class="btn xs' + (isGrid?' pri':'') + '" onclick="toggleStrataView(\'grid\')">&#8862; Grid</button>'
+    + '<button class="btn xs' + (isList?' pri':'') + '" onclick="toggleStrataView(\'list\')">&#9776; List</button>'
     + '</div>';
-
-  var html = toggleHtml;
 
   if (_strataView === 'list') {
     html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
