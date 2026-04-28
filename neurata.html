@@ -1527,9 +1527,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 // PRICING — single source of truth
 // Update here when prices change. Marketing site (index.html) must be updated manually.
 // ══════════════════════════════════════════
-var STRIPE_PK = 'pk_live_zVdBhgRWNdqE10gRpuA12ueM';
-var stripe = null; // initialized on demand
-function getStripe() { if (!stripe) stripe = Stripe(STRIPE_PK); return stripe; }
+var STRIPE_PK = null;
+var stripe = null;
+function getStripe() {
+  if (stripe) return Promise.resolve(stripe);
+  return fetch(WORKER_URL + '/stripe/config')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      STRIPE_PK = d.publishableKey;
+      stripe = Stripe(STRIPE_PK);
+      return stripe;
+    });
+}
 
 var PRICING = {
   perBuilding:    39,    // $39/SC/month — Meeting Mode
@@ -6317,12 +6326,12 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">'
     + '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>'
     + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
-  html += '<div class="fr fr2">';
-  html += '<div class="fg" style="grid-column:1/-1"><label>Cardholder Name</label><input type="text" placeholder="As it appears on the card" id="card-name"/></div>';
-  html += '<div class="fg" style="grid-column:1/-1"><label>Card Number</label><input type="text" placeholder="1234 5678 9012 3456" maxlength="19" id="card-num"/></div>';
-  html += '<div class="fg"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5" id="card-exp"/></div>';
-  html += '<div class="fg"><label>CVV</label><input type="text" placeholder="123" maxlength="4" id="card-cvv"/></div>';
-  html += '</div></div>';
+
+
+
+
+
+
   html += '<button class="btn pri" style="width:100%;margin-top:4px" onclick="billingSubmit()">Save Payment Method</button>';
   html += '</div></div>';
 
@@ -6482,34 +6491,39 @@ function billingSelectMethod(method) {
   var tabs = {acss: document.getElementById('pay-tab-acss'), card: document.getElementById('pay-tab-card')};
   var forms = {acss: document.getElementById('pay-form-acss'), card: document.getElementById('pay-form-card')};
   ['acss','card'].forEach(function(m) {
-    if (tabs[m])  { tabs[m].style.background  = method===m ? 'var(--ch)' : 'var(--wh)'; tabs[m].style.color  = method===m ? '#fff' : 'var(--ch3)'; }
+    if (tabs[m]) { tabs[m].style.background = method===m ? 'var(--ch)' : 'var(--wh)'; tabs[m].style.color = method===m ? '#fff' : 'var(--ch3)'; }
     if (forms[m]) forms[m].style.display = method===m ? 'block' : 'none';
   });
   if (method === 'card') {
-    if (window._stripeCardElement) { try { window._stripeCardElement.destroy(); } catch(e){} window._stripeCardElement = null; }
+    if (window._stripeCardElement) {
+      try { window._stripeCardElement.destroy(); } catch(e) {}
+      window._stripeCardElement = null;
+    }
     setTimeout(function() {
       var el = document.getElementById('stripe-card-element');
-      if (!el) { console.error('stripe-card-element div not found'); return; }
-      try {
-        var elements = getStripe().elements();
+      if (!el) return;
+      getStripe().then(function(s) {
+        var elements = s.elements();
         window._stripeCardElement = elements.create('card', {
           style: { base: { fontSize: '14px', color: '#1c1917' } }
         });
         window._stripeCardElement.mount('#stripe-card-element');
-        console.log('Stripe card element mounted');
-      } catch(e) { console.error('Card mount error:', e); }
+        window._stripeCardElement.on('change', function(e) {
+          var errEl = document.getElementById('stripe-card-errors');
+          if (errEl) errEl.textContent = e.error ? e.error.message : '';
+        });
+      }).catch(function(e) { console.error('Stripe init error:', e); });
     }, 200);
   }
 }
+
 function billingSubmit() {
   var payMethod = APP.brokerage.payMethod || 'acss';
   var btn = document.querySelector('[onclick="billingSubmit()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
-
   var email = (document.getElementById('bill-email') && document.getElementById('bill-email').value) || APP.brokerage.email || APP.currentUser.email || '';
   var name  = APP.brokerage.name || '';
 
-  // Step 1: Create or retrieve Stripe customer
   fetch(WORKER_URL + '/stripe/create-customer', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ brkLic: APP.brokerage.lic, name: name, email: email })
@@ -6517,33 +6531,28 @@ function billingSubmit() {
   .then(function(r){ return r.json(); })
   .then(function(d) {
     if (d.error) throw new Error(d.error);
-    var customerId = d.customerId;
-    APP.brokerage.stripeCustomerId = customerId;
-
-    // Step 2: Create SetupIntent for collecting payment method
+    APP.brokerage.stripeCustomerId = d.customerId;
     return fetch(WORKER_URL + '/stripe/setup-intent', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ customerId: customerId, paymentType: payMethod === 'acss' ? 'acss_debit' : 'card' })
-    }).then(function(r){ return r.json(); })
-    .then(function(si) {
-      if (si.error) throw new Error(si.error);
-      // Step 3: Confirm SetupIntent with Stripe.js
-      var s = getStripe();
+      body: JSON.stringify({ customerId: d.customerId, paymentType: payMethod === 'acss' ? 'acss_debit' : 'card' })
+    }).then(function(r){ return r.json(); });
+  })
+  .then(function(si) {
+    if (si.error) throw new Error(si.error);
+    return getStripe().then(function(s) {
       var confirmParams = {
-        payment_method: {
-          billing_details: { name: name, email: email }
-        },
+        payment_method: { billing_details: { name: name, email: email } },
         return_url: 'https://app.neurata.ai/?billing_setup=complete'
       };
       if (payMethod === 'acss') {
-        confirmParams.payment_method.type = 'acss_debit';
-        var instEl   = document.getElementById('acss-inst');
-        var transitEl= document.getElementById('acss-transit');
-        var acctEl   = document.getElementById('acss-acct');
-        var nameEl   = document.getElementById('acss-name');
+        var instEl    = document.getElementById('acss-inst');
+        var transitEl = document.getElementById('acss-transit');
+        var acctEl    = document.getElementById('acss-acct');
+        var nameEl    = document.getElementById('acss-name');
         if (!instEl||!instEl.value||!transitEl||!transitEl.value||!acctEl||!acctEl.value) {
           throw new Error('Please complete all bank account fields.');
         }
+        confirmParams.payment_method.type = 'acss_debit';
         confirmParams.payment_method.acss_debit = {
           institution_number: instEl.value.trim(),
           transit_number: transitEl.value.trim(),
@@ -6552,18 +6561,17 @@ function billingSubmit() {
         confirmParams.payment_method.billing_details.name = (nameEl && nameEl.value) || name;
         return s.confirmAcssDebitSetup(si.clientSecret, confirmParams);
       } else {
-        // Card — use Stripe Elements card element
         if (!window._stripeCardElement) throw new Error('Card element not initialized.');
-        return s.confirmCardSetup(si.clientSecret, { payment_method: { card: window._stripeCardElement, billing_details: { name: name, email: email } } });
+        return s.confirmCardSetup(si.clientSecret, {
+          payment_method: { card: window._stripeCardElement, billing_details: { name: name, email: email } }
+        });
       }
     });
   })
   .then(function(result) {
     if (result.error) throw new Error(result.error.message);
-    var pmId = result.setupIntent.payment_method;
-    // Save to brokerage
     APP.brokerage.billingSetup = true;
-    APP.brokerage.paymentMethodId = pmId;
+    APP.brokerage.paymentMethodId = result.setupIntent.payment_method;
     return getSupabase().from('brokerages').update({
       billing_setup: true,
       stripe_customer_id: APP.brokerage.stripeCustomerId,
@@ -6581,7 +6589,6 @@ function billingSubmit() {
     nAlert(e.message || 'Could not set up billing. Please try again.', 'Error', 'warn');
   });
 }
-
 function billingSubmitContact() {
   var email = document.getElementById('bill-email');
   if (!email || !email.value.trim()) { nAlert('Please enter a billing email.', 'Required', 'warn'); return; }
