@@ -1862,7 +1862,13 @@ function scCanUseMM(s) {
   return scMmActive(s);
 }
 function hasBillingInfo() {
-  return APP.brokerage && (APP.brokerage.payMethod === 'acss' || APP.brokerage.payMethod === 'card') && APP.brokerage.billingSetup;
+  if (!APP.brokerage) return false;
+  // billingSetup flag must be true
+  if (!APP.brokerage.billingSetup) return false;
+  // stripeCustomerId must exist
+  if (!APP.brokerage.stripeCustomerId) return false;
+  // payMethod just needs to be set to anything valid — default acss if missing but setup is done
+  return true;
 }
 function activateSCMeetingMode(scId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
@@ -6457,10 +6463,18 @@ function adminEnterBrokerage(brkLic) {
   }
   // Set brokerage
   APP.brokerage = {
-    name: b.name, lic: b.bcfsa_lic, addr: b.address||'', phone: b.phone||'',
-    email: b.email||'', logoUrl: b.logo_url||'', docs: b.docs||[],
-    trialMeetingsUsed: b.trial_meetings_used||0,
-    subscriptionStatus: b.subscription_status||'trial'
+    name:               b.name, 
+    lic:                b.bcfsa_lic, 
+    addr:               b.address||'', 
+    phone:              b.phone||'',
+    email:              b.email||'', 
+    logoUrl:            b.logo_url||'', 
+    docs:               b.docs||[],
+    trialMeetingsUsed:  b.trial_meetings_used||0,
+    subscriptionStatus: b.subscription_status||'trial',
+    billingSetup:       b.billing_setup||false,
+    stripeCustomerId:   b.stripe_customer_id||null,
+    payMethod:          b.pay_method||'acss'
   };
   var db = getSupabase();
   // Load SCs
