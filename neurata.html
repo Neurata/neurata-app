@@ -4232,19 +4232,50 @@ function renderAI(it){
 function mmAiSend(){
   var inp=document.getElementById('mm-aiin');var msg=inp.value.trim();if(!msg)return;inp.value='';
   var el=document.getElementById('mm-aimsgs');
-  el.innerHTML+='<div class="mm-aimsg usr">'+msg+'</div>';el.scrollTop=el.scrollHeight;
-  var it=MM.agenda.find(function(a){return a.id===curItem;});
+  el.innerHTML+='<div class="mm-aimsg usr">'+escHtml(msg)+'</div>';el.scrollTop=el.scrollHeight;
+  // Typing indicator
+  var typingId='mm-typing-'+Date.now();
+  el.innerHTML+='<div id="'+typingId+'" class="mm-aimsg ai" style="opacity:.5">…</div>';
+  el.scrollTop=el.scrollHeight;
+
+  var it = MM.agenda.find(function(a){return a.id===curItem;});
   var mmScId = MM && MM.scId || APP.currentScId || '';
   var mmBrkId = APP.brokerage && APP.brokerage.lic || '';
+  var sc = APP.sc.find(function(s){return s.id===mmScId;});
+
+  // Build full LSS context so SS knows the SC's bylaws, decisions, etc.
+  var lssCtx = sc ? buildLssContext(sc) : '';
+
+  var systemPrompt = 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
+    + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
+    + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
+    + ' If the answer is in the SC bylaws or decision ledger, cite it specifically.'
+    + ' If you are uncertain, say so — do not guess.'
+    + ' Keep answers concise and actionable for an active meeting. Plain prose only — no markdown, no asterisks, no bullet dashes.\n\n'
+    + lssCtx;
+
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
       _usageType:'mm_ai',_brokerageId:mmBrkId,_scId:mmScId,_userId:APP.currentUser&&APP.currentUser.id||'',
       tools:[{type:'web_search_20250305',name:'web_search'}],
-      system:'You are StrataSphere, the BC strata governance assistant. Active meeting item: "'+(it?it.text:'')+'" ('+(it?it.cat:'')+').' +' Provide concise procedural guidance strictly based on BC legislation: Strata Property Act, RESA, BCFSA rules, PIPA, and SPABC guidance.' +' If you are uncertain about a specific rule, say so rather than guessing.' +' Under 4 sentences. Plain prose — no markdown, no asterisks, no bullet dashes.' +' PIPA: owners by strata lot number only, never by name.',
-      messages:[{role:'user',content:msg}]})})
+      system: systemPrompt,
+      messages:[{role:'user',content:msg}]
+    })
+  })
   .then(function(r){return r.json();})
-  .then(function(d){var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();el.innerHTML+='<div class="mm-aimsg ai fi">'+(txt||'Unable to respond.')+'</div>';el.scrollTop=el.scrollHeight;})
-  .catch(function(){el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';el.scrollTop=el.scrollHeight;});
+  .then(function(d){
+    var typing=document.getElementById(typingId);if(typing)typing.remove();
+    var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+    el.innerHTML+='<div class="mm-aimsg ai fi">'+(txt||'Unable to respond.')+'</div>';
+    el.scrollTop=el.scrollHeight;
+  })
+  .catch(function(){
+    var typing=document.getElementById(typingId);if(typing)typing.remove();
+    el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';
+    el.scrollTop=el.scrollHeight;
+  });
 }
 
 function confirmDecision(){
@@ -7558,7 +7589,45 @@ function renderMeetings() {
   else if (currentMtgTab === 'minutes') renderMinutesList(sc, el);
   else if (currentMtgTab === 'docs') renderDocsList(sc, el);
   else if (currentMtgTab === 'decisions') renderDecisionLedger(sc, el);
-  else if (currentMtgTab === 'stratasphere') renderMgmtStrataSphere(sc, el);
+  else if (currentMtgTab === 'stratasphere') {
+    if (!scMmActive(sc)) {
+      renderSsUpsell(sc, el);
+    } else {
+      renderMgmtStrataSphere(sc, el);
+    }
+  }
+
+  // Update SS tab appearance based on MM status
+  var ssTab = document.getElementById('mtgtab-stratasphere');
+  if (ssTab) {
+    if (!scMmActive(sc)) {
+      ssTab.style.opacity = '0.45';
+      ssTab.title = 'Activate Meeting Mode to access StrataSphere';
+    } else {
+      ssTab.style.opacity = '';
+      ssTab.title = '';
+    }
+  }
+}
+
+function renderSsUpsell(sc, el) {
+  var mmMonthly = PRICING.perBuilding;
+  var ssMonthly = (PRICING.perLotLocal * (sc.lots||0)).toFixed(2);
+  var totalMonthly = (mmMonthly + PRICING.perLotLocal * (sc.lots||0)).toFixed(2);
+  el.innerHTML = '<div class="empty-state">'
+    + '<div class="empty-ic">🧠</div>'
+    + '<div class="empty-h">StrataSphere is not active</div>'
+    + '<div class="empty-s">Activate Meeting Mode to unlock StrataSphere — your AI governance assistant. '
+    + 'Ask questions about bylaws, past decisions, strata law, and more. '
+    + 'Available during meetings and between them.</div>'
+    + '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:14px 18px;margin-bottom:20px;text-align:left;max-width:340px">'
+    + '<div style="font-size:11px;font-weight:700;color:var(--g4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">'+sc.plan+' — Pricing</div>'
+    + '<div style="font-size:13px;color:var(--ch);margin-bottom:4px">Meeting Mode &nbsp;<span style="color:var(--g4)">CA$'+mmMonthly+'/month</span></div>'
+    + '<div style="font-size:13px;color:var(--ch);margin-bottom:4px">Local StrataSphere &nbsp;<span style="color:var(--g4)">CA$'+PRICING.perLotLocal+'/lot × '+sc.lots+' lots = CA$'+ssMonthly+'/month</span></div>'
+    + '<div style="font-size:14px;font-weight:700;color:var(--org);border-top:1px solid var(--g2);padding-top:8px;margin-top:8px">Total CA$'+totalMonthly+'/month</div>'
+    + '</div>'
+    + '<button class="btn pri" onclick="showPg(\'billing\')">Activate on Billing Page →</button>'
+    + '</div>';
 }
 
 function selectSCAndOpenMeeting(scId, mtgId) {
@@ -8810,26 +8879,26 @@ function renderDocsList(sc, el) {
     var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif'].includes(ext) ? '🖼' : '📎';
     var isPdf = ext === 'pdf' || ext === 'txt';
     var hasText = doc.documentText && doc.documentText.trim().length > 0;
-    var docTypeLabel = doc.docType ? doc.docType.replace('-',' ') : '';
-    var docTypeBadge = docTypeLabel
-      ? '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--blul);color:var(--blu);padding:1px 6px;border-radius:3px">'+ docTypeLabel +'</span>'
-      : '';
-    var gssLabel = (doc.docType && GSS_SAFE_DOC_TYPES.indexOf(doc.docType) >= 0 && hasText)
-      ? '<span style="font-size:10px;color:var(--blu);font-weight:600">🌐 GSS</span>'
-      : '';
-    var ssStatus = !isPdf ? ''
-      : hasText
-        ? '<span style="font-size:10px;color:var(--grn);font-weight:600">✓ SS Ready</span>'
-        : '<span style="font-size:10px;color:var(--amb);font-weight:600">⚠ Not indexed for SS</span>';
+    var isGssSafe = hasText && doc.docType && GSS_SAFE_DOC_TYPES.indexOf(doc.docType) >= 0;
+
+    // Three mutually exclusive states — shown as a single pill
+    var statusPill = '';
+    if (!isPdf) {
+      statusPill = ''; // no pill for non-indexable files
+    } else if (!hasText) {
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px">⚠ Not Indexed</span>';
+    } else if (isGssSafe) {
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">🌐 Global</span>';
+    } else {
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--blul);color:var(--blu);padding:2px 7px;border-radius:10px">🏠 Local Only</span>';
+    }
     html += '<div class="card fi" style="margin-bottom:8px">'
       + '<div class="ch_">'
       + '<div>' + icon + ' <strong>' + escHtml(doc.name) + '</strong>'
       + '<div style="font-size:11px;color:var(--g4);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + escHtml(doc.sourceLabel||doc.source||'Document')
       + (doc.date?' · '+escHtml(doc.date):'')
-      + (docTypeBadge ? ' · ' + docTypeBadge : '')
-      + (gssLabel ? ' · ' + gssLabel : '')
-      + (ssStatus ? ' · ' + ssStatus : '')
+      + (statusPill ? ' · ' + statusPill : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
       + (isPdf && !hasText && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index for SS</button>' : '')
