@@ -6406,7 +6406,7 @@ function adminEnterBrokerage(brkLic) {
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
       db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
       db.from('council_members').select('*').in('sc_id', planNumbers),
-      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type').in('sc_id', planNumbers),
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type,storage_path').in('sc_id', planNumbers),
       db.from('reps').select('*').eq('brokerage_id', brkLic),
       db.from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type', 'rep')
     ]).then(function(results) {
@@ -6444,7 +6444,7 @@ function adminEnterBrokerage(brkLic) {
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
-          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'' };
+          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
         });
       });
 
@@ -7124,7 +7124,7 @@ function loadUserSCs(userId) {
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
       db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
       db.from('council_members').select('*').in('sc_id', planNumbers),
-      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type').in('sc_id', planNumbers)
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type,storage_path').in('sc_id', planNumbers)
     ]).then(function(results) {
       var meetings   = (results[0].data || []);
       var decisions  = (results[1].data || []);
@@ -7201,7 +7201,8 @@ function loadUserSCs(userId) {
               date:         d.uploaded_at ? d.uploaded_at.slice(0,10) : '',
               dbId:         d.id,
               documentText: d.document_text || '',
-              docType:      d.doc_type || ''
+              docType:      d.doc_type || '',
+              storagePath:  d.storage_path || ''
             };
           });
       });
@@ -8831,7 +8832,7 @@ function renderDocsList(sc, el) {
       + (ssStatus ? ' · ' + ssStatus : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
-      + (isPdf && !hasText && doc.url ? '<button class="btn sm" data-url="'+escHtml(doc.url||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index for SS</button>' : '')
+      + (isPdf && !hasText && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index for SS</button>' : '')
       + '<button class="btn sm" onclick="downloadDoc(this)" '
       + 'data-name="' + escHtml(doc.name) + '" '
       + 'data-href="' + escHtml(doc.data || doc.url || '') + '">Download</button>'
@@ -9137,7 +9138,7 @@ function scUploadDoc(scId) {
               dbId: docId, name: f.name, url: url,
               source: 'direct-upload', sourceLabel: 'Uploaded Document',
               mime: f.type, date: new Date().toLocaleDateString('en-CA'),
-              documentText: '', docType: ''
+              documentText: '', docType: '', storagePath: path
             };
             sc_.docs.push(localDoc);
             // Extract text + classify in background
@@ -9163,17 +9164,17 @@ function scUploadDoc(scId) {
 }
 
 function docExtractText(btn) {
-  var url   = btn.dataset.url;
+  var storagePath = btn.dataset.storagepath;
   var dbId  = btn.dataset.dbid;
   var scId  = btn.dataset.scid;
-  if (!url || !dbId) return;
+  if (!storagePath || !dbId) { nAlert('Missing storage path — try re-uploading the document.', 'Error', 'warn'); return; }
   btn.disabled = true;
   btn.textContent = 'Indexing…';
 
-  // Step 1: fetch PDF via worker proxy (avoids browser CORS on Supabase Storage)
+  // Step 1: fetch PDF via worker using service key (avoids CORS + private bucket)
   fetch(WORKER_URL + '/fetch-pdf', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ pdfUrl: url })
+    body: JSON.stringify({ storagePath: storagePath })
   })
   .then(function(r){ return r.json(); })
   .then(function(pd) {
