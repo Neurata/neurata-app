@@ -7322,10 +7322,10 @@ function saManageTrial(brkLic, brkName, currentUsed, isActive) {
   _saTrialBrkLic = brkLic;
   _saTrialCurrentUsed = currentUsed;
   document.getElementById('sa-trial-brkname').textContent = brkName;
-  document.getElementById('sa-trial-used-display').textContent = currentUsed + ' of ' + PRICING.trialMeetings;
-  document.getElementById('sa-trial-status').value = isActive ? 'active' : 'trial';
   document.getElementById('sa-trial-used-input').value = currentUsed;
   document.getElementById('sa-trial-limit-display').textContent = PRICING.trialMeetings;
+  document.getElementById('sa-trial-status').value = isActive ? 'active' : 'trial';
+
   document.getElementById('sa-trial-reset-row').style.display = isActive ? 'none' : '';
   document.getElementById('sa-trial-unlimited-note').style.display = isActive ? '' : 'none';
   openMo('mo-sa-trial');
