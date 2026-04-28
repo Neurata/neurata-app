@@ -3721,7 +3721,7 @@ function mgmtSsSend(scId) {
   // Typing indicator
   var msgsEl = document.getElementById('mgmt-ss-msgs');
   if(msgsEl) {
-    msgsEl.innerHTML += '<div id="mgmt-typing" style="color:var(--g4);font-size:13px;font-style:italic">StrataSphere is thinking…</div>';
+    msgsEl.innerHTML += '<div id="mgmt-typing" class="ss-typing"><div class="ss-dot"></div><div class="ss-dot"></div><div class="ss-dot"></div></div>';
     msgsEl.scrollTop = msgsEl.scrollHeight;
   }
   var ssTier = scSsTier(sc) || 'local';
@@ -3741,6 +3741,8 @@ function mgmtSsSend(scId) {
     if(d.error==='usage_limit_exceeded'){nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn');if(sc)renderMgmtStrataSphere(sc,document.getElementById('mtg-body'));return;}
     if(d._usageWarning){nAlert(d._usageWarning.message,'AI Usage Notice','info');}
     var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim()||'Unable to respond.';
+    conv.msgs.push({role:'assistant', text:txt});
+    ssPersistConv(scId, conv);
     if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
   })
   .catch(function(){
