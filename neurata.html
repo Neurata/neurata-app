@@ -3849,7 +3849,30 @@ function buildLssContext(sc) {
 // GLOBAL STRATASPHERE — PII-stripped platform aggregate
 // All personal identifiers removed before passing to Claude.
 // Plan numbers kept (public LTSA record).
+// Document text: ONLY bylaws and strata-plan types — all others LSS-only.
 // ══════════════════════════════════════════════════════════════════════
+var GSS_SAFE_DOC_TYPES = ['bylaws', 'strata-plan'];
+
+function stripDocTextPII(text) {
+  if (!text) return text;
+  var emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  var phoneRe = /(\+?1[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g;
+  return text
+    .replace(emailRe, '[email redacted]')
+    .replace(phoneRe, '[phone redacted]')
+    .replace(/\b(?!SL\s*\d)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b/g, function(match) {
+      var whitelist = ['Strata Property','Managing Broker','Associate Broker',
+        'Council President','Vice President','Strata Council','British Columbia',
+        'Property Act','Fire Code','Building Code','City Council','Strata Manager',
+        'Real Estate','Personal Information','Protection Act','Annual General',
+        'Special General','Section One','Section Two','Part One','Part Two'];
+      for (var i = 0; i < whitelist.length; i++) {
+        if (match.indexOf(whitelist[i]) >= 0 || whitelist[i].indexOf(match) >= 0) return match;
+      }
+      return '[name redacted]';
+    });
+}
+
 function buildGssContext() {
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
@@ -3859,8 +3882,9 @@ function buildGssContext() {
 
   APP.sc.forEach(function(s) {
     lines.push('--- ' + s.plan + ' | ' + (s.lots || '?') + ' lots | ' + (s.addr || 'BC') + ' ---');
+
     // Decisions — PII stripped
-    var decs = (s.decisions || []);
+    var decs = s.decisions || [];
     if (decs.length) {
       var stripped = stripPII(decs);
       stripped.forEach(function(d) {
@@ -3872,14 +3896,30 @@ function buildGssContext() {
     } else {
       lines.push('No decisions on record.');
     }
+
     // Meeting summary (no attendee names)
-    var mtgs = (s.meetings || []);
+    var mtgs = s.meetings || [];
     if (mtgs.length) {
       var typeCount = {};
       mtgs.forEach(function(m) { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
       var summary = Object.keys(typeCount).map(function(t) { return typeCount[t] + ' ' + t; }).join(', ');
       lines.push('Meetings: ' + summary);
     }
+
+    // GSS-safe documents (bylaws + strata-plan only) — PII stripped
+    var safeDocs = (s.docs || []).filter(function(d) {
+      return GSS_SAFE_DOC_TYPES.indexOf(d.docType || '') >= 0 && d.documentText && d.documentText.trim();
+    });
+    if (safeDocs.length) {
+      safeDocs.forEach(function(d) {
+        var stripped = stripDocTextPII(d.documentText);
+        // Cap at 6000 chars per doc to manage token usage
+        if (stripped.length > 6000) stripped = stripped.slice(0, 6000) + '\n… [truncated]';
+        lines.push('[' + (d.docType || 'document').toUpperCase() + ': ' + escHtml(d.name) + ']');
+        lines.push(stripped);
+      });
+    }
+
     lines.push('');
   });
 
@@ -6366,7 +6406,7 @@ function adminEnterBrokerage(brkLic) {
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
       db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
       db.from('council_members').select('*').in('sc_id', planNumbers),
-      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text').in('sc_id', planNumbers),
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type').in('sc_id', planNumbers),
       db.from('reps').select('*').eq('brokerage_id', brkLic),
       db.from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type', 'rep')
     ]).then(function(results) {
@@ -6404,7 +6444,7 @@ function adminEnterBrokerage(brkLic) {
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
-          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'' };
+          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'' };
         });
       });
 
@@ -7084,7 +7124,7 @@ function loadUserSCs(userId) {
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
       db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
       db.from('council_members').select('*').in('sc_id', planNumbers),
-      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text').in('sc_id', planNumbers)
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type').in('sc_id', planNumbers)
     ]).then(function(results) {
       var meetings   = (results[0].data || []);
       var decisions  = (results[1].data || []);
@@ -7160,7 +7200,8 @@ function loadUserSCs(userId) {
               mime:         d.mime_type || '',
               date:         d.uploaded_at ? d.uploaded_at.slice(0,10) : '',
               dbId:         d.id,
-              documentText: d.document_text || ''
+              documentText: d.document_text || '',
+              docType:      d.doc_type || ''
             };
           });
       });
@@ -8764,6 +8805,13 @@ function renderDocsList(sc, el) {
     var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif'].includes(ext) ? '🖼' : '📎';
     var isPdf = ext === 'pdf' || ext === 'txt';
     var hasText = doc.documentText && doc.documentText.trim().length > 0;
+    var docTypeLabel = doc.docType ? doc.docType.replace('-',' ') : '';
+    var docTypeBadge = docTypeLabel
+      ? '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--blul);color:var(--blu);padding:1px 6px;border-radius:3px">'+ docTypeLabel +'</span>'
+      : '';
+    var gssLabel = (doc.docType && GSS_SAFE_DOC_TYPES.indexOf(doc.docType) >= 0 && hasText)
+      ? '<span style="font-size:10px;color:var(--blu);font-weight:600">🌐 GSS</span>'
+      : '';
     var ssStatus = !isPdf ? ''
       : hasText
         ? '<span style="font-size:10px;color:var(--grn);font-weight:600">✓ SS Ready</span>'
@@ -8771,9 +8819,11 @@ function renderDocsList(sc, el) {
     html += '<div class="card fi" style="margin-bottom:8px">'
       + '<div class="ch_">'
       + '<div>' + icon + ' <strong>' + escHtml(doc.name) + '</strong>'
-      + '<div style="font-size:11px;color:var(--g4);margin-top:2px;display:flex;align-items:center;gap:8px">'
+      + '<div style="font-size:11px;color:var(--g4);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       + escHtml(doc.sourceLabel||doc.source||'Document')
       + (doc.date?' · '+escHtml(doc.date):'')
+      + (docTypeBadge ? ' · ' + docTypeBadge : '')
+      + (gssLabel ? ' · ' + gssLabel : '')
       + (ssStatus ? ' · ' + ssStatus : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
@@ -8954,12 +9004,11 @@ function extractAndStoreDocText(file, docId, scId) {
   var reader = new FileReader();
   reader.onload = function(e) {
     if (isText) {
-      // Plain text — store directly
       var text = e.target.result;
-      _saveDocText(docId, scId, text);
+      _classifyAndSaveDocText(docId, scId, text, null);
       return;
     }
-    // PDF — send to Claude for extraction
+    // PDF — extract text via Claude
     var b64 = e.target.result.split(',')[1];
     fetch(WORKER_URL + '/ai', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -8980,7 +9029,7 @@ function extractAndStoreDocText(file, docId, scId) {
     .then(function(r){ return r.json(); })
     .then(function(d){
       var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-      if (txt) _saveDocText(docId, scId, txt);
+      if (txt) _classifyAndSaveDocText(docId, scId, txt, b64);
     })
     .catch(function(e){ console.error('Doc text extraction failed:', e); });
   };
@@ -8988,18 +9037,51 @@ function extractAndStoreDocText(file, docId, scId) {
   else reader.readAsDataURL(file);
 }
 
-function _saveDocText(docId, scId, text) {
+function _classifyAndSaveDocText(docId, scId, text, b64) {
+  // Classify document type in parallel with saving text
+  // Uses first 2000 chars of text (enough to classify without burning tokens)
+  var sample = text.slice(0, 2000);
+  fetch(WORKER_URL + '/ai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 20,
+      _usageType: 'parse_plan',
+      _brokerageId: APP.brokerage && APP.brokerage.lic || '',
+      _scId: scId || '',
+      _userId: APP.currentUser && APP.currentUser.id || '',
+      messages: [{role:'user', content:
+        'Classify this BC strata document. Return ONLY one word from this exact list: bylaws, strata-plan, minutes, financial, correspondence, contract, template, other\n\nDocument sample:\n' + sample
+      }]
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var raw = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim().toLowerCase();
+    var validTypes = ['bylaws','strata-plan','minutes','financial','correspondence','contract','template','other'];
+    var docType = validTypes.indexOf(raw) >= 0 ? raw : 'other';
+    _saveDocText(docId, scId, text, docType);
+  })
+  .catch(function(){
+    // Classification failed — save text anyway, type unknown
+    _saveDocText(docId, scId, text, 'other');
+  });
+}
+
+function _saveDocText(docId, scId, text, docType) {
   if (!docId || !text) return;
-  // Save to Supabase documents table
+  var update = { document_text: text };
+  if (docType) update.doc_type = docType;
+  // Save to Supabase
   getSupabase().from('documents')
-    .update({ document_text: text })
+    .update(update)
     .eq('id', docId)
     .then(function(r){ if (r.error) console.error('Doc text save error:', r.error); });
-  // Also cache on the local sc.docs object
+  // Cache on local sc.docs
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
     var doc = sc_.docs.find(function(d){ return d.id === docId || d.dbId === docId; });
-    if (doc) doc.documentText = text;
+    if (doc) { doc.documentText = text; if (docType) doc.docType = docType; }
   }
 }
 
@@ -9093,7 +9175,8 @@ function docExtractText(btn) {
         .then(function(d){
           var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
           if (!txt) { btn.textContent = 'Failed'; return; }
-          _saveDocText(dbId, scId, txt);
+          // Classify and save
+          _classifyAndSaveDocText(dbId, scId, txt, null);
           // Update local doc object
           var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
           if (sc_ && sc_.docs) {
@@ -9104,7 +9187,7 @@ function docExtractText(btn) {
           btn.disabled = true;
           btn.style.color = 'var(--grn)';
           btn.style.borderColor = 'var(--grn)';
-          // Refresh docs tab to show SS Ready status
+          // Refresh docs tab
           var el2 = document.getElementById('mtg-body');
           if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
         })
