@@ -7345,7 +7345,7 @@ function saTrialSave() {
   .then(function(r) {
     if (r.error) { nAlert('Error saving changes.','','warn'); return; }
     var b = (APP._allBrokerages||[]).find(function(x){ return x.bcfsa_lic === _saTrialBrkLic; });
-    if (b) { b.subscription_status = status; if (reset) b.trial_meetings_used = 0; }
+    if (b) { b.subscription_status = status; b.trial_meetings_used = usedVal; }
     closeMo('mo-sa-trial');
     renderDash();
     nAlert('Trial settings updated.','Saved ✓','success');
