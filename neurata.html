@@ -1699,9 +1699,13 @@ function loadActivationRequests(cb) {
 }
 
 function dismissActivationRequest(id) {
-  getSupabase().from('activation_requests').update({status:'dismissed'}).eq('id',id).then(function(){
-    renderBilling();
-  });
+  // Remove from local state immediately to prevent flicker
+  if (APP.pendingRequests) {
+    APP.pendingRequests = APP.pendingRequests.filter(function(r){ return r.id !== id; });
+  }
+  renderBilling();
+  // Then persist to DB
+  getSupabase().from('activation_requests').update({status:'dismissed'}).eq('id',id).then(function(){});
 }
 
 function activateFromRequest(id, scId, requestType) {
@@ -6633,9 +6637,9 @@ function renderBilling() {
   el.innerHTML = '<div id="billing-requests"></div><div id="billing-main"></div>';
   _renderBillingMain(document.getElementById('billing-main'), sc, isMB, trialEx, isSetup, payMethod);
   if (isMB) {
-    loadActivationRequests(function(requests) {
-      var reqEl = document.getElementById('billing-requests');
-      if (!reqEl || !requests.length) return;
+    var requests = APP.pendingRequests || [];
+    var reqEl = document.getElementById('billing-requests');
+    if (reqEl && requests.length) {
       var typeLabel = function(t){ return t==='ss_global'?'Global StrataSphere':t==='ss_local'?'Local StrataSphere':'Meeting Mode'; };
       var rhtml = '<div class="card" style="margin-bottom:14px;border:2px solid var(--org)">'
         +'<div class="ch_"><div class="ct">&#128276; Pending Activation Requests</div>'
@@ -6654,7 +6658,7 @@ function renderBilling() {
       });
       rhtml += '</div></div>';
       reqEl.innerHTML = rhtml;
-    });
+    }
   }
 }
 
