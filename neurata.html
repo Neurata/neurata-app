@@ -1728,8 +1728,13 @@ function activateFromRequest(id, scId, requestType) {
     function(ok) {
       if (!ok) return;
 
+      // Remove from local pending list immediately — no flicker
+      if (APP.pendingRequests) {
+        APP.pendingRequests = APP.pendingRequests.filter(function(r){ return r.id !== id; });
+      }
+
       if (requestType === 'ss_global') {
-        // Global SS upgrade — update DB directly
+        // Global SS upgrade — update local state + DB
         sc_.ssTier = 'global';
         sc_.ssGlobalActivatedAt = new Date().toISOString();
         getSupabase().from('strata_corps').update({
@@ -1737,27 +1742,26 @@ function activateFromRequest(id, scId, requestType) {
         }).eq('plan_number', sc_.plan).then(function(r){
           if (r.error) { nAlert('Error saving. Please try again.','Error','warn'); return; }
           getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
-          APP.pendingRequests = undefined;
-          renderBilling();
-          nAlert(label+' approved for '+scId+'.','Approved ✓','success');
         });
+        renderBilling();
+        renderSidebar(APP.activePg);
+        nAlert(label+' approved for '+scId+'.','Approved ✓','success');
         return;
       }
 
       if (requestType === 'ss_local' || requestType === 'mm') {
-        // Meeting Mode activation — requires billing to be set up
         if (!hasBillingInfo() || !APP.brokerage.stripeCustomerId) {
-          // No billing set up — mark approved, send to billing page
           getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
-          APP.pendingRequests = undefined;
           nAlert('Please set up a payment method to complete activation for '+scId+'.', 'Payment Method Required', 'warn');
           renderBilling();
           return;
         }
 
-        // Billing is set up — call Stripe activate-sc immediately
         var btn = event && event.target;
         if (btn) { btn.disabled = true; btn.textContent = 'Activating…'; }
+
+        // Re-render immediately to remove the request from the list
+        renderBilling();
 
         fetch(WORKER_URL + '/stripe/activate-sc', {
           method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1773,14 +1777,11 @@ function activateFromRequest(id, scId, requestType) {
         .then(function(r){ return r.json(); })
         .then(function(d){
           if (d.error) throw new Error(d.error);
-          // Update local SC state
           sc_.mmActive = true;
           sc_.mmStatus = 'ACTIVE';
           sc_.mmActivatedAt = new Date().toISOString();
           sc_.ssTier = 'local';
-          // Mark request approved
           getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
-          APP.pendingRequests = undefined;
           renderBilling();
           renderSidebar(APP.activePg);
           var monthlyFmt = 'CA$' + (d.monthlyAmount/100).toFixed(2);
@@ -1793,7 +1794,10 @@ function activateFromRequest(id, scId, requestType) {
         })
         .catch(function(e){
           if (btn) { btn.disabled = false; btn.textContent = 'Activate'; }
+          // Put request back in list on failure
           nAlert('Activation failed: ' + (e.message||'unknown error') + '\n\nPlease try again or contact support.', 'Error', 'warn');
+          APP.pendingRequests = undefined; // force re-fetch on next render
+          renderBilling();
         });
       }
     }, 'Approve & Activate', 'info');
