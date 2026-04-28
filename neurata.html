@@ -8737,7 +8737,6 @@ function scParsePlan(b64, filename){
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
-      _usageType:'parse_plan',_brokerageId:APP.brokerage&&APP.brokerage.lic||'',_scId:'',_userId:APP.currentUser&&APP.currentUser.id||'',
       _usageType:'parse_plan', _brokerageId:APP.brokerage&&APP.brokerage.lic||'', _scId:APP.currentScId||'', _userId:APP.currentUser&&APP.currentUser.id||'',
       model: 'claude-sonnet-4-6', max_tokens: 600,
       betas: ['pdfs-2024-09-25'],
