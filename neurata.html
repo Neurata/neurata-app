@@ -1094,8 +1094,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
         <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
         <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
-        <button class="mtg-tab" id="mtgtab-decisions" onclick="switchMtgTab('decisions',this)">Decision Ledger</button>
         <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
+        <button class="mtg-tab" id="mtgtab-decisions" onclick="switchMtgTab('decisions',this)">Decision Ledger</button>
       </div>
       <div id="mtg-header-actions" style="padding-bottom:6px"></div>
     </div>
@@ -8628,7 +8628,7 @@ function renderDecisionLedgerTable(decisions) {
     if (d.votes && (d.votes.for || d.votes.against || d.votes.abstain)) {
       voteStr = d.votes.for+'F / '+d.votes.against+'A / '+d.votes.abstain+'Ab';
     }
-    var sourceLabel = d.source === 'historic-minutes' ? '📎 Historic'
+    var sourceLabel = (d.source === 'historic-minutes' || d.source === 'historic') ? '📎 Historic'
       : d.source === 'meeting-mode' ? '🔴 Live'
       : d.source === 'imported' ? '📥 Imported' : '—';
     var motionText = d.motion && d.motion.trim() ? d.motion : '';
@@ -8863,11 +8863,15 @@ function hmSave() {
     return {
       id:      now+'_'+Math.random().toString(36).slice(2),
       sc_id:   sc_.plan,
-      source:  'historic',
-      item:    d.item,
-      outcome: d.outcome,
-      summary: d.summary,
-      ts:      now,
+      text:    d.item   || '',
+      motion:  d.summary || '',
+      outcome: d.outcome || '',
+      date:    d.meetingDate || '',
+      mtgType: 'council',
+      mover:   '',
+      sec:     '',
+      votes:   {for:0, against:0, abstain:0},
+      source:  'historic-minutes',
       recorded_at: new Date().toISOString()
     };
   });
@@ -8877,12 +8881,14 @@ function hmSave() {
   if (newDecisions.length) {
     getSupabase().from('decisions').insert(newDecisions.map(function(d){
       return {
-        sc_id:       sc_.plan,
-        item_text:   d.item,
-        motion_text: d.summary || '',
-        outcome:     d.outcome,
-        source:      'historic',
-        recorded_at: d.recorded_at
+        sc_id:        sc_.plan,
+        item_text:    d.text,
+        motion_text:  d.motion,
+        outcome:      d.outcome,
+        meeting_date: d.date || null,
+        meeting_type: d.mtgType || null,
+        source:       'historic-minutes',
+        recorded_at:  d.recorded_at
       };
     })).then(function(r){
       if (r.error) console.error('Could not save decisions:', r.error);
@@ -9171,7 +9177,9 @@ function hmHandleFile(file) {
           if(warnEl){warnEl.style.display='';warnEl.textContent='Plan number mismatch: document has "'+res.planNumber+'" but active corporation is "'+sc_.plan+'". Upload rejected.';}
           document.getElementById('hm-upz').style.display=''; return;
         }
-        _hmDecisions=res.decisions||[];
+        _hmDecisions=(res.decisions||[]).map(function(d){
+          return {item:d.item, outcome:d.outcome, summary:d.summary, meetingDate:res.meetingDate||''};
+        });
         _hmUploadedFile={name:file.name,data:e.target.result,mime:file.type||'application/pdf'};
         var ok=document.getElementById('hm-ok-msg');
         if(ok) ok.textContent='✓ Plan '+res.planNumber+' verified. Found '+_hmDecisions.length+' decision(s)'+(res.meetingDate?' from '+res.meetingDate:'')+'.';
