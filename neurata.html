@@ -3831,9 +3831,9 @@ function buildLssContext(sc) {
       lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | ' + d.date : ''));
       if (d.documentText && d.documentText.trim()) {
         lines.push('  [CONTENT START: ' + (d.name || '') + ']');
-        // Trim very large docs to avoid token overflow — 20000 chars per doc
+        // Cap at 50000 chars per doc — multi-pass extraction should cover full docs
         var txt = d.documentText.trim();
-        if (txt.length > 20000) txt = txt.slice(0, 20000) + '\n… [truncated — ' + Math.round(txt.length/1000) + 'k chars total]';
+        if (txt.length > 50000) txt = txt.slice(0, 50000) + '\n… [truncated — ' + Math.round(txt.length/1000) + 'k chars total]';
         lines.push(txt);
         lines.push('  [CONTENT END: ' + (d.name || '') + ']');
       }
@@ -9009,37 +9009,81 @@ function extractAndStoreDocText(file, docId, scId) {
   var reader = new FileReader();
   reader.onload = function(e) {
     if (isText) {
-      var text = e.target.result;
-      _classifyAndSaveDocText(docId, scId, text, null);
+      _classifyAndSaveDocText(docId, scId, e.target.result, null);
       return;
     }
-    // PDF — extract text via Claude
     var b64 = e.target.result.split(',')[1];
-    fetch(WORKER_URL + '/ai', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        betas: ['pdfs-2024-09-25'],
-        _usageType: 'parse_plan',
-        _brokerageId: APP.brokerage && APP.brokerage.lic || '',
-        _scId: scId || '',
-        _userId: APP.currentUser && APP.currentUser.id || '',
-        messages: [{role:'user', content:[
-          {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-          {type:'text', text:'Extract the full text content of this document. Return only the extracted text, preserving structure (sections, headings, numbered items). Do not summarize — return the actual text.'}
-        ]}]
-      })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-      if (txt) _classifyAndSaveDocText(docId, scId, txt, b64);
-    })
-    .catch(function(e){ console.error('Doc text extraction failed:', e); });
+    _extractDocTextMultiPass(b64, docId, scId, '', 1);
   };
   if (isText) reader.readAsText(file);
   else reader.readAsDataURL(file);
+}
+
+// Multi-pass PDF text extraction — handles documents longer than one Claude response.
+// Each pass uses max_tokens:8000. If stop_reason is 'max_tokens' (truncated),
+// we do another pass asking Claude to continue from where it left off.
+// Max 5 passes (~40,000 tokens of output) to prevent runaway calls.
+function _extractDocTextMultiPass(b64, docId, scId, accumulated, pass) {
+  if (pass > 5) {
+    // Safety limit — save what we have
+    console.warn('Doc extraction: hit 5-pass limit, saving accumulated text');
+    if (accumulated) _classifyAndSaveDocText(docId, scId, accumulated, b64);
+    return;
+  }
+
+  var isFirstPass = pass === 1;
+  var prompt = isFirstPass
+    ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
+    : 'Continue extracting the text of this document. You previously extracted up to:\n\n---\n' + accumulated.slice(-500) + '\n---\n\nContinue from exactly where that left off. Do not repeat any text already extracted. Extract everything remaining to the end of the document.';
+
+  var messages = isFirstPass
+    ? [{role:'user', content:[
+        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+        {type:'text', text:prompt}
+      ]}]
+    : [{role:'user', content:[
+        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+        {type:'text', text:prompt}
+      ]}];
+
+  fetch(WORKER_URL + '/ai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      betas: ['pdfs-2024-09-25'],
+      _usageType: 'parse_plan',
+      _brokerageId: APP.brokerage && APP.brokerage.lic || '',
+      _scId: scId || '',
+      _userId: APP.currentUser && APP.currentUser.id || '',
+      messages: messages
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var chunk = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+    if (!chunk) {
+      // No text returned — save what we have
+      if (accumulated) _classifyAndSaveDocText(docId, scId, accumulated, b64);
+      return;
+    }
+    var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
+    var stopReason = d.stop_reason || '';
+    if (stopReason === 'max_tokens') {
+      // Response was truncated — do another pass
+      console.log('Doc extraction pass ' + pass + ' truncated — continuing (stop_reason: max_tokens)');
+      _extractDocTextMultiPass(b64, docId, scId, fullText, pass + 1);
+    } else {
+      // Extraction complete
+      console.log('Doc extraction complete after ' + pass + ' pass(es). Total chars: ' + fullText.length);
+      _classifyAndSaveDocText(docId, scId, fullText, b64);
+    }
+  })
+  .catch(function(e){
+    console.error('Doc text extraction failed (pass ' + pass + '):', e);
+    // Save whatever we have so far
+    if (accumulated) _classifyAndSaveDocText(docId, scId, accumulated, b64);
+  });
 }
 
 function _classifyAndSaveDocText(docId, scId, text, b64) {
@@ -9180,51 +9224,85 @@ function docExtractText(btn) {
   .then(function(pd) {
     if (pd.error) throw new Error(pd.error);
     var b64 = pd.b64;
-    // Step 2: send base64 PDF to Claude for text extraction
-    return fetch(WORKER_URL + '/ai', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        betas: ['pdfs-2024-09-25'],
-        _usageType: 'parse_plan',
-        _brokerageId: APP.brokerage && APP.brokerage.lic || '',
-        _scId: scId || '',
-        _userId: APP.currentUser && APP.currentUser.id || '',
-        messages: [{role:'user', content:[
-          {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-          {type:'text', text:'Extract the full text content of this document. Return only the extracted text, preserving structure (sections, headings, numbered items). Do not summarize — return the actual text.'}
-        ]}]
-      })
-    });
+    // Step 2: multi-pass extraction — handles large documents completely
+    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1, btn);
+  })
+  .catch(function(e){
+    console.error('docExtractText fetch error:', e);
+    btn.textContent = 'Failed — retry';
+    btn.disabled = false;
+    nAlert('Could not fetch document: ' + (e.message||'unknown error'), 'Error', 'warn');
+  });
+}
+
+function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn) {
+  if (pass > 5) {
+    if (accumulated) {
+      _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
+    } else {
+      btn.textContent = 'Failed — retry'; btn.disabled = false;
+    }
+    return;
+  }
+  var isFirstPass = pass === 1;
+  if (pass > 1) btn.textContent = 'Indexing… (pass ' + pass + ')';
+
+  var prompt = isFirstPass
+    ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
+    : 'Continue extracting the text of this document. You previously extracted up to:\n\n---\n' + accumulated.slice(-500) + '\n---\n\nContinue from exactly where that left off. Do not repeat any text already extracted. Extract everything remaining to the end of the document.';
+
+  fetch(WORKER_URL + '/ai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      betas: ['pdfs-2024-09-25'],
+      _usageType: 'parse_plan',
+      _brokerageId: APP.brokerage && APP.brokerage.lic || '',
+      _scId: scId || '',
+      _userId: APP.currentUser && APP.currentUser.id || '',
+      messages: [{role:'user', content:[
+        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+        {type:'text', text:prompt}
+      ]}]
+    })
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.error) throw new Error(JSON.stringify(d.error));
-    var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    if (!txt) throw new Error('No text extracted');
-    // Classify and save
-    _classifyAndSaveDocText(dbId, scId, txt, null);
-    // Update local doc object
-    var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
-    if (sc_ && sc_.docs) {
-      var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
-      if (doc) doc.documentText = txt;
+    var chunk = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+    if (!chunk) throw new Error('No text extracted');
+    var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
+    if (d.stop_reason === 'max_tokens') {
+      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1, btn);
+    } else {
+      _finaliseDocExtract(dbId, scId, fullText, b64, btn);
     }
-    btn.textContent = '✓ Indexed';
-    btn.disabled = true;
-    btn.style.color = 'var(--grn)';
-    btn.style.borderColor = 'var(--grn)';
-    // Refresh docs tab
-    var el2 = document.getElementById('mtg-body');
-    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
   })
   .catch(function(e){
-    console.error('docExtractText error:', e);
-    btn.textContent = 'Failed — retry';
-    btn.disabled = false;
-    nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
+    console.error('docExtractText pass ' + pass + ' error:', e);
+    if (accumulated) {
+      _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
+    } else {
+      btn.textContent = 'Failed — retry'; btn.disabled = false;
+      nAlert('Could not index document: ' + (e.message||'unknown'), 'Index Failed', 'warn');
+    }
   });
+}
+
+function _finaliseDocExtract(dbId, scId, text, b64, btn) {
+  _classifyAndSaveDocText(dbId, scId, text, b64);
+  var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+  if (sc_ && sc_.docs) {
+    var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
+    if (doc) doc.documentText = text;
+  }
+  btn.textContent = '✓ Indexed';
+  btn.disabled = true;
+  btn.style.color = 'var(--grn)';
+  btn.style.borderColor = 'var(--grn)';
+  var el2 = document.getElementById('mtg-body');
+  if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
 }
 
 function downloadDoc(btn) {
