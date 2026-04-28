@@ -6324,6 +6324,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
   html += '</div></div>';
   html += '<div id="pay-form-card" style="display:'+(payMethod==='card'?'block':'none')+'">'
+    + '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>'
     + '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>'
     + '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
 
@@ -6505,7 +6506,8 @@ function billingSelectMethod(method) {
       getStripe().then(function(s) {
         var elements = s.elements();
         window._stripeCardElement = elements.create('card', {
-          style: { base: { fontSize: '14px', color: '#1c1917' } }
+          style: { base: { fontSize: '14px', color: '#1c1917', fontFamily: 'DM Sans, sans-serif' } },
+          hidePostalCode: true
         });
         window._stripeCardElement.mount('#stripe-card-element');
         window._stripeCardElement.on('change', function(e) {
@@ -6562,8 +6564,9 @@ function billingSubmit() {
         return s.confirmAcssDebitSetup(si.clientSecret, confirmParams);
       } else {
         if (!window._stripeCardElement) throw new Error('Card element not initialized.');
+        var cardName = (document.getElementById('card-name') && document.getElementById('card-name').value.trim()) || name;
         return s.confirmCardSetup(si.clientSecret, {
-          payment_method: { card: window._stripeCardElement, billing_details: { name: name, email: email } }
+          payment_method: { card: window._stripeCardElement, billing_details: { name: cardName, email: email } }
         });
       }
     });
