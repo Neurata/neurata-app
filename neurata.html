@@ -1094,6 +1094,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
         <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
         <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
+        <button class="mtg-tab" id="mtgtab-decisions" onclick="switchMtgTab('decisions',this)">Decision Ledger</button>
         <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
       </div>
       <div id="mtg-header-actions" style="padding-bottom:6px"></div>
@@ -7284,6 +7285,7 @@ function renderMeetings() {
   if (currentMtgTab === 'meetings') renderMeetingsList(sc, el);
   else if (currentMtgTab === 'minutes') renderMinutesList(sc, el);
   else if (currentMtgTab === 'docs') renderDocsList(sc, el);
+  else if (currentMtgTab === 'decisions') renderDecisionLedger(sc, el);
   else if (currentMtgTab === 'stratasphere') renderMgmtStrataSphere(sc, el);
 }
 
@@ -8329,6 +8331,7 @@ function switchMtgTab(tab, el) {
     if (tab === 'meetings') hasContent = (sc.meetings||[]).length > 0;
     else if (tab === 'minutes') hasContent = (sc.meetings||[]).some(function(m){return m.minutes;}) || (sc.docs||[]).some(function(d){return d.source==='historic-minutes';});
     else if (tab === 'docs') hasContent = (sc.docs||[]).length > 0;
+    else if (tab === 'decisions') hasContent = (sc.decisions||[]).length > 0;
     else if (tab === 'stratasphere') hasContent = !!(SS.convs[sc.id] && SS.convs[sc.id].length);
     updateMtgHeaderBtn(tab, hasContent);
   }
@@ -8348,6 +8351,8 @@ function updateMtgHeaderBtn(tab, hasContent) {
     actions.innerHTML = canEdit ? '<button class="btn sm pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '';
   } else if (tab === 'docs') {
     actions.innerHTML = canEdit && scId ? '<button class="btn sm pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
+  } else if (tab === 'decisions') {
+    actions.innerHTML = '';
   } else if (tab === 'stratasphere') {
     actions.innerHTML = '<button class="btn sm pri" onclick="mgmtSsNewConv(\''+scId+'\')">+ New Conversation</button>';
   } else {
@@ -8544,6 +8549,124 @@ function renderDocsList(sc, el) {
       + '</div></div>';
   });
   if (el) el.innerHTML = html;
+}
+
+function renderDecisionLedger(sc, el) {
+  // Merge sc.decisions (from Supabase decisions table + historic minutes)
+  // with decisions extracted live from meeting agendas (Meeting Mode outcomes)
+  var decisions = (sc.decisions || []).slice();
+
+  // Also pull live decisions from meeting agendas not yet in sc.decisions
+  var existingIds = {};
+  decisions.forEach(function(d){ if(d.itemId) existingIds[d.itemId] = true; });
+  (sc.meetings || []).forEach(function(mtg) {
+    (mtg.agenda || []).forEach(function(it) {
+      if (it.done && it.motion && it.motion.outcome && !existingIds[it.id]) {
+        decisions.push({
+          itemId:  it.id,
+          date:    mtg.date || '',
+          mtgType: mtg.type || '',
+          text:    it.text || '',
+          motion:  it.motion.text || '',
+          mover:   it.motion.mover || '',
+          sec:     it.motion.sec || '',
+          outcome: it.motion.outcome || '',
+          votes:   {for: it.motion.for||0, against: it.motion.against||0, abstain: it.motion.abstain||0},
+          source:  'meeting-mode'
+        });
+      }
+    });
+  });
+
+  // Sort newest first
+  decisions.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+
+  if (!decisions.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📋</div>'
+      + '<div class="empty-h">No decisions recorded yet</div>'
+      + '<div class="empty-s">Decisions made during Meeting Mode and decisions extracted from uploaded historic minutes will appear here.</div>'
+      + '</div>';
+    return;
+  }
+
+  // Search bar + table
+  el.innerHTML = '<div style="margin-bottom:14px">'
+    + '<input id="dl-search" type="text" placeholder="Search decisions, motions, outcomes…" '
+    + 'style="width:100%;border:1px solid var(--g3);border-radius:6px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box" '
+    + 'oninput="filterDecisionLedger()" />'
+    + '</div>'
+    + '<div id="dl-table-wrap"></div>';
+
+  renderDecisionLedgerTable(decisions);
+  // Store on window for search filtering
+  window._dlAllDecisions = decisions;
+}
+
+function renderDecisionLedgerTable(decisions) {
+  var wrap = document.getElementById('dl-table-wrap');
+  if (!wrap) return;
+  if (!decisions.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--g4);font-size:13px">No decisions match your search.</div>';
+    return;
+  }
+  var mtgTypeLabel = {council:'Council',agm:'AGM',sgm:'SGM',committee:'Committee'};
+  var html = '<div class="card" style="overflow:hidden">'
+    + '<table class="tbl">'
+    + '<thead><tr>'
+    + '<th style="width:90px">Date</th>'
+    + '<th style="width:70px">Type</th>'
+    + '<th>Item / Motion</th>'
+    + '<th style="width:90px">Outcome</th>'
+    + '<th style="width:100px">Vote</th>'
+    + '<th style="width:80px">Source</th>'
+    + '</tr></thead><tbody>';
+
+  decisions.forEach(function(d) {
+    var outcomeColor = d.outcome === 'CARRIED' ? 'var(--grn)' : d.outcome === 'DEFEATED' ? 'var(--red)' : 'var(--amb)';
+    var outcomeBg    = d.outcome === 'CARRIED' ? 'var(--grnl)' : d.outcome === 'DEFEATED' ? 'var(--redl)' : 'var(--ambl)';
+    var voteStr = '';
+    if (d.votes && (d.votes.for || d.votes.against || d.votes.abstain)) {
+      voteStr = d.votes.for+'F / '+d.votes.against+'A / '+d.votes.abstain+'Ab';
+    }
+    var sourceLabel = d.source === 'historic-minutes' ? '📎 Historic'
+      : d.source === 'meeting-mode' ? '🔴 Live'
+      : d.source === 'imported' ? '📥 Imported' : '—';
+    var motionText = d.motion && d.motion.trim() ? d.motion : '';
+    var moverText  = (d.mover || d.sec) ? 'Moved: '+(d.mover||'—')+' · Sec: '+(d.sec||'—') : '';
+
+    html += '<tr>'
+      + '<td style="font-size:12px;white-space:nowrap;color:var(--ch3)">'+escHtml(d.date||'—')+'</td>'
+      + '<td><span class="tag gy" style="font-size:10px">'+escHtml(mtgTypeLabel[d.mtgType]||d.mtgType||'—')+'</span></td>'
+      + '<td>'
+      +   '<div style="font-weight:600;font-size:13px;color:var(--ch)">'+escHtml(d.text||'')+'</div>'
+      +   (motionText ? '<div style="font-size:11px;color:var(--ch3);margin-top:3px;font-style:italic">'+escHtml(motionText)+'</div>' : '')
+      +   (moverText  ? '<div style="font-size:10px;color:var(--g4);margin-top:2px">'+escHtml(moverText)+'</div>' : '')
+      + '</td>'
+      + '<td><span style="background:'+outcomeBg+';color:'+outcomeColor+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">'+escHtml(d.outcome||'—')+'</span></td>'
+      + '<td style="font-size:11px;color:var(--ch3);white-space:nowrap">'+escHtml(voteStr||'—')+'</td>'
+      + '<td style="font-size:11px;color:var(--g4)">'+sourceLabel+'</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table></div>'
+    + '<div style="font-size:11px;color:var(--g4);margin-top:8px;text-align:right">'+decisions.length+' decision'+(decisions.length!==1?'s':'')+'</div>';
+  wrap.innerHTML = html;
+}
+
+function filterDecisionLedger() {
+  var q = (document.getElementById('dl-search').value || '').toLowerCase().trim();
+  var all = window._dlAllDecisions || [];
+  if (!q) { renderDecisionLedgerTable(all); return; }
+  var filtered = all.filter(function(d) {
+    return (d.text    || '').toLowerCase().indexOf(q) >= 0
+        || (d.motion  || '').toLowerCase().indexOf(q) >= 0
+        || (d.outcome || '').toLowerCase().indexOf(q) >= 0
+        || (d.date    || '').toLowerCase().indexOf(q) >= 0
+        || (d.mover   || '').toLowerCase().indexOf(q) >= 0
+        || (d.mtgType || '').toLowerCase().indexOf(q) >= 0
+        || (d.source  || '').toLowerCase().indexOf(q) >= 0;
+  });
+  renderDecisionLedgerTable(filtered);
 }
 
 function scUploadDoc(scId) {
