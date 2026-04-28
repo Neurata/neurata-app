@@ -6734,82 +6734,135 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '<button class="btn pri" style="width:100%;margin-top:14px" onclick="billingSubmit()">Save Payment Method</button>';
   }
 
-  html += '</div></div>'; // close cb + card
+  html += '</div></div>'; // close cb + card (payment method)
 
-  html += '</div><div>';
+  html += '</div>'; // close g2 left col
+  html += '</div>'; // close g2
 
-  // Subscription Summary — active services per SC only
-  // ── SC Subscription Status ──────────────────────────────────────
+  // ── ACSS pending verification banner ──────────────────────────────────
+  var isAcssPending = APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
+  if (isAcssPending) {
+    html += '<div class="al warn" style="margin-bottom:14px">⏳ <strong>Bank Account Verification Pending</strong> — We sent two small microdeposits to your bank account. This typically takes 1–3 business days. Once verified, your payment method will be confirmed and subscriptions can be activated. Check your Stripe dashboard or wait for the confirmation email.</div>';
+  }
+
+  // ── Account Statements (from Stripe — full width) ─────────────────────
   html += '<div class="card" style="margin-bottom:14px">';
+  html += '<div class="ch_"><div class="ct">Account Statements</div></div>';
+  html += '<div class="cb" id="statements-body" style="padding:12px 15px">';
+  html += '<div style="color:var(--g4);font-size:13px">Loading statements…</div>';
+  html += '</div></div>';
+
+  // ── Strata Corporations — full width with cost summary ────────────────
+  html += '<div class="card">';
   html += '<div class="ch_"><div class="ct">Strata Corporations</div></div>';
-  html += '<div class="cb">';
+  html += '<div class="cb" style="padding:0">';
   var allSCs = getVisibleSCs();
   if (!allSCs.length) {
-    html += '<div style="color:var(--g4);font-size:13px">No strata corporations yet.</div>';
+    html += '<div style="padding:16px;color:var(--g4);font-size:13px">No strata corporations yet.</div>';
   } else {
-    allSCs.forEach(function(s, idx) {
-      var mmOn = scMmActive(s);
-      var tier = scSsTier(s);
-      var statusTag = mmOn
-        ? (tier === 'global'
-          ? '<span class="tag" style="background:#e8f4fd;color:#023e8a;font-size:11px">Global StrataSphere</span>'
-          : '<span class="tag grn" style="font-size:11px">Meeting Mode</span>')
-        : '<span class="tag gy" style="font-size:11px">Inactive</span>';
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;'+(idx>0?'border-top:1px solid var(--g2)':'')+'">';
-      html += '<div><div style="font-size:13px;font-weight:600;color:var(--ch)">'+escHtml(s.plan)+'</div>';
-      html += '<div style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+(s.lots?' · '+s.lots+' lots':'')+'</div></div>';
-      html += statusTag;
-      html += '</div>';
+    var totalMonthly = 0;
+    html += '<table class="tbl"><thead><tr>'
+      + '<th>Strata Corporation</th><th>Address</th><th style="text-align:center">Lots</th>'
+      + '<th>Status</th><th style="text-align:right">Monthly Cost</th>'
+      + '</tr></thead><tbody>';
+
+    allSCs.forEach(function(s) {
+      var mmOn  = s.mmStatus === 'ACTIVE' || s.mmActive;
+      var tier  = scSsTier(s);
+      var lots  = parseInt(s.lots) || 0;
+
+      var statusLabel, statusClass;
+      if (s.mmPendingCancel) {
+        statusLabel = 'Cancels ' + (function(){
+          var a = s.mmActivatedAt ? new Date(s.mmActivatedAt) : new Date();
+          var ann = new Date(a);
+          var now = new Date();
+          while (ann <= now) ann.setFullYear(ann.getFullYear() + 1);
+          return ann.toLocaleDateString('en-CA');
+        })();
+        statusClass = 'tag red';
+      } else if (!mmOn) {
+        statusLabel = 'Inactive';
+        statusClass = 'tag gy';
+      } else if (tier === 'global') {
+        statusLabel = 'Global StrataSphere';
+        statusClass = 'tag blu';
+      } else {
+        statusLabel = 'Meeting Mode';
+        statusClass = 'tag grn';
+      }
+
+      var monthlyRate = 0;
+      if (mmOn) {
+        var lotRate = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
+        monthlyRate = PRICING.perBuilding + (lotRate * lots);
+        totalMonthly += monthlyRate;
+      }
+
+      html += '<tr>'
+        + '<td><div style="font-weight:600;font-size:13px">'+escHtml(s.plan)+'</div>'
+        +   '<div style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+'</div></td>'
+        + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(s.addr||'—')+'</td>'
+        + '<td style="text-align:center;font-size:13px">'+lots+'</td>'
+        + '<td><span class="'+statusClass+'">'+statusLabel+'</span></td>'
+        + '<td style="text-align:right;font-size:13px;font-weight:600;color:var(--ch)">'
+        +   (mmOn ? 'CA$'+monthlyRate.toFixed(2)+'/mo' : '—')
+        + '</td>'
+        + '</tr>';
     });
+
+    // Total row
+    html += '<tr style="background:var(--g1)">'
+      + '<td colspan="4" style="font-size:12px;font-weight:700;color:var(--ch3);text-align:right;padding-right:16px">Total Monthly Subscription</td>'
+      + '<td style="text-align:right;font-size:14px;font-weight:800;color:var(--org)">CA$'+totalMonthly.toFixed(2)+'/mo</td>'
+      + '</tr>';
+
+    html += '</tbody></table>';
   }
   html += '</div></div>';
-  // Account Statements
-  html += '<div class="card">';
-  html += '<div class="ch_"><div class="ct">Account Statements</div>'
-    +(isMB ? '<button class="btn sm" onclick="generateInvoice()">&#128196; Email Invoice</button>' : '')
-    +'</div>';
-  html += '<div class="cb" id="statements-body">';
-  html += '<div style="color:var(--g4);font-size:13px">Loading statements...</div>';
-  html += '</div></div>';
 
-  html += '</div></div>';
   el.innerHTML = html;
-  // Auto-init Stripe card element if card tab is active
   if (payMethod === 'card') { setTimeout(function(){ billingSelectMethod('card'); }, 100); }
 
-  // Load statements async
+  // Load statements from Stripe async
   loadAccountStatements(document.getElementById('statements-body'));
 }
 
 function loadAccountStatements(el) {
   if (!el) return;
-  getSupabase().from('invoices')
-    .select('*')
-    .eq('brokerage_id', APP.brokerage.lic)
-    .order('period_end', {ascending: false})
-    .limit(12)
-    .then(function(r) {
-      if (r.error || !r.data || !r.data.length) {
-        el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet. Invoices are generated automatically at the end of each billing period.</div>';
-        return;
-      }
-      var html = '<table class="tbl"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>';
-      r.data.forEach(function(inv) {
-        var period = inv.period_start ? inv.period_start.slice(0,7) : '—';
-        var status = inv.status || 'draft';
-        var tag = status === 'paid' ? '<span class="tag grn">Paid</span>'
-          : status === 'sent' ? '<span class="tag amb">Sent</span>'
-          : '<span class="tag gy">Draft</span>';
-        html += '<tr>'
-          +'<td style="font-size:13px">'+period+'</td>'
-          +'<td style="font-size:13px">CA$'+(inv.amount_cents ? (inv.amount_cents/100).toFixed(2) : '—')+'</td>'
-          +'<td>'+tag+'</td>'
-          +'<td>'+(inv.pdf_url ? '<a href="'+escHtml(inv.pdf_url)+'" target="_blank" class="btn xs">Download</a>' : '')+'</td>'
-          +'</tr>';
-      });
-      html += '</tbody></table>';
-      el.innerHTML = html;
+  var customerId = APP.brokerage && APP.brokerage.stripeCustomerId;
+  if (!customerId) {
+    el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — statements appear here once your first payment is processed.</div>';
+    return;
+  }
+  fetch(WORKER_URL + '/stripe/invoices?customerId=' + encodeURIComponent(customerId))
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error || !d.invoices || !d.invoices.length) {
+      el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — your first invoice will appear here after your next billing date.</div>';
+      return;
+    }
+    var html = '<table class="tbl"><thead><tr>'
+      + '<th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th>'
+      + '</tr></thead><tbody>';
+    d.invoices.forEach(function(inv) {
+      var amt = inv.amount ? 'CA$'+(inv.amount/100).toFixed(2) : '—';
+      html += '<tr>'
+        + '<td style="font-size:12px;white-space:nowrap">'+escHtml(inv.date)+'</td>'
+        + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(inv.description || (inv.scPlan ? inv.scPlan : 'Subscription'))+'</td>'
+        + '<td style="font-size:13px;font-weight:600">'+amt+'</td>'
+        + '<td><span class="tag grn" style="font-size:10px">Paid</span></td>'
+        + '<td>'+(inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a>' : '')
+        +     (inv.pdfUrl ? ' <a href="'+escHtml(inv.pdfUrl)+'" target="_blank" class="btn xs">PDF</a>' : '')
+        + '</td>'
+        + '</tr>';
     });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  })
+  .catch(function(){
+    el.innerHTML = '<div style="color:var(--g4);font-size:13px">Could not load statements. Please try again.</div>';
+  });
 }
 
 function approveActivationRequest(reqId, scId, requestType) {
@@ -8353,6 +8406,20 @@ function cancelSCSubscription(scId) {
   scheduleCancelMM(scId);
 }
 
+function undoSsDowngrade(scId) {
+  var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
+  nConfirm(
+    'Remove the scheduled downgrade for ' + sc_.plan + '? Global StrataSphere will continue renewing at CA$' + PRICING.perLotGlobal + '/lot/month.',
+    function(ok) {
+      if (!ok) return;
+      sc_.ssPendingDowngrade = null;
+      getSupabase().from('strata_corps').update({ ss_pending_downgrade: null }).eq('plan_number', sc_.plan).then(function(){});
+      renderSCDetail(scId);
+      nAlert('Downgrade cancelled. Global StrataSphere continues.', 'Restored ✓', 'success');
+    }, 'Undo Downgrade', 'info'
+  );
+}
+
 function reactivateSCSubscription(scId) {
   var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
   var role = APP.currentUser && APP.currentUser.role || '';
@@ -8529,7 +8596,9 @@ function renderSCSubscription(s) {
         + (isMB && s.stripeSubscriptionId ? ' <button class="btn xs" onclick="reactivateSCSubscription(\''+scIdSafe+'\')">Undo Cancellation</button>' : '')
         + '</div>';
     } else if (s.ssPendingDowngrade && anniversaryStr) {
-      html += '<div class="al warn" style="margin-bottom:14px">⏳ Downgrades to Local StrataSphere on ' + anniversaryStr + ' — Global StrataSphere continues until your commitment ends.</div>';
+      html += '<div class="al warn" style="margin-bottom:14px">⏳ Downgrades to Local StrataSphere on ' + anniversaryStr + ' — Global StrataSphere continues until your commitment ends.'
+        + (isMB ? ' <button class="btn xs" onclick="undoSsDowngrade(\''+scIdSafe+'\')">Undo Downgrade</button>' : '')
+        + '</div>';
     } else if (anniversaryStr) {
       html += '<div class="al info" style="margin-bottom:14px">↻ Renews ' + anniversaryStr + ' — Annual commitment, billed monthly.</div>';
     }
@@ -9003,9 +9072,19 @@ function renderSidebar(activePg) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
       var mmOn = scMmActive(s);
       var ssTier = scSsTier(s);
-      var pill = mmOn
-        ? (ssTier === 'global' ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>' : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>')
-        : '<span class="s-bdg" style="background:var(--g2);color:var(--g4);font-size:9px">Inactive</span>';
+      var isAcssPending = APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
+      var pill;
+      if (isAcssPending) {
+        pill = '<span class="s-bdg" style="background:var(--ambl);color:var(--amb);font-size:9px">Pending</span>';
+      } else if (s.mmPendingCancel) {
+        pill = '<span class="s-bdg" style="background:var(--redl);color:var(--red);font-size:9px">Cancelling</span>';
+      } else if (mmOn) {
+        pill = ssTier === 'global'
+          ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>'
+          : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>';
+      } else {
+        pill = '<span class="s-bdg" style="background:var(--g2);color:var(--g4);font-size:9px">Inactive</span>';
+      }
       html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">';
       html += '<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(s.plan+(s.name?' — '+s.name:''))+'</span>';
       html += pill + '</div>';
