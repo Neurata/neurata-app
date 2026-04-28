@@ -9055,14 +9055,14 @@ function _classifyAndSaveDocText(docId, scId, text, b64) {
       _scId: scId || '',
       _userId: APP.currentUser && APP.currentUser.id || '',
       messages: [{role:'user', content:
-        'Classify this BC strata document. Return ONLY one word from this exact list: bylaws, strata-plan, minutes, financial, correspondence, contract, template, policy, other\n\nDocument sample:\n' + sample
+        'Classify this BC strata document. Return ONLY one word from this exact list: bylaws, strata-plan, minutes, financial, correspondence, contract, template, policy, disclosure, other\n\nDocument sample:\n' + sample
       }]
     })
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
     var raw = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim().toLowerCase();
-    var validTypes = ['bylaws','strata-plan','minutes','financial','correspondence','contract','template','policy','other'];
+    var validTypes = ['bylaws','strata-plan','minutes','financial','correspondence','contract','template','policy','disclosure','other'];
     var docType = validTypes.indexOf(raw) >= 0 ? raw : 'other';
     _saveDocText(docId, scId, text, docType);
   })
