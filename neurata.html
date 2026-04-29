@@ -1874,23 +1874,24 @@ function scStatusPill(s, size, style) {
   var fs  = (size === 'md') ? '11px' : '9px';
   var cls = (style === 'tag') ? 'tag' : 's-bdg';
   var isAcssPending = APP.brokerage && APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
-  var isPaid = s.mmActive === true || s.mmStatus === 'ACTIVE';
+  var isPaid = s.mmActive === true || s.mmStatus === 'ACTIVE' || s.ssTier === 'global';
   var mmOn   = scMmActive(s);
   var tier   = scSsTier(s);
+  var trialDone = scTrialExhausted();
 
   var label, bg, color;
   if (isAcssPending) {
-    label = 'Pending';     bg = 'var(--ambl)'; color = 'var(--amb)';
+    label = 'Pending';      bg = 'var(--ambl)'; color = 'var(--amb)';
   } else if (s.mmPendingCancel) {
-    label = 'Cancelling';  bg = 'var(--redl)'; color = 'var(--red)';
-  } else if (!mmOn) {
-    label = 'Inactive';    bg = 'var(--g2)';   color = 'var(--g4)';
+    label = 'Cancelling';   bg = 'var(--redl)'; color = 'var(--red)';
   } else if (tier === 'global') {
     label = 'StrataSphere'; bg = 'var(--blul)'; color = 'var(--blu)';
   } else if (isPaid) {
     label = 'Meeting Mode'; bg = 'var(--grnl)'; color = 'var(--grn)';
+  } else if (trialDone) {
+    label = 'Trial Ended';  bg = 'var(--redl)'; color = 'var(--red)';
   } else {
-    label = 'Trial';       bg = 'var(--ambl)'; color = 'var(--amb)';
+    label = 'Trial';        bg = 'var(--ambl)'; color = 'var(--amb)';
   }
   return '<span class="'+cls+'" style="background:'+bg+';color:'+color+';font-size:'+fs+'">'+label+'</span>';
 }
