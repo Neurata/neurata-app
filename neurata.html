@@ -10389,10 +10389,33 @@ function docExtractText(btn) {
   var scId  = btn.dataset.scid;
   if (!storagePath || !dbId) { nAlert('Missing storage path — try re-uploading the document.', 'Error', 'warn'); return; }
   btn.disabled = true;
-  btn.textContent = 'Indexing…';
 
-  // Single call to worker — fetches PDF, extracts full text (multi-pass), classifies, saves to DB
-  // All server-side — no browser timeout risk
+  // Animated feedback — spinner + cycling status messages + elapsed timer
+  var stages = [
+    'Fetching document…',
+    'Reading pages…',
+    'Extracting text…',
+    'Processing content…',
+    'Almost there…'
+  ];
+  var stageIdx = 0;
+  var elapsed = 0;
+  function updateBtn() {
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    var timeStr = mins > 0 ? mins+'m '+secs+'s' : secs+'s';
+    btn.innerHTML = '<span class="spin spin-wh" style="margin-right:5px"></span>'
+      + stages[Math.min(stageIdx, stages.length-1)]
+      + ' <span style="opacity:.6;font-size:10px">'+timeStr+'</span>';
+  }
+  updateBtn();
+  var ticker = setInterval(function(){
+    elapsed++;
+    // Advance stage roughly every 15s
+    if (elapsed % 15 === 0 && stageIdx < stages.length - 1) stageIdx++;
+    updateBtn();
+  }, 1000);
+
   fetch(WORKER_URL + '/extract-doc-text', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -10404,7 +10427,6 @@ function docExtractText(btn) {
     })
   })
   .then(function(r){
-    // Guard against non-JSON responses (e.g. Cloudflare 524 timeout)
     var ct = r.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
       return r.text().then(function(t){ throw new Error('Server error: ' + t.slice(0,100)); });
@@ -10412,14 +10434,14 @@ function docExtractText(btn) {
     return r.json();
   })
   .then(function(d){
+    clearInterval(ticker);
     if (d.error) throw new Error(d.error);
-    // Update local doc object
     var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
     if (sc_ && sc_.docs) {
       var doc = sc_.docs.find(function(x){ return x.dbId === dbId; });
       if (doc) { doc.documentText = d.text; doc.docType = d.docType; }
     }
-    btn.textContent = '✓ Indexed';
+    btn.innerHTML = '✓ Indexed';
     btn.disabled = true;
     btn.style.color = 'var(--grn)';
     btn.style.borderColor = 'var(--grn)';
@@ -10427,8 +10449,9 @@ function docExtractText(btn) {
     if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
   })
   .catch(function(e){
+    clearInterval(ticker);
     console.error('docExtractText error:', e);
-    btn.textContent = 'Failed — retry';
+    btn.innerHTML = 'Failed — retry';
     btn.disabled = false;
     nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
   });
