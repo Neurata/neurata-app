@@ -9290,7 +9290,7 @@ function renderSCOverview(s) {
 }
 
 function renderCouncilMembers(s) {
-  var members = s.councilMembers || [];
+  var members = (s.councilMembers || []).filter(function(m){ return m.isCouncil; });
   var html = '<div class="br" style="margin-bottom:12px">'
     +'<button class="btn sm pri" onclick="openAddCouncilMember(\''+s.id+'\')">+ Add Council Member</button>'
     +'</div>';
@@ -9305,12 +9305,13 @@ function renderCouncilMembers(s) {
     +'<th>Strata Lot</th><th>Name</th><th>Email</th><th>Council Role</th><th></th>'
     +'</tr></thead><tbody>';
 
-  members.forEach(function(m, idx) {
+  members.forEach(function(m) {
+    var idx = s.councilMembers.indexOf(m);
     html += '<tr>'
       +'<td><strong>'+escHtml(m.sl||'—')+'</strong></td>'
       +'<td>'+escHtml(m.name||'—')+'</td>'
       +'<td><a href="mailto:'+escHtml(m.email||'')+'" style="color:var(--org)">'+escHtml(m.email||'—')+'</a></td>'
-      +'<td>'+(m.isCouncil?'<span class="cm-badge">'+escHtml(m.role||'Council')+'</span>':'<span style="font-size:11px;color:var(--g4)">Owner</span>')+'</td>'
+      +'<td><span class="cm-badge">'+escHtml(m.role||'Council')+'</span></td>'
       +'<td><button class="btn xs" onclick="editCouncilMember(\''+s.id+'\','+idx+')">Edit</button>'
       +'<button class="btn xs" onclick="removeCouncilMember(\''+s.id+'\','+idx+')" style="color:var(--red)">✕</button></td>'
       +'</tr>';
@@ -9324,28 +9325,56 @@ function renderLotsPlan(s) {
   var members = s.councilMembers || [];
   var memberMap = {};
   members.forEach(function(m){ if(m.sl) memberMap[m.sl] = m; });
+  var isListView = APP._lotsView === 'list';
 
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
-    + '<div style="display:flex;gap:6px">'
+    + '<div style="display:flex;gap:6px;align-items:center">'
     + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()">⬆ Upload Roster</button>'
     + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
+    + '<button class="btn xs'+(isListView?'':' pri')+'" onclick="APP._lotsView=\'grid\';renderSCDetail(\''+s.id+'\')" title="Grid view">⊞</button>'
+    + '<button class="btn xs'+(isListView?' pri':'')+'" onclick="APP._lotsView=\'list\';renderSCDetail(\''+s.id+'\')" title="List view">☰</button>'
     + '</div>'
     + '</div>';
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">';
-  for (var i = 1; i <= lots; i++) {
-    var sl = 'SL'+String(i).padStart(3,'0');
-    var m  = memberMap[sl];
-    var bg = m ? (m.isCouncil ? 'background:var(--orgp);border-color:var(--org)' : 'background:var(--g1);border-color:var(--g3)') : '';
-    html += '<div style="border:1px solid var(--g2);border-radius:4px;padding:6px 8px;font-size:11px;cursor:pointer;'+bg+'" onclick="openOwnerInfo(\''+s.id+'\',\''+sl+'\')">'
-      + '<div style="font-weight:700">'+sl+'</div>'
-      + (m ? '<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
-           : '<div style="color:var(--g4);font-size:10px">—</div>')
-      + (m && m.isCouncil ? '<div style="font-size:9px;color:var(--org);font-weight:600">'+escHtml(m.role||'Council')+'</div>' : '')
-      + '</div>';
+
+  if (isListView) {
+    // List view — table with SL, name, email, council role, edit
+    var populated = [];
+    for (var i = 1; i <= lots; i++) {
+      var slL = 'SL'+String(i).padStart(3,'0');
+      populated.push({sl: slL, m: memberMap[slL]||null});
+    }
+    html += '<table class="cm-table"><thead><tr>'
+      + '<th>Strata Lot</th><th>Name</th><th>Email</th><th>Status</th><th></th>'
+      + '</tr></thead><tbody>';
+    populated.forEach(function(row) {
+      var m = row.m;
+      html += '<tr>'
+        + '<td><strong>'+row.sl+'</strong></td>'
+        + '<td>'+(m ? escHtml(m.name) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.email ? '<a href="mailto:'+escHtml(m.email)+'" style="color:var(--org)">'+escHtml(m.email)+'</a>' : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.isCouncil ? '<span class="cm-badge">'+escHtml(m.role||'Council')+'</span>' : (m ? '<span style="font-size:11px;color:var(--g4)">Owner</span>' : ''))+'</td>'
+        + '<td><button class="btn xs" onclick="openOwnerInfo(\''+s.id+'\',\''+row.sl+'\')">'+( m ? 'Edit' : 'Add')+'</button></td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    // Grid view
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">';
+    for (var j = 1; j <= lots; j++) {
+      var sl = 'SL'+String(j).padStart(3,'0');
+      var m  = memberMap[sl];
+      var bg = m ? (m.isCouncil ? 'background:var(--orgp);border-color:var(--org)' : 'background:var(--g1);border-color:var(--g3)') : '';
+      html += '<div style="border:1px solid var(--g2);border-radius:4px;padding:6px 8px;font-size:11px;cursor:pointer;'+bg+'" onclick="openOwnerInfo(\''+s.id+'\',\''+sl+'\')">'
+        + '<div style="font-weight:700">'+sl+'</div>'
+        + (m ? '<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
+             : '<div style="color:var(--g4);font-size:10px">—</div>')
+        + (m && m.isCouncil ? '<div style="font-size:9px;color:var(--org);font-weight:600">'+escHtml(m.role||'Council')+'</div>' : '')
+        + '</div>';
+    }
+    html += '</div>';
+    html += '<div style="font-size:11px;color:var(--g4);margin-top:10px">Orange lots are council members. Upload a CSV/XLS roster with columns: <strong>lot, name, email</strong></div>';
   }
-  html += '</div>';
-  html += '<div style="font-size:11px;color:var(--g4);margin-top:10px">Orange lots are council members. Upload a CSV/XLS roster with columns: <strong>lot, name, email</strong></div>';
   return html;
 }
 
