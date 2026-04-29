@@ -7422,13 +7422,14 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Account Statements</div>'
     + '<select id="statements-range" style="font-size:12px;border:1px solid var(--g3);border-radius:4px;padding:4px 8px;font-family:inherit;color:var(--ch)" onchange="loadAccountStatements(document.getElementById(\'statements-body\'),this.value)">'
+    + '<option value="" disabled selected>Select period…</option>'
     + '<option value="all">All time</option>'
     + '<option value="ytd">Year to date</option>'
     + '<option value="12">Last 12 months</option>'
     + (function(){
         var opts = '';
         var now = new Date();
-        for (var i = 0; i < 12; i++) {
+        for (var i = 0; i < 24; i++) {
           var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           var val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
           var lbl = d.toLocaleDateString('en-CA', {year:'numeric', month:'long'});
@@ -7439,7 +7440,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     + '</select>'
     + '</div>';
   html += '<div class="cb" id="statements-body" style="padding:12px 15px">';
-  html += '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading…</div>';
+  html += '<div style="color:var(--g4);font-size:13px">Select a period from the dropdown to view statements.</div>';
   html += '</div></div>';
 
   // ── Strata Corporations — full width with cost summary ────────────────
@@ -7492,19 +7493,15 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
   el.innerHTML = html;
   if (payMethod === 'card') { setTimeout(function(){ billingSelectMethod('card'); }, 100); }
-
-  // Load statements from Stripe async
-  loadAccountStatements(document.getElementById('statements-body'));
 }
 
 function loadAccountStatements(el, range) {
-  if (!el) return;
+  if (!el || !range) return;
   var customerId = APP.brokerage && APP.brokerage.stripeCustomerId;
   if (!customerId) {
-    el.innerHTML = '<div style="color:var(--g4);font-size:13px">No payments yet — your first statement will appear here once a subscription is active.</div>';
+    el.innerHTML = '<div style="color:var(--g4);font-size:13px">No payment account found. Activate a subscription to see statements here.</div>';
     return;
   }
-  range = range || 'all';
   el.innerHTML = '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading…</div>';
 
   // Calculate unix timestamps for the selected range
@@ -7558,7 +7555,7 @@ function loadAccountStatements(el, range) {
 
     // Paid payments — straight from Stripe
     if (!d.invoices || !d.invoices.length) {
-      html += '<div style="color:var(--g4);font-size:13px">No payments recorded for this period.</div>';
+      html += '<div style="color:var(--g4);font-size:13px">No statements found for the selected period.</div>';
       el.innerHTML = html;
       return;
     }
