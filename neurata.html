@@ -5964,17 +5964,17 @@ function uploadBrokerageLogo(input) {
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) { nAlert('Logo must be under 2MB.', 'File Too Large', 'warn'); return; }
   var ext = file.name.split('.').pop().toLowerCase();
-  var path = 'logos/' + APP.brokerage.lic + '.' + ext;
-  getSupabase().storage.from('public-assets').upload(path, file, { upsert: true })
+  var path = 'logos/' + APP.brokerage.lic + '/logo.' + ext;
+  getSupabase().storage.from('user-assets').upload(path, file, { upsert: true })
     .then(function(r) {
       if (r.error) { nAlert('Upload failed: '+(r.error.message||'unknown error'), 'Upload Error', 'warn'); return; }
-      var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+      var url = getSupabase().storage.from('user-assets').getPublicUrl(path).data.publicUrl;
       return getSupabase().from('brokerages').update({ logo_url: url }).eq('bcfsa_lic', APP.brokerage.lic)
         .then(function(r2) {
           if (r2.error) { nAlert('Could not save logo URL.', 'Save Error', 'warn'); return; }
           APP.brokerage.logoUrl = url;
           renderBrokerage();
-          nAlert('Logo uploaded successfully.', 'Logo Saved', 'info');
+          nAlert('Logo uploaded successfully.', 'Logo Saved ✓', 'success');
         });
     });
 }
