@@ -4390,19 +4390,72 @@ function renderCtr(it) {
         ? 'No attendance recorded — go to Attendance first'
         : '✗ Quorum not met — '+presentCount+' present, '+quorumRequired+' required';
 
-    h += '<div style="padding:18px 16px">';
-    // Quorum status
-    h += '<div style="padding:12px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;font-weight:600;'
+    h += '<div style="padding:18px 16px;overflow-y:auto">';
+
+    // Quorum status bar
+    h += '<div style="padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;font-weight:600;'
       + 'background:'+(hasQuorum?'var(--grnl)':'var(--redl)')+';color:'+quorumColor+';">'
       + quorumText + '</div>';
 
     if (!alreadyCalled) {
-      // Quorum checkbox
-      h += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;margin-bottom:18px;padding:12px 14px;border:1px solid var(--g2);border-radius:6px;background:var(--g1)">'
-        + '<input type="checkbox" id="cto-quorum-ck" '+(hasQuorum?'checked':'')+' style="width:17px;height:17px;accent-color:var(--org);cursor:pointer" onchange="mmCallToOrder()">'
-        + '<span>Quorum has been achieved — call the meeting to order</span>'
-        + '</label>';
-      h += '<div style="font-size:11px;color:var(--g4)">Checking this box calls the meeting to order and starts the meeting clock. If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
+      // Build script variables
+      var mtgType  = (mtgObj && mtgObj.type) || 'council';
+      var isAGM    = mtgType === 'agm';
+      var isSGM    = mtgType === 'sgm';
+      var isGenMtg = isAGM || isSGM;
+      var plan     = sc_ ? sc_.plan : '[Strata Plan]';
+      var mgrName  = (APP.currentUser && APP.currentUser.name) || '[Manager Name]';
+      var hour     = new Date().getHours();
+      var greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+      var nowTime  = new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});
+
+      var scriptLines = [];
+      if (!isGenMtg) {
+        // Council meeting script
+        scriptLines = [
+          '"Good '+greeting+', everyone.',
+          'I would like to call this meeting of the Strata Council for Strata Plan '+plan+' to order at '+nowTime+'.',
+          'Before we begin, I will confirm attendance and that quorum has been achieved."',
+          '',
+          '<em style="color:var(--g4)">(Pause to confirm attendance)</em>',
+          '',
+          '"Quorum is present."'
+        ];
+      } else {
+        // AGM / SGM script
+        var mtgLabel = isAGM ? 'Annual General Meeting of the Owners' : 'Special General Meeting of the Owners';
+        scriptLines = [
+          '"Good '+greeting+', everyone.',
+          'I would like to call the '+mtgLabel+' of Strata Plan '+plan+' to order at '+nowTime+'.',
+          'My name is '+mgrName+', and I am the Strata Manager for the corporation."',
+          '',
+          '<em style="color:var(--g4)">(Optional: introduce chairperson if different)</em>',
+          '',
+          '"You are reminded that only eligible voters may move or second motions, and all speakers should be recognized by the chair before speaking."',
+          '"Before proceeding, I will confirm registration and that quorum has been established in accordance with the Strata Property Act and the bylaws."',
+          '',
+          '<em style="color:var(--g4)">(Pause to confirm)</em>',
+          '',
+          '"Quorum has been achieved, and the meeting is duly constituted."'
+        ];
+      }
+
+      // Script card
+      h += '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:16px 18px;margin-bottom:18px">';
+      h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:10px">Call to Order Script</div>';
+      h += '<div style="font-size:13px;line-height:1.8;color:var(--ch)">';
+      scriptLines.forEach(function(line){
+        h += (line === '' ? '<br>' : '<div>'+line+'</div>');
+      });
+      h += '</div></div>';
+
+      // Call to Order button + quorum note
+      h += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
+      h += '<button class="btn pri" style="font-size:13px;padding:10px 22px" id="cto-btn" onclick="mmCallToOrder()" '+(hasQuorum?'':'disabled title="Confirm attendance first"')+'>☎ Call to Order — Start Clock</button>';
+      if (!hasQuorum) h += '<span style="font-size:11px;color:var(--red)">Confirm attendance before calling to order</span>';
+      h += '</div>';
+      h += '<div style="font-size:11px;color:var(--g4);margin-top:10px">If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
+
     } else {
       h += '<div style="padding:12px 14px;border-radius:6px;background:var(--grnl);color:var(--grn);font-size:13px;font-weight:600">✓ Meeting called to order — clock running</div>';
     }
@@ -4759,8 +4812,6 @@ function closeMMPanels() {
 
 
 function mmCallToOrder() {
-  var ck = document.getElementById('cto-quorum-ck');
-  if (!ck || !ck.checked) return; // unchecking does nothing
   _mmCallToOrderProceed();
 }
 function _mmCallToOrderProceed() {
