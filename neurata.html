@@ -5918,7 +5918,6 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('  setTimeout(function(){ window.print(); }, 800);');
   lines.push('};');
   lines.push('<\/script>');
-  lines.push('</body></html>');
 
   var w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { nAlert('Please allow pop-ups for this site to export PDF.', 'Pop-up Blocked', 'warn'); return; }
@@ -10399,38 +10398,44 @@ function docExtractText(btn) {
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   var doc = sc_ && sc_.docs && sc_.docs.find(function(x){ return x.dbId === dbId; });
   if (doc) doc._indexing = true;
-
-  // Re-render docs list to show spinner pill immediately
   var el2 = document.getElementById('mtg-body');
   if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
 
-  // Create a signed URL for the private neurata-documents bucket
-  getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 60)
+  if (typeof pdfjsLib === 'undefined') {
+    nAlert('PDF.js library not loaded. Please refresh the page and try again.', 'Error', 'warn');
+    if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+    return;
+  }
+
+  // Get signed URL for private bucket
+  getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 120)
   .then(function(res) {
     if (res.error || !res.data || !res.data.signedUrl) {
       throw new Error('Could not generate signed URL: ' + (res.error && res.error.message || 'unknown'));
     }
-    return fetch(res.data.signedUrl);
+    // Load PDF with PDF.js
+    return pdfjsLib.getDocument(res.data.signedUrl).promise;
   })
-  .then(function(r){
-    if (!r.ok) throw new Error('Could not fetch document from storage (' + r.status + ')');
-    return r.blob();
+  .then(function(pdf) {
+    var numPages = pdf.numPages;
+    var pagePromises = [];
+    for (var i = 1; i <= numPages; i++) {
+      pagePromises.push(pdf.getPage(i).then(function(page) {
+        return page.getTextContent().then(function(content) {
+          return content.items.map(function(item) { return item.str; }).join(' ');
+        });
+      }));
+    }
+    return Promise.all(pagePromises);
   })
-  .then(function(blob){
-    return new Promise(function(resolve, reject){
-      var reader = new FileReader();
-      reader.onloadend = function(){ resolve(reader.result.split('base64,')[1]); };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+  .then(function(pages) {
+    var fullText = pages.join('\n\n').trim();
+    if (!fullText) throw new Error('No text found in PDF. The document may be image-only (scanned). Try uploading a text-based PDF.');
+    _finaliseDocExtract(dbId, scId, fullText, null);
   })
-  .then(function(b64){
-    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1);
-  })
-  .catch(function(e){
+  .catch(function(e) {
     console.error('docExtractText error:', e);
-    if (doc) doc._indexing = false;
-    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+    if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
     nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
   });
 }
@@ -10439,7 +10444,7 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass) {
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   var doc = sc_ && sc_.docs && sc_.docs.find(function(x){ return x.dbId === dbId; });
 
-  if (pass > 5) {
+  if (pass > 10) {
     if (accumulated) _finaliseDocExtract(dbId, scId, accumulated, b64);
     else if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
     return;
@@ -10447,46 +10452,73 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass) {
 
   var isFirstPass = pass === 1;
   var prompt = isFirstPass
-    ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
-    : 'Continue extracting the text of this document. You previously extracted up to:\n\n---\n' + accumulated.slice(-500) + '\n---\n\nContinue from exactly where that left off. Do not repeat any text already extracted. Extract everything remaining to the end of the document.';
+    ? 'Extract the text content of this document. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize. Stop at a clean section boundary if you reach the output limit.'
+    : 'Extract the text content of this document starting from this section:\n\n---\n' + accumulated.slice(-300) + '\n---\n\nContinue from exactly where that ends. Do not repeat text already shown above. Stop at a clean section boundary if you reach the output limit.';
 
-  fetch(WORKER_URL + '/ai', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      betas: ['pdfs-2024-09-25'],
-      _usageType: 'parse_plan',
-      _brokerageId: APP.brokerage && APP.brokerage.lic || '',
-      _scId: scId || '',
-      _userId: APP.currentUser && APP.currentUser.id || '',
-      messages: [{role:'user', content:[
-        {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-        {type:'text', text:prompt}
-      ]}]
+  function doFetch(attempt) {
+    fetch(WORKER_URL + '/ai', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        betas: ['pdfs-2024-09-25'],
+        _usageType: 'parse_plan',
+        _brokerageId: APP.brokerage && APP.brokerage.lic || '',
+        _scId: scId || '',
+        _userId: APP.currentUser && APP.currentUser.id || '',
+        messages: [{role:'user', content:[
+          {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+          {type:'text', text:prompt}
+        ]}]
+      })
     })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (d.error) throw new Error(JSON.stringify(d.error));
-    var chunk = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    if (!chunk) throw new Error('No text extracted');
-    var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
-    if (d.stop_reason === 'max_tokens') {
-      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1);
-    } else {
-      _finaliseDocExtract(dbId, scId, fullText, b64);
-    }
-  })
-  .catch(function(e){
-    console.error('docExtractText pass ' + pass + ' error:', e);
-    if (accumulated) {
-      _finaliseDocExtract(dbId, scId, accumulated, b64);
-    } else {
-      if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
-      nAlert('Could not index document: ' + (e.message||'unknown'), 'Index Failed', 'warn');
-    }
-  });
+    .then(function(r){
+      var ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        return r.text().then(function(t){
+          // Retry on gateway timeout (524/502/503)
+          if ((r.status === 524 || r.status === 502 || r.status === 503) && attempt < 3) {
+            console.log('Pass '+pass+' gateway timeout ('+r.status+'), retrying (attempt '+attempt+')...');
+            setTimeout(function(){ doFetch(attempt + 1); }, 3000);
+            return null;
+          }
+          throw new Error('Gateway error ('+r.status+')');
+        });
+      }
+      return r.json();
+    })
+    .then(function(d){
+      if (!d) return; // retrying
+      if (d.error) throw new Error(JSON.stringify(d.error));
+      var chunk = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+      if (!chunk) {
+        if (accumulated) _finaliseDocExtract(dbId, scId, accumulated, b64);
+        else if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+        return;
+      }
+      var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
+      if (d.stop_reason === 'max_tokens') {
+        _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1);
+      } else {
+        _finaliseDocExtract(dbId, scId, fullText, b64);
+      }
+    })
+    .catch(function(e){
+      console.error('docExtractText pass ' + pass + ' attempt ' + attempt + ' error:', e);
+      if (attempt < 3) {
+        console.log('Retrying pass ' + pass + '...');
+        setTimeout(function(){ doFetch(attempt + 1); }, 3000);
+        return;
+      }
+      if (accumulated) {
+        _finaliseDocExtract(dbId, scId, accumulated, b64);
+      } else {
+        if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+        nAlert('Could not index document after retries. The PDF may be too large — try splitting it into smaller files.', 'Index Failed', 'warn');
+      }
+    });
+  }
+  doFetch(1);
 }
 
 function _reRenderDocs(sc_) {
@@ -10495,7 +10527,7 @@ function _reRenderDocs(sc_) {
 }
 
 function _finaliseDocExtract(dbId, scId, text, b64) {
-  _classifyAndSaveDocText(dbId, scId, text, b64);
+  _classifyAndSaveDocText(dbId, scId, text, b64); // b64 may be null for PDF.js extractions
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
     var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
@@ -11772,6 +11804,12 @@ init();
     <div id="cdlg-ft"></div>
   </div>
 </div>
-
+<!-- PDF.js for client-side text extraction -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+</script>
 </body>
 </html>
