@@ -863,11 +863,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <option value="Member at Large">Member at Large</option>
         </select></div>
       </div>
-      <div class="cm-form-row full" style="margin-top:8px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="checkbox" id="cm-is-council" checked/> Council member (appears in quorum count)
-        </label>
-      </div>
     </div>
     <div class="mo-ft">
       <button class="btn" onclick="closeMo('mo-council-member')">Cancel</button>
@@ -876,7 +871,44 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
-<!-- ═══════ INVITE ASSISTANT MODAL ═══════ -->
+<!-- Owner Info modal — for Strata Lot grid (no role/council) -->
+<div class="mo" id="mo-owner-info">
+  <div class="mo-box" style="max-width:420px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t" id="oi-modal-title">Owner Info</div>
+        <div style="font-size:11px;color:var(--g4)" id="oi-sl-label"></div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-owner-info')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div class="fr">
+        <div class="fg"><label>Owner / Resident Name</label><input id="oi-name" type="text" placeholder="e.g. Jane Smith"/></div>
+        <div class="fg"><label>Email</label><input id="oi-email" type="email" placeholder="jane@example.com"/></div>
+      </div>
+      <div class="fg" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="oi-is-council" style="accent-color:var(--org)"/>
+          Council member (include in quorum count and mover/seconder)
+        </label>
+      </div>
+      <div id="oi-council-role-row" style="display:none;margin-top:8px">
+        <label style="font-size:12px;color:var(--g4);margin-bottom:4px;display:block">Council Role</label>
+        <select id="oi-role" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:6px 8px;font-size:13px;font-family:inherit">
+          <option value="Member at Large">Member at Large</option>
+          <option value="President">President</option>
+          <option value="Vice President">Vice President</option>
+          <option value="Treasurer">Treasurer</option>
+          <option value="Secretary">Secretary</option>
+        </select>
+      </div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-owner-info')">Cancel</button>
+      <button class="btn pri" onclick="saveOwnerInfo()">Save</button>
+    </div>
+  </div>
+</div>
 <div class="mo" id="mo-invite-asst">
   <div class="mo-box" style="max-width:480px">
     <div class="mo-hd">
@@ -9293,26 +9325,136 @@ function renderLotsPlan(s) {
   var memberMap = {};
   members.forEach(function(m){ if(m.sl) memberMap[m.sl] = m; });
 
-  var html = '<div style="font-size:12px;color:var(--g4);margin-bottom:10px">'
-    +(lots)+' strata lots · Click any lot to assign owner information'
-    +'</div>';
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
+    + '<div style="display:flex;gap:6px">'
+    + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()">⬆ Upload Roster</button>'
+    + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
+    + '</div>'
+    + '</div>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">';
   for (var i = 1; i <= lots; i++) {
     var sl = 'SL'+String(i).padStart(3,'0');
     var m  = memberMap[sl];
-    var bg = m ? (m.isCouncil ? 'background:var(--orgp);border-color:var(--org)' : 'background:var(--g1)') : '';
-    html += '<div style="border:1px solid var(--g2);border-radius:4px;padding:6px 8px;font-size:11px;cursor:pointer;'+bg+'" onclick="openAddCouncilMember(\''+s.id+'\',\''+sl+'\')">'
-      +'<div style="font-weight:700">'+sl+'</div>'
-      +(m?'<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
-        :'<div style="color:var(--g4);font-size:10px">—</div>')
-      +'</div>';
+    var bg = m ? (m.isCouncil ? 'background:var(--orgp);border-color:var(--org)' : 'background:var(--g1);border-color:var(--g3)') : '';
+    html += '<div style="border:1px solid var(--g2);border-radius:4px;padding:6px 8px;font-size:11px;cursor:pointer;'+bg+'" onclick="openOwnerInfo(\''+s.id+'\',\''+sl+'\')">'
+      + '<div style="font-weight:700">'+sl+'</div>'
+      + (m ? '<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
+           : '<div style="color:var(--g4);font-size:10px">—</div>')
+      + (m && m.isCouncil ? '<div style="font-size:9px;color:var(--org);font-weight:600">'+escHtml(m.role||'Council')+'</div>' : '')
+      + '</div>';
   }
   html += '</div>';
+  html += '<div style="font-size:11px;color:var(--g4);margin-top:10px">Orange lots are council members. Upload a CSV/XLS roster with columns: <strong>lot, name, email</strong></div>';
   return html;
 }
 
-var _cmScId = '';
-var _cmExistingIdx = -1;
+var _oiScId = '', _oiSl = '';
+
+function openOwnerInfo(scId, sl) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  if(!s.councilMembers) s.councilMembers=[];
+  _oiScId = scId; _oiSl = sl;
+  var existing = s.councilMembers.find(function(m){return m.sl===sl;});
+  document.getElementById('oi-modal-title').textContent = existing ? 'Edit Owner Info' : 'Owner Info';
+  document.getElementById('oi-sl-label').textContent = sl;
+  document.getElementById('oi-name').value  = existing ? existing.name  : '';
+  document.getElementById('oi-email').value = existing ? existing.email : '';
+  var ck = document.getElementById('oi-is-council');
+  ck.checked = !!(existing && existing.isCouncil);
+  var roleRow = document.getElementById('oi-council-role-row');
+  roleRow.style.display = ck.checked ? '' : 'none';
+  var roleSel = document.getElementById('oi-role');
+  roleSel.value = (existing && existing.role) || 'Member at Large';
+  ck.onchange = function(){ roleRow.style.display = ck.checked ? '' : 'none'; };
+  openMo('mo-owner-info');
+}
+
+function saveOwnerInfo() {
+  var s = APP.sc.find(function(x){return x.id===_oiScId;}); if(!s) return;
+  if(!s.councilMembers) s.councilMembers=[];
+  var name  = document.getElementById('oi-name').value.trim();
+  var email = document.getElementById('oi-email').value.trim();
+  var isCouncil = document.getElementById('oi-is-council').checked;
+  var role  = isCouncil ? document.getElementById('oi-role').value : '';
+  if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
+  var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
+  var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil};
+  if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
+  s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+  sv('sc_'+s.id, s);
+  // Persist to Supabase
+  getSupabase().from('council_members').upsert({
+    sc_id: s.id, sl: _oiSl, full_name: name, email: email||null,
+    council_role: role||null, is_council: isCouncil
+  }, {onConflict:'sc_id,sl'}).then(function(){});
+  closeMo('mo-owner-info');
+  renderSCDetail(_oiScId);
+}
+
+function importOwnerRoster(input, scId) {
+  var file = input.files[0]; if(!file) return;
+  input.value = '';
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  if(!s.councilMembers) s.councilMembers=[];
+
+  var ext = file.name.split('.').pop().toLowerCase();
+  if(ext==='csv') {
+    var reader = new FileReader();
+    reader.onload = function(e){ _parseRosterCSV(e.target.result, s); };
+    reader.readAsText(file);
+  } else if(ext==='xls'||ext==='xlsx') {
+    if(typeof XLSX === 'undefined') {
+      nAlert('XLS support requires the SheetJS library. Please export as CSV and try again.','','warn'); return;
+    }
+    var r2 = new FileReader();
+    r2.onload = function(e){
+      var wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var csv = XLSX.utils.sheet_to_csv(ws);
+      _parseRosterCSV(csv, s);
+    };
+    r2.readAsArrayBuffer(file);
+  } else {
+    nAlert('Please upload a CSV or Excel file.','','warn');
+  }
+}
+
+function _parseRosterCSV(csv, s) {
+  var lines = csv.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  if(!lines.length){ nAlert('Empty file.','','warn'); return; }
+  // Detect header row
+  var startRow = 0;
+  var firstLower = lines[0].toLowerCase();
+  if(firstLower.indexOf('lot')>=0||firstLower.indexOf('sl')>=0||firstLower.indexOf('name')>=0) startRow=1;
+
+  var imported=0, skipped=0;
+  lines.slice(startRow).forEach(function(line){
+    var cols = line.split(',').map(function(c){return c.trim().replace(/^"|"$/g,'');});
+    if(cols.length<1) return;
+    // Try to find SL column — col[0] should be lot number or SL###
+    var rawSl = cols[0].replace(/\s/g,'').toUpperCase();
+    if(!rawSl.startsWith('SL')) rawSl = 'SL'+String(parseInt(rawSl)||0).padStart(3,'0');
+    if(rawSl==='SL000'||rawSl==='SL'){ skipped++; return; }
+    var name  = cols[1]||'';
+    var email = cols[2]||'';
+    if(!name){ skipped++; return; }
+    var idx = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
+    var existing = idx>=0 ? s.councilMembers[idx] : null;
+    // Preserve isCouncil/role if already set; just update name/email
+    var member = {
+      sl:rawSl, name:name, email:email,
+      role:    existing ? existing.role    : '',
+      isCouncil: existing ? existing.isCouncil : false
+    };
+    if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
+    imported++;
+  });
+  s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+  sv('sc_'+s.id, s);
+  nAlert('Imported '+imported+' owners'+(skipped?' ('+skipped+' skipped)':'')+'. Check council roles manually.','Roster Imported','success');
+  renderSCDetail(s.id);
+}
 
 function openAddCouncilMember(scId, sl) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
@@ -9382,7 +9524,7 @@ function saveCouncilMember() {
     var slTaken = s.councilMembers.find(function(m){ return m.sl === slVal; });
     if(slTaken) { nAlert('SL '+slVal+' is already assigned to '+slTaken.name+'.','SL Taken','warn'); return; }
   }
-  var member = {sl:slVal, name:name, email:email, role:role, isCouncil:role.length>0};
+  var member = {sl:slVal, name:name, email:email, role:role, isCouncil:true};
   if(_cmExistingIdx>=0){
     s.councilMembers[_cmExistingIdx]=member;
   } else {
