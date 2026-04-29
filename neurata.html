@@ -7037,7 +7037,6 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
       ? 'Credit card on file. Charges processed automatically each month.'
       : 'Canadian bank account on file. Pre-authorized debit processed on the 1st of each month.';
     html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;margin-bottom:12px">';
-    html += '<div style="font-size:22px">'+( payMethod==='card'?'💳':'🏦')+'</div>';
     html += '<div><div style="font-size:13px;font-weight:600;color:var(--ch)">'+methodLabel+'</div>';
     html += '<div style="font-size:12px;color:var(--g4);margin-top:2px">'+methodDesc+'</div></div></div>';
     html += '<div style="display:flex;gap:8px">';
@@ -8362,22 +8361,30 @@ function renderSuperAdminDashboard(el) {
 
     if (saView === 'list') {
       html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
-        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>AI Use</th><th>Address</th>'
+        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th style="text-align:right">MRR</th><th>Trial</th><th>AI Use</th><th>Address</th>'
         + '</tr></thead><tbody>';
       brokerages.forEach(function(b) {
         var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
         var bMM = bCorps.filter(function(s){ return s.is_subscribed; }).length;
+        var bMRR = 0;
+        bCorps.forEach(function(s){
+          var lots = parseInt(s.lots) || 0;
+          var isPaid = s.is_subscribed || s.ss_tier === 'global';
+          if (!isPaid) return;
+          bMRR += s.ss_tier === 'global'
+            ? PRICING.perBuilding + (PRICING.perLotGlobal * lots)
+            : PRICING.perBuilding + (PRICING.perLotLocal * lots);
+        });
         var bAiUsage = aiUsage.filter(function(u){return u.brokerage_id===b.bcfsa_lic;}).length;
         var bAiLimit = bCorps.length*100+bMM*50;
         var bAiPct = bAiLimit>0?Math.round(bAiUsage/bAiLimit*100):0;
-        var aiColor = bAiPct>=100?'var(--red)':bAiPct>=80?'var(--org)':'var(--g4)';
         var status = b.subscription_status || 'trial';
         var statusTag = status === 'active' ? '<span class="tag grn">✓ Unlimited Trial</span>' : '<span class="tag amb">Trial</span>';
         html += '<tr style="cursor:pointer" onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'\'">'
           + '<td><strong>'+escHtml(b.name||'—')+'</strong> '+statusTag+'</td>'
           + '<td style="font-size:12px;color:var(--g4)">'+escHtml(b.bcfsa_lic||'')+'</td>'
           + '<td style="font-size:12px">'+bCorps.length+'</td>'
-          + '<td style="font-size:12px">'+bMM+'</td>'
+          + '<td style="font-size:12px;text-align:right;font-weight:600;color:'+(bMRR>0?'var(--ch)':'var(--g4)')+'">'+( bMRR>0 ? 'CA$'+bMRR.toFixed(2) : '—')+'</td>'
           + '<td style="font-size:12px">'+(b.trial_meetings_used||0)+'/2</td>'
           + (function(){ var u=aiUsage.filter(function(x){return x.brokerage_id===b.bcfsa_lic;}).length; var lim=bCorps.length*100+bMM*50; var p=lim>0?Math.round(u/lim*100):0; return '<td style="font-size:12px;color:'+(p>=80?(p>=100?'var(--red)':'var(--org)'):'var(--g4)')+'">'+p+'%</td>'; })()
           + '<td style="font-size:12px;color:var(--g4)">'+escHtml(b.address||'')+'</td>'
