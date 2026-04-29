@@ -5581,10 +5581,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('</div>');
 
   lines.push('<script>');
-  lines.push('// Inject page numbers after print layout
   lines.push('window.onload = function() {');
-  lines.push('  var nums = document.querySelectorAll(".page-num");');
-  lines.push('  nums.forEach(function(el, i) { el.textContent = i + 1; });');
   lines.push('  setTimeout(function(){ window.print(); }, 800);');
   lines.push('};');
   lines.push('<\/script>');
