@@ -1195,7 +1195,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mm-bot">
-      <span class="mm-lbl" data-motion="1">Resolution</span><div id="mm-rtype" data-motion="1" style="flex-shrink:0"></div>
+      <span class="mm-lbl">Resolution</span><div id="mm-rtype" style="flex-shrink:0"></div>
       <div class="mm-bdiv" data-motion="1"></div>
       <span class="mm-lbl" data-motion="1">Decision Type</span><span id="mm-dtype" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--ch);white-space:nowrap">—</span>
       <div class="mm-bdiv" data-motion="1"></div>
@@ -2918,9 +2918,8 @@ function initMM() {
   document.getElementById('mm-mover').innerHTML = '<option value="">Select...</option>'+slOpts;
   document.getElementById('mm-secd').innerHTML  = '<option value="">Select...</option>'+slOpts;
   renderMmNav();
-  // Select first undone item
-  var first = MM.agenda.find(function(a){return !a.done;}) || MM.agenda[0];
-  if (first) { curItem = first.id; setItem(curItem); }
+  // Always start on the Attendance panel so managers record attendance first
+  mmShowAttendance();
   // Start 30-minute quorum countdown — only if quorum not yet confirmed
   var ctoItem = MM.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
   if (ctoItem && !ctoItem.attendanceLocked && !ctoItem.done) {
@@ -2945,94 +2944,109 @@ function isCallToOrderItem(it) {
   return it && (it.text||'').toLowerCase().indexOf('call to order') >= 0;
 }
 
+function mmShowAttendance() {
+  curItem = '__attendance__';
+  // Highlight the attendance nav item
+  document.querySelectorAll('.nav-it,.nav-sub').forEach(function(e){e.classList.remove('on');});
+  var ne = document.getElementById('nav__attendance__'); if(ne) ne.classList.add('on');
+  // Update centre panel header
+  document.getElementById('mm-cat').textContent = 'Pre-Meeting';
+  document.getElementById('mm-nm').textContent  = 'Attendance';
+  var editBtn = document.getElementById('mm-edit-item-btn');
+  if (editBtn) editBtn.style.display = 'none';
+  var rt = document.getElementById('mm-rtag'); if(rt) rt.style.display='none';
+  var rb = document.getElementById('mm-rtype'); if(rb) rb.innerHTML = '';
+  // Hide all bottom bar motion elements
+  document.querySelectorAll('.mm-bot [data-motion]').forEach(function(el){ el.style.display = 'none'; });
+  var confBtn = document.getElementById('mm-confbtn'); if(confBtn) confBtn.style.display='none';
+  var nextBtn = document.getElementById('mm-next-btn'); if(nextBtn) nextBtn.style.display='none';
+  // Render the attendance panel
+  renderAttendancePanel(null);
+}
+
 function renderAttendancePanel(it) {
+  // it is now unused — attendance stored on CTO item, fetched here directly
   var el = document.getElementById('mm-item-detail') || document.getElementById('mm-ctr');
   if (!el) return;
 
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   if (!sc_) { el.innerHTML = '<div style="padding:20px;color:var(--g4)">No strata corporation found.</div>'; return; }
 
-  var lots = sc_.lots || 20;
+  var ctoItem = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('call to order') >= 0; });
+  if (!ctoItem) { el.innerHTML = '<div style="padding:20px;color:var(--g4)">No Call to Order item on agenda.</div>'; return; }
+
   var mtgObj = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
-  var mtgTypeLocal = mtgObj ? mtgObj.type : 'council';
-  var isGeneralMtgLocal = (mtgTypeLocal==='agm'||mtgTypeLocal==='sgm');
-  // Build member list from councilMembers if defined
-  var slMembers = [];
-  if (!isGeneralMtgLocal && sc_.councilMembers && sc_.councilMembers.length > 0) {
-    slMembers = sc_.councilMembers.filter(function(m){return m.isCouncil;});
-  } else if (sc_.councilMembers && sc_.councilMembers.length > 0) {
-    slMembers = sc_.councilMembers.slice();
+  var mtgType = mtgObj ? mtgObj.type : 'council';
+  var isGeneral = (mtgType==='agm'||mtgType==='sgm');
+
+  var lots = sc_.lots || 20;
+  // Council meeting: only council members. AGM/SGM: all lots.
+  var members = sc_.councilMembers || [];
+  var slList, memberMap = {};
+  members.forEach(function(m){ if(m.sl) memberMap[m.sl] = m; });
+
+  if (!isGeneral && members.filter(function(m){return m.isCouncil;}).length > 0) {
+    slList = members.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+  } else {
+    slList = [];
+    for (var i = 1; i <= lots; i++) slList.push('SL'+String(i).padStart(3,'0'));
   }
-  // slList: use council members if defined, otherwise generate ALL strata lots
-  // (councilSLs is only used to drive mover/seconder dropdowns, not attendance)
-  var slList = slMembers.length > 0
-    ? slMembers.map(function(m){return m.sl;})
-    : (function(){ var arr=[]; for(var i=1;i<=lots;i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
 
-  // Meeting type determines quorum threshold
-  var isGeneralMtg = (MM.agenda && MM.agenda.length > 0 &&
-    (['agm','sgm'].indexOf(
-      (APP.sc.find(function(s){return s.id===MM.scId;}) &&
-       (APP.sc.find(function(s){return s.id===MM.scId;})).meetings &&
-       (APP.sc.find(function(s){return s.id===MM.scId;})).meetings.find(function(m){return String(m.id)===String(MM.mtgId);})||{type:'council'}).type
-    ) >= 0));
-
-  // Quorum: AGM/SGM = 1/3 of strata lots; Council = majority of council members
-  var totalUnits = isGeneralMtg ? lots : slList.length;
-  var quorumRequired = isGeneralMtg ? Math.ceil(lots / 3) : Math.ceil(slList.length / 2);
-
-  // Load saved attendance
-  var saved = it.attendance || {};
-
-  // Count present
-  var presentCount = slList.filter(function(sl){ return saved[sl] === 'present'; }).length;
+  var saved = ctoItem.attendance || {};
+  var presentCount = slList.filter(function(sl){ return saved[sl]==='present'; }).length;
+  var quorumRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(slList.length/2);
   var hasQuorum = presentCount >= quorumRequired;
 
-  // Build grid
-  var rows = '';
-  slList.forEach(function(sl) {
-    var status = saved[sl] || '';
-    var memberInfo = slMembers.find(function(m){return m.sl===sl;});
-    var nameLabel = memberInfo&&memberInfo.name ? ' — ' + memberInfo.name + (memberInfo.role?' ('+memberInfo.role+')':'') : '';
-    rows += '<div class="att-row">'
-      + '<div class="att-sl">'+sl+nameLabel+'</div>'
-      + '<div class="att-radio-cell"><input type="radio" name="att_'+sl+'" value="present" '+(status==='present'?'checked':'')+' onchange="attMarkSL(\''+sl+'\',\'present\',\''+it.id+'\')"></div>'
-      + '<div class="att-radio-cell"><input type="radio" name="att_'+sl+'" value="regrets" '+(status==='regrets'||status==='absent'?'checked':'')+' onchange="attMarkSL(\''+sl+'\',\'regrets\',\''+it.id+'\')"></div>'
-      + '<div class="att-radio-cell"><input type="radio" name="att_'+sl+'" value="proxy"   '+(status==='proxy'?'checked':'')+' onchange="attMarkSL(\''+sl+'\',\'proxy\',\''+it.id+'\')"></div>'
-      + '</div>';
-  });
-
-  var quorumClass = presentCount === 0 ? 'att-quorum-pending' : (hasQuorum ? 'att-quorum-met' : 'att-quorum-fail');
-  var quorumText  = presentCount === 0
-    ? 'Mark attendance to check quorum (' + quorumRequired + ' required)'
+  var quorumClass = presentCount===0 ? 'att-quorum-pending' : hasQuorum ? 'att-quorum-met' : 'att-quorum-fail';
+  var quorumText  = presentCount===0
+    ? 'Mark attendance to check quorum ('+quorumRequired+' required)'
     : hasQuorum
-      ? '✓ Quorum met — ' + presentCount + ' present of ' + quorumRequired + ' required'
-      : '✗ Quorum not met — ' + presentCount + ' present, ' + quorumRequired + ' required';
+      ? '✓ Quorum met — '+presentCount+' present of '+quorumRequired+' required'
+      : '✗ Quorum not met — '+presentCount+' present, '+quorumRequired+' required';
 
-  var typeLabel = isGeneralMtg
-    ? '(AGM/SGM — requires 1/3 of ' + lots + ' strata lots = ' + quorumRequired + ')'
-    : '(Council meeting — requires majority of ' + slList.length + ' council members = ' + quorumRequired + ')';
+  // Status colours for SL cards
+  var statusStyle = {
+    present: 'background:var(--grnl);border-color:var(--grn)',
+    regrets: 'background:var(--redl);border-color:var(--red)',
+    proxy:   'background:var(--blul);border-color:var(--blu)',
+    '':      'background:var(--wh);border-color:var(--g2)'
+  };
+  var statusLabel = {present:'Present', regrets:'Regrets', proxy:'Proxy', '':'—'};
+  var statusColor = {present:'var(--grn)', regrets:'var(--red)', proxy:'var(--blu)', '':'var(--g4)'};
 
-  var html = '<div class="att-panel">'
-    + '<div class="att-panel-hd">Registration &amp; Attendance</div>'
-    + '<div class="att-panel-sub">BC Strata Property Act — record attendance before calling the meeting to order. ' + typeLabel + '</div>'
-    + '<div class="att-quorum-bar ' + quorumClass + '" id="att-quorum-bar">' + quorumText + '</div>'    + '<button class="btn pri" style="width:100%;margin-bottom:12px;font-size:13px" onclick="mmCallToOrder()" id="cto-btn">☎ Call to Order</button>'
-    + '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">'    + '<button class="btn sm pri" onclick="attMarkAll(\''+it.id+'\',\'present\')">All Present</button>'    + '<button class="btn sm" onclick="attMarkAll(\''+it.id+'\',\'\')">Clear All</button>'    + '<button class="btn sm" style="margin-left:auto" id="att-toggle-btn" onclick="var w=document.getElementById(\'att-grid-wrap\');if(w){var isOpen=w.style.display!==\'none\';w.style.display=isOpen?\'none\':\'\';this.textContent=isOpen?\'Show Lots ▾\':\'Hide Lots ▴\';}">Show Lots ▾</button>'    + '</div>'    + '<div id="att-grid-wrap" style="display:none">'    + '<div class="att-grid">'    + '<div class="att-grid-hd">Strata Lot / Member</div>'    + '<div class="att-grid-hd center">Present</div>'    + '<div class="att-grid-hd center">Regrets</div>'    + '<div class="att-grid-hd center">Proxy</div>'    + rows    + '</div></div>'
-    // Minutes summary and notes still available
-    + '<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">Minutes Summary</span><span class="mm-stog">▶</span></div>'
-    + '<div class="mm-sbd" style="display:none">'
-    + '<textarea class="mm-notes" data-itemid="'+it.id+'" onblur="saveMinSummary(this.dataset.itemid,this.value)" placeholder="e.g. The manager confirmed that quorum was achieved with X strata lots present…">'+(it.minutesSummary||it.aiSummary||'')+'</textarea>'
+  var cards = slList.map(function(sl) {
+    var status = saved[sl] || '';
+    var m = memberMap[sl];
+    var style = statusStyle[status] || statusStyle[''];
+    return '<div style="border:1.5px solid var(--g2);border-radius:6px;padding:8px;font-size:11px;cursor:pointer;'+style+';text-align:center;user-select:none" '
+      + 'data-sl="'+sl+'" data-cto="'+ctoItem.id+'" onclick="attCycleStatus(this)">'
+      + '<div style="font-weight:700;font-size:12px;color:var(--ch)">'+sl+'</div>'
+      + (m ? '<div style="color:var(--ch3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;margin:0 auto">'+escHtml(m.name)+'</div>' : '<div style="color:var(--g4);font-size:10px">—</div>')
+      + '<div style="font-size:10px;font-weight:700;color:'+statusColor[status]+';margin-top:3px">'+statusLabel[status]+'</div>'
+      + '</div>';
+  }).join('');
+
+  var html = '<div style="padding:14px;height:100%;display:flex;flex-direction:column;overflow:hidden">'
+    // Quorum bar
+    + '<div class="att-quorum-bar '+quorumClass+'" id="att-quorum-bar" style="margin-bottom:10px">'+quorumText+'</div>'
+    // Bulk actions
+    + '<div style="display:flex;gap:6px;margin-bottom:10px;flex-shrink:0">'
+    + '<button class="btn sm" onclick="attBulkAll(\'present\',\''+ctoItem.id+'\')">All Present</button>'
+    + '<button class="btn sm" onclick="attBulkAll(\'regrets\',\''+ctoItem.id+'\')">All Regrets</button>'
+    + '<button class="btn sm" onclick="attBulkAll(\'\',\''+ctoItem.id+'\')">Clear All</button>'
+    + '</div>'
+    // SL card grid
+    + '<div style="flex:1;overflow-y:auto">'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px">'
+    + cards
     + '</div></div>'
+    // Confirm button
+    + '<div style="flex-shrink:0;margin-top:12px">'
+    + '<button class="btn pri" style="width:100%" onclick="attConfirm(\''+ctoItem.id+'\')">Confirm Attendance</button>'
+    + '</div>'
     + '</div>';
 
   el.innerHTML = html;
-
-  // Call to Order — hide all motion-specific elements and action buttons
-  document.querySelectorAll('.mm-bot [data-motion]').forEach(function(el){ el.style.display = 'none'; });
-  var confBtn = document.getElementById('mm-confbtn');
-  var nextBtn = document.getElementById('mm-next-btn');
-  if (confBtn) confBtn.style.display = 'none';
-  if (nextBtn) nextBtn.style.display = 'none';
 }
 
 function attMarkSL(sl, status, itemId) {
@@ -3040,15 +3054,93 @@ function attMarkSL(sl, status, itemId) {
   if (!it) return;
   if (!it.attendance) it.attendance = {};
   it.attendance[sl] = status;
-  // Update attendees list on the meeting
   mmSyncToMtg();
-  // Update MM.attendees for mover/seconder dropdowns
   MM.attendees = Object.keys(it.attendance).filter(function(k){return it.attendance[k]==='present';});
-  // Update topbar attendance button count
   var attBtn = document.getElementById('mm-att-btn');
   if (attBtn) attBtn.textContent = '👥 ' + MM.attendees.length + ' Present';
-  // Refresh quorum bar and confirm button without full re-render
   refreshQuorumBar(it);
+}
+
+// Cycle a card through: '' → present → regrets → proxy → ''
+function attCycleStatus(card) {
+  var sl = card.dataset.sl;
+  var ctoId = card.dataset.cto;
+  var ctoItem = MM.agenda.find(function(a){return a.id===ctoId;});
+  if (!ctoItem) return;
+  if (!ctoItem.attendance) ctoItem.attendance = {};
+  var cur = ctoItem.attendance[sl] || '';
+  var next = cur==='' ? 'present' : cur==='present' ? 'regrets' : cur==='regrets' ? 'proxy' : '';
+  ctoItem.attendance[sl] = next;
+  mmSyncToMtg();
+  // Update mover/seconder dropdowns live
+  MM.attendees = Object.keys(ctoItem.attendance).filter(function(k){return ctoItem.attendance[k]==='present';});
+  var attBtn = document.getElementById('mm-att-btn');
+  if (attBtn) attBtn.textContent = '👥 ' + MM.attendees.length + ' Present';
+  // Re-render just the card
+  var statusStyle = {present:'background:var(--grnl);border-color:var(--grn)',regrets:'background:var(--redl);border-color:var(--red)',proxy:'background:var(--blul);border-color:var(--blu)','':'background:var(--wh);border-color:var(--g2)'};
+  var statusLabel = {present:'Present',regrets:'Regrets',proxy:'Proxy','':'—'};
+  var statusColor = {present:'var(--grn)',regrets:'var(--red)',proxy:'var(--blu)','':'var(--g4)'};
+  card.style.cssText = card.style.cssText.replace(/background:[^;]+;border-color:[^;]+/, '') + ';' + (statusStyle[next]||statusStyle['']);
+  var dots = card.querySelectorAll('div');
+  if (dots[2]) { dots[2].textContent = statusLabel[next]; dots[2].style.color = statusColor[next]; }
+  // Update quorum bar
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtgObj = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  var isGeneral = mtgObj && (mtgObj.type==='agm'||mtgObj.type==='sgm');
+  var lots = sc_ ? sc_.lots : 20;
+  var council = sc_ ? (sc_.councilMembers||[]).filter(function(m){return m.isCouncil;}) : [];
+  var total = isGeneral ? lots : (council.length || lots);
+  var quorumRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(total/2);
+  var present = Object.values(ctoItem.attendance).filter(function(v){return v==='present';}).length;
+  var hasQ = present >= quorumRequired;
+  var bar = document.getElementById('att-quorum-bar');
+  if (bar) {
+    bar.className = 'att-quorum-bar ' + (present===0?'att-quorum-pending':hasQ?'att-quorum-met':'att-quorum-fail');
+    bar.textContent = present===0 ? 'Mark attendance to check quorum ('+quorumRequired+' required)'
+      : hasQ ? '✓ Quorum met — '+present+' present of '+quorumRequired+' required'
+      : '✗ Quorum not met — '+present+' present, '+quorumRequired+' required';
+  }
+}
+
+function attBulkAll(status, ctoId) {
+  var ctoItem = MM.agenda.find(function(a){return a.id===ctoId;});
+  if (!ctoItem) return;
+  if (!ctoItem.attendance) ctoItem.attendance = {};
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtgObj = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  var isGeneral = mtgObj && (mtgObj.type==='agm'||mtgObj.type==='sgm');
+  var lots = sc_ ? sc_.lots : 20;
+  var council = sc_ ? (sc_.councilMembers||[]).filter(function(m){return m.isCouncil;}) : [];
+  var slList = (!isGeneral && council.length)
+    ? council.map(function(m){return m.sl;})
+    : (function(){ var a=[]; for(var i=1;i<=lots;i++) a.push('SL'+String(i).padStart(3,'0')); return a; })();
+  slList.forEach(function(sl){ ctoItem.attendance[sl] = status; });
+  MM.attendees = status==='present' ? slList.slice() : [];
+  var attBtn = document.getElementById('mm-att-btn');
+  if (attBtn) attBtn.textContent = '👥 ' + MM.attendees.length + ' Present';
+  mmSyncToMtg();
+  renderAttendancePanel(null);
+}
+
+function attConfirm(ctoId) {
+  var ctoItem = MM.agenda.find(function(a){return a.id===ctoId;});
+  if (!ctoItem) return;
+  MM.attendees = Object.keys(ctoItem.attendance||{}).filter(function(k){return ctoItem.attendance[k]==='present';});
+  // Update mover/seconder dropdowns
+  var opts = '<option value="">Select...</option>' + MM.attendees.map(function(sl){return '<option>'+sl+'</option>';}).join('');
+  var moverEl = document.getElementById('mm-mover'); if(moverEl) moverEl.innerHTML = opts;
+  var secdEl  = document.getElementById('mm-secd');  if(secdEl)  secdEl.innerHTML  = opts;
+  // Save to meeting
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  if (mtg) {
+    mtg.attendees = MM.attendees.slice();
+    getSupabase().from('meetings').update({attendees: mtg.attendees, agenda: MM.agenda}).eq('id', mtg.id).then(function(){});
+  }
+  var attBtn = document.getElementById('mm-att-btn');
+  if (attBtn) attBtn.textContent = '👥 ' + MM.attendees.length + ' Present';
+  nAlert('Attendance confirmed. '+MM.attendees.length+' present. Mover/Seconder dropdowns updated.', 'Attendance Saved', 'success');
+  renderMmNav();
 }
 
 function attMarkAll(itemId, status) {
@@ -3059,8 +3151,8 @@ function attMarkAll(itemId, status) {
   var slList = (sc_ && sc_.councilSLs && sc_.councilSLs.length > 0) ? sc_.councilSLs
     : (function(){ var arr=[]; for(var i=1;i<=Math.min((sc_?sc_.lots:20),100);i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
   slList.forEach(function(sl){ it.attendance[sl] = status; });
-  // Re-render the whole panel to update radio buttons
-  renderAttendancePanel(it);
+  // Re-render the whole panel
+  renderAttendancePanel(null);
   mmSyncToMtg();
 }
 
@@ -4102,6 +4194,20 @@ function mmAgendaApproved() {
 
 function renderMmNav() {
   var html = '';
+
+  // ── Attendance — special nav entry, always first ──────────────────
+  var attActive = curItem === '__attendance__';
+  var ctoItem = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('call to order') >= 0; });
+  var attDone = ctoItem && ctoItem.attendanceLocked;
+  var presentCount = ctoItem && ctoItem.attendance
+    ? Object.values(ctoItem.attendance).filter(function(v){ return v === 'present'; }).length : 0;
+  html += '<div class="nav-cat">Pre-Meeting</div>';
+  html += '<div class="nav-it'+(attDone?' done':'')+(attActive?' on':'')+'" id="nav__attendance__" onclick="mmShowAttendance()">'
+    + '<div class="nck '+(attDone?'done':'')+'">'+( attDone?'&#10003;':'')+'</div>'
+    + '<div class="nnum"></div>'
+    + '<div class="ntxt">Attendance'+(presentCount>0?' <span style="color:var(--g4);font-size:10px">('+presentCount+')</span>':'')+'</div>'
+    + '</div>';
+
   // Group items by category, preserving order
   var cats = [], catMap = {};
   MM.agenda.forEach(function(it) {
@@ -4115,7 +4221,6 @@ function renderMmNav() {
   cats.forEach(function(cat) {
     html += '<div class="nav-cat">'+escHtml(cat.name)+'</div>';
     cat.items.forEach(function(it, itemIdx) {
-      var subLetter = String.fromCharCode(97 + itemIdx);
       var cls = 'nav-it' + (it.done ? ' done' : it.deferred ? ' deferred' : '') + (it.id === curItem ? ' on' : '');
       var id = it.id;
       html += '<div class="'+cls+'" id="nav'+id+'" onclick="setItem(\''+id+'\')">'
@@ -4137,28 +4242,6 @@ function renderMmNav() {
 }
 
 function setItem(id) {
-  // Block leaving Call to Order if quorum not yet confirmed
-  if (curItem && id !== curItem) {
-    var curIt = MM.agenda.find(function(a){return a.id===curItem;});
-    if (curIt && !curIt.done && isCallToOrderItem(curIt)) {
-      var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
-      var mtgTypeCheck = 'council';
-      if(sc_&&sc_.meetings){var mc=sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});if(mc)mtgTypeCheck=mc.type||'council';}
-      var isGeneralCheck = (mtgTypeCheck==='agm'||mtgTypeCheck==='sgm');
-      var slListCheck;
-      if (!isGeneralCheck && sc_ && sc_.councilMembers && sc_.councilMembers.length > 0) {
-        slListCheck = sc_.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
-      } else {
-        slListCheck = (function(){var arr=[];for(var i=1;i<=(sc_?sc_.lots:20);i++) arr.push('SL'+String(i).padStart(3,'0'));return arr;})();
-      }
-      var presentCount = slListCheck.filter(function(sl){return curIt.attendance&&curIt.attendance[sl]==='present';}).length;
-      var quorumRequired = isGeneralCheck ? Math.ceil((sc_?sc_.lots:20)/3) : Math.ceil(slListCheck.length/2);
-      if(presentCount<quorumRequired){
-        nAlert('Please complete Registration & Attendance and confirm quorum before proceeding.');
-        return;
-      }
-    }
-  }
   curItem = id;
   var it = MM.agenda.find(function(a){return a.id===id;}); if(!it) return;
   // Ensure motion object exists for items that need one (handles AI-parsed agendas)
@@ -4229,15 +4312,9 @@ function setItem(id) {
 
 function renderCtr(it) {
   var h='';
-  // Special: Registration & Attendance for Call to Order
   var itemLower = (it.text||'').toLowerCase();
-  var isCallToOrder = itemLower.indexOf('call to order') >= 0;
-  if (isCallToOrder) {
-    renderAttendancePanel(it);
-    return;
-  }
 
-  // Background / Financial / Risk — always render, collapsed by default (#11)
+  // Background / Financial / Risk — always render, collapsed by default
   h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
   h += mmSec('Financial Implications', it.financial||'', false);
   h += mmSec('Risks / Compliance',     it.risks||it.compliance||'', false);
@@ -10657,24 +10734,7 @@ function mmAddAttachments(files) {
 // ATTENDANCE
 // ══════════════════════════════════════════
 function openAttendance() {
-  // Navigate to the Call to Order item so attendance can be edited directly in the panel
-  var ctoItem = MM.agenda.find(function(a){
-    return (a.text||'').toLowerCase().indexOf('call to order') >= 0;
-  });
-  if (!ctoItem) {
-    nAlert('No "Call to Order" item found on the agenda. Add one to track attendance.', '', 'warn');
-    return;
-  }
-  setItem(ctoItem.id);
-  // Scroll the nav item into view
-  var navEl = document.getElementById('nav'+ctoItem.id);
-  if (navEl) navEl.scrollIntoView({block:'nearest'});
-  // Update button to show current count
-  var btn = document.getElementById('mm-att-btn');
-  if (btn) {
-    var present = Object.values(ctoItem.attendance || {}).filter(function(v){return v==='present';}).length;
-    btn.textContent = '👥 ' + (present > 0 ? present + ' Present' : 'Attendance');
-  }
+  mmShowAttendance();
 }
 
 function attUpdate() {
