@@ -9968,28 +9968,31 @@ function renderDocsList(sc, el) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic">📎</div>'
       + '<div class="empty-h">No documents yet</div>'
       + '<div class="empty-s">Upload documents here, add attachments to agenda items, or upload historic minutes — all appear in this library and feed StrataSphere.</div>'
+      + '<div style="font-size:11px;color:var(--g4);margin-bottom:14px;background:var(--g1);padding:8px 12px;border-radius:6px;text-align:left">📋 <strong>Indexing note:</strong> Only PDF, Word (.doc/.docx), and text (.txt) files can be indexed for StrataSphere. Images, spreadsheets, and other file types can be uploaded for reference but will not be searchable by AI.</div>'
       + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
       + '</div>';
     return;
   }
   updateMtgHeaderBtn('docs', true);
-  el.innerHTML = uploadBar + '<div id="docs-list" style="margin-top:14px"></div>';
+  el.innerHTML = uploadBar
+    + '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">PDF, Word, and text files can be indexed for StrataSphere AI. Images and other files are stored for reference only.</div>'
+    + '<div id="docs-list"></div>';
   el = document.getElementById('docs-list');
 
   var html = '';
   docs.forEach(function(doc) {
     var ext  = (doc.name || '').split('.').pop().toLowerCase();
-    var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif'].includes(ext) ? '🖼' : '📎';
-    var isPdf = ext === 'pdf' || ext === 'txt';
+    var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼' : ext === 'doc' || ext === 'docx' ? '📝' : ext === 'txt' ? '📃' : '📎';
+    var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
     var hasText = doc.documentText && doc.documentText.trim().length > 0;
     var isGssSafe = hasText && doc.docType && GSS_SAFE_DOC_TYPES.indexOf(doc.docType) >= 0;
 
-    // Three mutually exclusive states — shown as a single pill
+    // Status pill
     var statusPill = '';
     if (doc._indexing) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px"><span class="spin" style="width:9px;height:9px;margin-right:4px;border-top-color:var(--amb);vertical-align:middle"></span>Indexing…</span>';
-    } else if (!isPdf) {
-      statusPill = '';
+    } else if (!isIndexable) {
+      statusPill = ''; // images/xlsx etc — no indexing
     } else if (!hasText) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
     } else if (isGssSafe) {
@@ -10006,8 +10009,8 @@ function renderDocsList(sc, el) {
       + (statusPill ? ' · ' + statusPill : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
-      + (isPdf && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
-      + (isPdf && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
+      + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
+      + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
       + '<button class="btn sm" onclick="downloadDoc(this)" '
       + 'data-name="' + escHtml(doc.name) + '" '
       + 'data-href="' + escHtml(doc.data || doc.url || '') + '">Download</button>'
@@ -10173,25 +10176,57 @@ function dlEditDate(btn, itemId) {
 
 // ══════════════════════════════════════════════════════════════════════
 // DOCUMENT TEXT EXTRACTION
-// Extracts text from uploaded PDFs/docs via Claude at upload time,
-// stores in documents.document_text for use by LSS context builder.
-// ══════════════════════════════════════════════════════════════════════
+// Extracts text from uploaded PDFs/Word docs/text files client-side at upload time.
+// PDF → PDF.js, DOCX → mammoth.js, TXT → plain read.
+// Stores in documents.document_text for use by LSS context builder.
 function extractAndStoreDocText(file, docId, scId) {
-  var isPdf  = file.type === 'application/pdf' || (file.name||'').toLowerCase().endsWith('.pdf');
-  var isText = file.type === 'text/plain' || (file.name||'').toLowerCase().endsWith('.txt');
-  if (!isPdf && !isText) return; // skip images, xlsx etc.
+  var ext = (file.name||'').split('.').pop().toLowerCase();
+  var indexable = ['pdf','doc','docx','txt'];
+  if (indexable.indexOf(ext) < 0) return;
 
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    if (isText) {
-      _classifyAndSaveDocText(docId, scId, e.target.result, null);
-      return;
-    }
-    var b64 = e.target.result.split(',')[1];
-    _extractDocTextMultiPass(b64, docId, scId, '', 1);
+  if (ext === 'txt') {
+    var r = new FileReader();
+    r.onload = function(e){ _classifyAndSaveDocText(docId, scId, e.target.result, null); };
+    r.readAsText(file);
+    return;
+  }
+
+  if (ext === 'doc' || ext === 'docx') {
+    var r2 = new FileReader();
+    r2.onload = function(e){
+      if (typeof mammoth === 'undefined') return;
+      mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result){
+        if (result.value) _classifyAndSaveDocText(docId, scId, result.value, null);
+      }).catch(function(){});
+    };
+    r2.readAsArrayBuffer(file);
+    return;
+  }
+
+  // PDF — use PDF.js
+  if (typeof pdfjsLib === 'undefined') return;
+  var r3 = new FileReader();
+  r3.onload = function(e) {
+    var buf = e.target.result;
+    pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+      var pageNums = [];
+      for (var i = 1; i <= pdf.numPages; i++) pageNums.push(i);
+      return pageNums.reduce(function(chain, n) {
+        return chain.then(function(texts) {
+          return pdf.getPage(n).then(function(pg) {
+            return pg.getTextContent().then(function(c) {
+              texts.push(c.items.map(function(item){ return item.str; }).join(' '));
+              return texts;
+            });
+          });
+        });
+      }, Promise.resolve([]));
+    }).then(function(texts) {
+      var fullText = texts.join('\n\n').trim();
+      if (fullText) _classifyAndSaveDocText(docId, scId, fullText, null);
+    }).catch(function(e){ console.warn('PDF.js extraction error:', e); });
   };
-  if (isText) reader.readAsText(file);
-  else reader.readAsDataURL(file);
+  r3.readAsArrayBuffer(file);
 }
 
 // Multi-pass PDF text extraction — handles documents longer than one Claude response.
@@ -10366,8 +10401,9 @@ function scUploadDoc(scId) {
               documentText: '', docType: '', storagePath: path
             };
             sc_.docs.push(localDoc);
-            // Extract text + classify in background
-            if (docId && (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf') || f.type === 'text/plain')) {
+            // Auto-index PDF, Word, and text files on upload
+            var fext = (f.name||'').split('.').pop().toLowerCase();
+            if (docId && ['pdf','doc','docx','txt'].indexOf(fext) >= 0) {
               extractAndStoreDocText(f, docId, sc_.plan);
             }
             // Refresh docs tab
@@ -10407,31 +10443,48 @@ function docExtractText(btn) {
     return;
   }
 
-  // Get signed URL for private bucket
+  // Get signed URL and fetch the file
   getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 120)
   .then(function(res) {
     if (res.error || !res.data || !res.data.signedUrl) {
       throw new Error('Could not generate signed URL: ' + (res.error && res.error.message || 'unknown'));
     }
-    // Load PDF with PDF.js
-    return pdfjsLib.getDocument(res.data.signedUrl).promise;
+    return fetch(res.data.signedUrl);
   })
-  .then(function(pdf) {
-    var numPages = pdf.numPages;
-    var pagePromises = [];
-    for (var i = 1; i <= numPages; i++) {
-      pagePromises.push(pdf.getPage(i).then(function(page) {
-        return page.getTextContent().then(function(content) {
-          return content.items.map(function(item) { return item.str; }).join(' ');
+  .then(function(r){
+    if (!r.ok) throw new Error('Could not fetch document (' + r.status + ')');
+    var ext = (storagePath || '').split('.').pop().toLowerCase();
+    if (ext === 'txt') {
+      return r.text();
+    } else if (ext === 'doc' || ext === 'docx') {
+      return r.arrayBuffer().then(function(buf) {
+        if (typeof mammoth === 'undefined') throw new Error('DOCX parser not loaded. Please refresh and try again.');
+        return mammoth.extractRawText({arrayBuffer: buf}).then(function(result){ return result.value; });
+      });
+    } else {
+      // PDF — use PDF.js
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded. Please refresh and try again.');
+      return r.arrayBuffer().then(function(buf) {
+        return pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+          var pages = [];
+          for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+          return pages.reduce(function(chain, pageNum) {
+            return chain.then(function(texts) {
+              return pdf.getPage(pageNum).then(function(page) {
+                return page.getTextContent().then(function(content) {
+                  texts.push(content.items.map(function(item){ return item.str; }).join(' '));
+                  return texts;
+                });
+              });
+            });
+          }, Promise.resolve([])).then(function(texts){ return texts.join('\n\n'); });
         });
-      }));
+      });
     }
-    return Promise.all(pagePromises);
   })
-  .then(function(pages) {
-    var fullText = pages.join('\n\n').trim();
-    if (!fullText) throw new Error('No text found in PDF. The document may be image-only (scanned). Try uploading a text-based PDF.');
-    _finaliseDocExtract(dbId, scId, fullText, null);
+  .then(function(fullText) {
+    if (!fullText || !fullText.trim()) throw new Error('No text found in this document. If it is a scanned image, text extraction is not supported — please use a text-based PDF or Word document.');
+    _finaliseDocExtract(dbId, scId, fullText.trim(), null);
   })
   .catch(function(e) {
     console.error('docExtractText error:', e);
