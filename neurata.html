@@ -7120,7 +7120,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
     allSCs.forEach(function(s) {
       var lots  = parseInt(s.lots) || 0;
-      var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive || s.ssTier === 'global';
+      var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive;
       var tier  = scSsTier(s);
       var monthlyRate = 0;
       if (isPaidActive) {
