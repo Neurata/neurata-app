@@ -7487,25 +7487,47 @@ function loadAccountStatements(el) {
     el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — statements appear here once your first payment is processed.</div>';
     return;
   }
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading statements…</div>';
   fetch(WORKER_URL + '/stripe/invoices?customerId=' + encodeURIComponent(customerId))
   .then(function(r){ return r.json(); })
   .then(function(d){
-    if (d.error || !d.invoices || !d.invoices.length) {
-      el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — your first invoice will appear here after your next billing date.</div>';
+    if (d.error) throw new Error(d.error);
+    var html = '';
+
+    // Receipt email note
+    if (d.receiptEmail) {
+      html += '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">📧 Receipts are sent to <strong>'+escHtml(d.receiptEmail)+'</strong> after each payment.</div>';
+    }
+
+    // Upcoming invoice
+    if (d.upcoming) {
+      var upAmt = 'CA$'+(d.upcoming.amount/100).toFixed(2);
+      html += '<div style="padding:10px 14px;background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:12px;font-size:13px">'
+        + '<strong>Next charge:</strong> '+upAmt+' on '+escHtml(d.upcoming.date)
+        + '</div>';
+    }
+
+    // Past invoices
+    if (!d.invoices || !d.invoices.length) {
+      html += '<div style="color:var(--g4);font-size:13px">No statements yet — your first invoice will appear here after your next billing date.</div>';
+      el.innerHTML = html;
       return;
     }
-    var html = '<table class="tbl"><thead><tr>'
+    html += '<table class="tbl"><thead><tr>'
       + '<th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th>'
       + '</tr></thead><tbody>';
     d.invoices.forEach(function(inv) {
       var amt = inv.amount ? 'CA$'+(inv.amount/100).toFixed(2) : '—';
+      var statusTag = inv.status === 'paid'
+        ? '<span class="tag grn" style="font-size:10px">Paid</span>'
+        : '<span class="tag amb" style="font-size:10px">'+escHtml(inv.status)+'</span>';
       html += '<tr>'
         + '<td style="font-size:12px;white-space:nowrap">'+escHtml(inv.date)+'</td>'
         + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(inv.description || (inv.scPlan ? inv.scPlan : 'Subscription'))+'</td>'
         + '<td style="font-size:13px;font-weight:600">'+amt+'</td>'
-        + '<td><span class="tag grn" style="font-size:10px">Paid</span></td>'
-        + '<td>'+(inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a>' : '')
-        +     (inv.pdfUrl ? ' <a href="'+escHtml(inv.pdfUrl)+'" target="_blank" class="btn xs">PDF</a>' : '')
+        + '<td>'+statusTag+'</td>'
+        + '<td>'+(inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a> ' : '')
+        +     (inv.pdfUrl ? '<a href="'+escHtml(inv.pdfUrl)+'" target="_blank" class="btn xs">PDF</a>' : '')
         + '</td>'
         + '</tr>';
     });
