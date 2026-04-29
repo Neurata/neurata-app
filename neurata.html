@@ -236,7 +236,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-aiin{flex:1;background:rgba(255,255,255,.09);border:none;border-radius:4px 0 0 4px;padding:6px 9px;font-size:11px;color:#fff;font-family:inherit;outline:none}
 .mm-aiin::placeholder{color:rgba(255,255,255,.3)}
 .mm-aisend{background:var(--org);border:none;border-radius:0 4px 4px 0;padding:6px 11px;color:#fff;cursor:pointer;font-size:13px;font-weight:600}
-.mm-bot{height:50px;background:var(--wh);border-top:1px solid var(--g2);display:flex;align-items:center;padding:0 12px;gap:12px;flex-shrink:0}
+.mm-bot{min-height:50px;height:auto;background:var(--wh);border-top:1px solid var(--g2);display:flex;flex-direction:column;justify-content:center;padding:8px 12px;gap:6px;flex-shrink:0}
 .mm-bdiv{width:1px;height:30px;background:var(--g2)}
 .mm-dlbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);white-space:nowrap}
 .mm-dval{font-size:12px;font-weight:600;color:var(--ch);white-space:nowrap}
@@ -3028,8 +3028,8 @@ function renderAttendancePanel(it) {
 
   // Update confirm button state
   // Hide voting section entirely for FOR_INFORMATION items (no motion needed)
-  var mvrow = document.querySelector('.mm-mvrow');
-  var voteSection = document.getElementById('mm-vote-sect');
+  var mvrow = document.getElementById('mm-mover-row');
+  var voteSection = document.getElementById('mm-vote-row');
   var confBtn = document.getElementById('mm-confbtn');
   var isInfoItem = !it || !it.motion;
   if (mvrow) mvrow.style.display = isInfoItem ? 'none' : '';
@@ -3114,8 +3114,8 @@ function refreshQuorumBar(it) {
 
   // Lock/unlock confirm button
   // Hide voting section entirely for FOR_INFORMATION items (no motion needed)
-  var mvrow = document.querySelector('.mm-mvrow');
-  var voteSection = document.getElementById('mm-vote-sect');
+  var mvrow = document.getElementById('mm-mover-row');
+  var voteSection = document.getElementById('mm-vote-row');
   var confBtn = document.getElementById('mm-confbtn');
   var isInfoItem = !it || !it.motion;
   if (mvrow) mvrow.style.display = isInfoItem ? 'none' : '';
@@ -7130,7 +7130,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
         + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(s.addr||'—')+'</td>'
         + '<td style="text-align:center;font-size:13px">'+lots+'</td>'
         + '<td>'+scStatusPill(s, 'md', 'tag')+'</td>'
-        + '<td style="font-size:12px;color:var(--ch3);white-space:nowrap">'+(s.mmActivatedAt ? s.mmActivatedAt.slice(0,10) : '—')+'</td>'
+        + '<td style="font-size:12px;color:var(--ch3);white-space:nowrap">'+(s.mmActivatedAt ? s.mmActivatedAt.slice(0,10) : s.ssGlobalActivatedAt ? s.ssGlobalActivatedAt.slice(0,10) : '—')+'</td>'
         + '<td style="text-align:right;font-size:13px;font-weight:600;color:var(--ch)">'
         +   (isPaidActive ? 'CA$'+monthlyRate.toFixed(2)+'/mo' : '—')
         + '</td>'
