@@ -5539,6 +5539,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
 
   // Call to Order
   lines.push('<h1>Call to Order</h1>');
+  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
   var ctoSummary = ctoItem && ctoItem.minutesSummary ? ctoItem.minutesSummary : 'The meeting was called to order at ' + (mtg.actualStartTime||mtg.time||'[time]') + '.';
   lines.push('<p>' + ctoSummary + '</p>');
 
