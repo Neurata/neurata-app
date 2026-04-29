@@ -1492,7 +1492,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mo-bd">
-      <div class="al info" style="margin-bottom:14px">
+      <div class="al info" id="min-draft-banner" style="margin-bottom:14px">
         <strong>Draft minutes</strong> — click any <span style="text-decoration:underline;text-decoration-style:dashed">underlined section</span> to edit inline. AI has generated Background/Discussion from your notes. Per SPA s.35, distribute within 30 days of the meeting.
       </div>
       <div class="min-doc" id="min-content"></div>
@@ -4871,6 +4871,8 @@ function openMinutesModal(mtg, sc_) {
   document.getElementById('min-status-tag').className   = 'tag '+(mtg.minutesState==='FINAL'?'grn':'amb');
   document.getElementById('min-pdf-btn').disabled = (mtg.minutesState!=='FINAL');
   document.getElementById('min-finalize-btn').style.display = (mtg.minutesState==='FINAL'?'none':'');
+  var draftBanner = document.getElementById('min-draft-banner');
+  if (draftBanner) draftBanner.style.display = (mtg.minutesState==='FINAL' ? 'none' : '');
   renderMinutesContent(mtg, sc_);
   openMo('mo-minutes');
 }
@@ -5401,58 +5403,151 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 
 
 function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoDataUrl) {
-  // Build HTML and use print-to-PDF via a new window
+  var scPlan = sc_ ? sc_.plan : '';
   var lines = [];
-  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8"><!-- v2.5.0 build:1777359988 -->');
+  lines.push('<!DOCTYPE html><html><head><meta charset="utf-8">');
+  lines.push('<title>' + fname + '</title>');
   lines.push('<style>');
-  lines.push('body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:2.5cm;line-height:1.4}');
-  lines.push('h1{font-size:16pt;color:#2E75B6;font-weight:700;border-bottom:2px solid #2E75B6;padding-bottom:4px;margin-top:20pt;margin-bottom:6pt}');
-  lines.push('h2{font-size:11pt;font-weight:700;margin:10pt 0 2pt}');
-  lines.push('.meta{color:#595959;font-size:10pt;margin-bottom:4pt}');
-  lines.push('.draft{background:#fff3cd;color:#856404;padding:6pt 10pt;font-weight:bold;margin:10pt 0}');
-  lines.push('.motion{margin-left:30pt;font-style:italic;color:#595959}');
-  lines.push('.carried{color:#155724;font-weight:bold}');
-  lines.push('.defeated{color:#b02a37;font-weight:bold}');
-  lines.push('.sig{margin-top:40pt;color:#595959;font-size:10pt}');
-  lines.push('@media print{@page{size:letter;margin:2.5cm}}');
+  // Style guide: Helvetica 11pt body, 12pt Bold ALL CAPS headings, 1.15 line spacing, 1" margins (1.1" left/right)
+  lines.push('@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");');
+  lines.push('*{box-sizing:border-box;margin:0;padding:0}');
+  lines.push('html,body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000;line-height:1.15}');
+  lines.push('body{margin:0;padding:0}');
+  // Page setup with footer
+  lines.push('@page{size:letter;margin:1in 1.1in 1.2in 1.1in}');
+  lines.push('@media print{');
+  lines.push('  body{margin:0}');
+  lines.push('  .page-break{page-break-before:always}');
+  lines.push('  .no-print{display:none}');
+  lines.push('}');
+  lines.push('.page{padding:0}');
+  // Header / letterhead
+  lines.push('.letterhead{display:flex;align-items:center;justify-content:space-between;padding-bottom:10pt;border-bottom:2px solid #2E75B6;margin-bottom:14pt}');
+  lines.push('.letterhead img{max-height:60pt;max-width:180pt;object-fit:contain}');
+  lines.push('.letterhead-text{text-align:right;font-size:9pt;color:#595959}');
+  // Headings — 12pt Bold ALL CAPS
+  lines.push('h1{font-size:12pt;font-weight:700;text-transform:uppercase;margin:14pt 0 4pt;padding-bottom:3pt;border-bottom:1px solid #2E75B6;color:#000}');
+  // Item titles — bold 11pt
+  lines.push('h2{font-size:11pt;font-weight:700;margin:10pt 0 3pt;color:#000}');
+  lines.push('.meta{color:#595959;font-size:10pt;margin-bottom:3pt}');
+  lines.push('.meeting-title{font-size:14pt;font-weight:700;text-align:center;text-transform:uppercase;margin:10pt 0 6pt;color:#2E75B6}');
+  lines.push('.sc-name{font-size:11pt;font-weight:600;text-align:center;margin-bottom:2pt}');
+  lines.push('.sc-meta{font-size:10pt;color:#595959;text-align:center;margin-bottom:10pt}');
+  // Motion — italic, 0.5" indent
+  lines.push('.motion-intro{margin-left:36pt;font-size:11pt;margin-top:5pt}');
+  lines.push('.motion-text{margin-left:36pt;font-style:italic;font-size:11pt;margin-top:2pt;margin-bottom:3pt}');
+  lines.push('.carried{color:#155724;font-weight:700;margin-left:36pt}');
+  lines.push('.defeated{color:#b02a37;font-weight:700;margin-left:36pt}');
+  lines.push('.deferred{color:#856404;font-weight:700;margin-left:36pt}');
+  lines.push('.vote-tally{color:#595959;font-size:10pt;margin-left:36pt}');
+  lines.push('p{margin-bottom:5pt}');
+  lines.push('.sig-block{margin-top:48pt}');
+  lines.push('.sig-line{display:inline-block;width:44%;margin-right:8%;border-top:1px solid #000;padding-top:4pt;font-size:10pt;color:#595959}');
+  // Footer — SC number + Neurata + page number
+  lines.push('.footer{position:fixed;bottom:0.4in;left:1.1in;right:1.1in;display:flex;justify-content:space-between;align-items:center;font-size:8pt;color:#aaa;border-top:1px solid #ddd;padding-top:4pt}');
+  lines.push('.footer-center{text-align:center;flex:1}');
   lines.push('</style></head><body>');
-  lines.push('<h1 style="font-size:18pt">' + typeLabel.toUpperCase() + '</h1>');
-  lines.push('<p class="meta"><strong>' + (sc_?sc_.plan+(sc_.name?' — '+sc_.name:''):'') + '</strong></p>');
-  if(sc_&&sc_.addr) lines.push('<p class="meta">'+sc_.addr+'</p>');
-  lines.push('<p class="meta">'+date+(mtg.time?' &nbsp;|&nbsp; '+mtg.time:'')+(mtg.fmt?' &nbsp;|&nbsp; '+mtg.fmt:'')+(mtg.loc?' &nbsp;|&nbsp; '+mtg.loc:'')+'</p>');
-  lines.push('<p class="meta">Strata Manager: '+mgr+(mgrLic?' &nbsp;|&nbsp; '+mgrLic:'')+'</p>');
-  if(mtg.attendees&&mtg.attendees.length){
-    lines.push('<h1>ATTENDANCE</h1><p>'+mtg.attendees.join(', ')+'</p>');
+
+  // Footer (fixed, appears on every page)
+  lines.push('<div class="footer">');
+  lines.push('<span>' + (scPlan || '') + '</span>');
+  lines.push('<span class="footer-center">Minutes created with Neurata.ai</span>');
+  lines.push('<span>Page <span class="page-num"></span></span>');
+  lines.push('</div>');
+
+  // Letterhead
+  lines.push('<div class="letterhead">');
+  if (logoDataUrl) {
+    lines.push('<img src="' + logoDataUrl + '" alt="Brokerage Logo">');
+  } else if (APP.brokerage && APP.brokerage.name) {
+    lines.push('<div style="font-size:13pt;font-weight:700">' + (APP.brokerage.name||'') + '</div>');
+  } else {
+    lines.push('<div></div>');
   }
-  lines.push('<h1>CALL TO ORDER</h1>');
-  lines.push('<p>The meeting was called to order at '+(mtg.time||'[time]')+(sc_?' for '+sc_.plan:'')+'.</p>');
-  cats.forEach(function(cat){
-    lines.push('<h1>'+(cat.name||'').toUpperCase()+'</h1>');
-    cat.items.forEach(function(it){
-      lines.push('<h2>'+it.text+'</h2>');
-      var summary=it.minutesSummary||it.aiSummary||'';
-      if(summary) lines.push('<p>'+summary+'</p>');
-      if(it.motion&&it.motion.text){
-        lines.push('<p class="motion">MOTION: Moved by '+(it.motion.mover||'—')+', seconded by '+(it.motion.sec||'—')+':</p>');
-        lines.push('<p class="motion">"'+it.motion.text+'"</p>');
-        if(it.done&&it.motion.outcome){
-          var cls=it.motion.outcome==='CARRIED'?'carried':'defeated';
-          lines.push('<p class="'+cls+'">'+it.motion.outcome+(it.motion.for!==undefined?' ('+it.motion.for+' in favour, '+it.motion.against+' opposed, '+it.motion.abstain+' abstain)':'')+'</p>');
+  lines.push('<div class="letterhead-text">');
+  if (APP.brokerage && APP.brokerage.addr) lines.push(APP.brokerage.addr + '<br>');
+  if (APP.brokerage && APP.brokerage.phone) lines.push(APP.brokerage.phone);
+  lines.push('</div></div>');
+
+  // Meeting title block
+  lines.push('<div class="meeting-title">' + typeLabel + '</div>');
+  lines.push('<div class="sc-name">Strata Plan ' + scPlan + (sc_&&sc_.name?' — '+sc_.name:'') + '</div>');
+  var metaParts = [date];
+  if (mtg.time) metaParts.push(mtg.time + (mtg.adjTime?' – '+mtg.adjTime:''));
+  if (mtg.fmt)  metaParts.push(mtg.fmt + (mtg.loc?' — '+mtg.loc:''));
+  lines.push('<div class="sc-meta">' + metaParts.join('&nbsp;&nbsp;|&nbsp;&nbsp;') + '</div>');
+  lines.push('<p class="meta" style="text-align:center">Strata Manager: ' + mgr + (mgrLic?' &nbsp;|&nbsp; '+mgrLic:'') + '</p>');
+
+  // Attendance
+  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
+  var attendance = (ctoItem && ctoItem.attendance) || {};
+  var present = Object.keys(attendance).filter(function(k){return attendance[k]==='present';});
+  var regrets = Object.keys(attendance).filter(function(k){return attendance[k]==='regrets';});
+  if (present.length || regrets.length) {
+    lines.push('<h1>Attendance</h1>');
+    if (present.length) lines.push('<p class="meta"><strong>Council Present:</strong> ' + present.join(', ') + '</p>');
+    if (regrets.length) lines.push('<p class="meta"><strong>Regrets:</strong> ' + regrets.join(', ') + '</p>');
+    lines.push('<p class="meta"><strong>Strata Manager:</strong> ' + mgr + '</p>');
+  }
+
+  // Call to Order
+  lines.push('<h1>Call to Order</h1>');
+  var ctoSummary = ctoItem && ctoItem.minutesSummary ? ctoItem.minutesSummary : 'The meeting was called to order at ' + (mtg.actualStartTime||mtg.time||'[time]') + '.';
+  lines.push('<p>' + ctoSummary + '</p>');
+
+  // Agenda items
+  cats.forEach(function(cat) {
+    var catLower = (cat.name||'').toLowerCase();
+    if (catLower.indexOf('call to order') >= 0) return; // already handled
+    lines.push('<h1>' + (cat.name||'').toUpperCase() + '</h1>');
+    cat.items.forEach(function(it) {
+      var itemLower = (it.text||'').toLowerCase();
+      if (itemLower.indexOf('call to order') >= 0) return;
+      if (itemLower.indexOf('adjourn') >= 0) return; // handled after loop
+
+      lines.push('<h2>' + it.text + '</h2>');
+      var summary = it.minutesSummary || it.aiSummary || '';
+      if (summary) lines.push('<p>' + summary + '</p>');
+
+      if (it.motion && it.motion.text) {
+        lines.push('<p class="motion-intro">Moved by ' + (it.motion.mover||'—') + ', seconded by ' + (it.motion.sec||'—') + ':</p>');
+        lines.push('<p class="motion-text">"' + it.motion.text + '"</p>');
+        if (it.done && it.motion.outcome) {
+          var cls = it.motion.outcome==='CARRIED' ? 'carried' : it.motion.outcome==='DEFEATED' ? 'defeated' : 'deferred';
+          lines.push('<p class="' + cls + '">' + it.motion.outcome + '</p>');
+          if (it.motion.for !== undefined) {
+            lines.push('<p class="vote-tally">' + it.motion.for + ' in favour &nbsp;·&nbsp; ' + it.motion.against + ' opposed &nbsp;·&nbsp; ' + it.motion.abstain + ' abstain</p>');
+          }
         }
       }
     });
   });
-  lines.push('<h1>ADJOURNMENT</h1>');
-  lines.push('<p>There being no further business, the meeting was adjourned at '+(mtg.adjTime||'[time]')+'.</p>');
-  lines.push('<div class="sig"><br><br>_________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_________________________<br>Strata Council Secretary&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Strata Manager</div>');
-  lines.push('<div style="text-align:center;font-size:8pt;color:#aaa;margin-top:40px;padding-top:8px;border-top:1px solid #ddd">Minutes prepared by Neurata.ai &nbsp;&middot;&nbsp; neurata.ai</div>');
+
+  // Adjournment
+  lines.push('<h1>Adjournment</h1>');
+  lines.push('<p>There being no further business, the meeting was adjourned at ' + (mtg.adjTime||'[time]') + '.</p>');
+
+  // Signature block
+  lines.push('<div class="sig-block">');
+  lines.push('<div class="sig-line">Strata Council Secretary</div>');
+  lines.push('<div class="sig-line">Strata Manager</div>');
+  lines.push('</div>');
+
+  lines.push('<script>');
+  lines.push('// Inject page numbers after print layout
+  lines.push('window.onload = function() {');
+  lines.push('  var nums = document.querySelectorAll(".page-num");');
+  lines.push('  nums.forEach(function(el, i) { el.textContent = i + 1; });');
+  lines.push('  setTimeout(function(){ window.print(); }, 800);');
+  lines.push('};');
+  lines.push('<\/script>');
   lines.push('</body></html>');
 
   var w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { nAlert('Please allow pop-ups for this site to export PDF.', 'Pop-up Blocked', 'warn'); return; }
   w.document.write(lines.join('\n'));
   w.document.close();
   w.focus();
-  setTimeout(function(){ w.print(); }, 600);
 }
 
 
