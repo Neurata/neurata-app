@@ -10001,7 +10001,8 @@ function renderDocsList(sc, el) {
       + (statusPill ? ' · ' + statusPill : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
-      + (isPdf && !hasText && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index for SS</button>' : '')
+      + (isPdf && !hasText && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
+      + (isPdf && hasText && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
       + '<button class="btn sm" onclick="downloadDoc(this)" '
       + 'data-name="' + escHtml(doc.name) + '" '
       + 'data-href="' + escHtml(doc.data || doc.url || '') + '">Download</button>'
