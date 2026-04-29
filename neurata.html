@@ -3744,17 +3744,26 @@ function sendDelegateInviteEmail(email, name, scId, sl) {
 
 function renderMgmtStrataSphere(sc, el) {
   var scId = sc.id;
-  // If no convs in memory for this SC, try loading from Supabase first
-  if (!SS.convs[scId] || !SS.convs[scId].length) {
-    if (!SS._loading) {
-      SS._loading = true;
-      ssLoadConversations(function() {
-        SS._loading = false;
-        renderMgmtStrataSphere(sc, el);
-      });
-      return;
-    }
+
+  // Always show the New Conversation button immediately — don't wait for load
+  updateMtgHeaderBtn('stratasphere', true);
+
+  // If no convs in memory, load from Supabase then re-render
+  if (!SS.convs[scId] && !SS._loading) {
+    SS._loading = true;
+    // Show loading state while fetching
+    if (el) el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--g4);font-size:13px"><span class="spin" style="margin-right:8px"></span>Loading conversations…</div>';
+    ssLoadConversations(function() {
+      SS._loading = false;
+      // Only re-render if still on SS tab
+      var currentEl = document.getElementById('mtg-body');
+      if (currentEl && currentMtgTab === 'stratasphere') {
+        renderMgmtStrataSphere(sc, currentEl);
+      }
+    });
+    return;
   }
+
   var convs = SS.convs[scId] || [];
   updateMtgHeaderBtn('stratasphere', convs.length > 0);
   var conv = SS.activeConv && SS.activeConv.scId === scId
@@ -9776,7 +9785,7 @@ function switchMtgTab(tab, el) {
     else if (tab === 'minutes') hasContent = (sc.meetings||[]).some(function(m){return m.minutes;}) || (sc.docs||[]).some(function(d){return d.source==='historic-minutes';});
     else if (tab === 'docs') hasContent = (sc.docs||[]).length > 0;
     else if (tab === 'decisions') hasContent = (sc.decisions||[]).length > 0;
-    else if (tab === 'stratasphere') hasContent = !!(SS.convs[sc.id] && SS.convs[sc.id].length);
+    else if (tab === 'stratasphere') hasContent = true; // always show New Conversation button
     updateMtgHeaderBtn(tab, hasContent);
   }
 }
@@ -9798,6 +9807,7 @@ function updateMtgHeaderBtn(tab, hasContent) {
   } else if (tab === 'decisions') {
     actions.innerHTML = '';
   } else if (tab === 'stratasphere') {
+    // Always show — user needs to be able to start a conversation even with zero existing ones
     actions.innerHTML = '<button class="btn sm pri" onclick="mgmtSsNewConv(\''+scId+'\')">+ New Conversation</button>';
   } else {
     actions.innerHTML = '';
