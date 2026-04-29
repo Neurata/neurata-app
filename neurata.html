@@ -587,10 +587,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mtg-tab:hover{color:var(--ch)}
 .mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
 
-.mtg-tab{padding:8px 16px;border:none;background:none;font-family:inherit;font-size:13px;cursor:pointer;color:var(--g4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
-.mtg-tab:hover{color:var(--ch)}
-.mtg-tab.on{color:var(--orgd);border-bottom-color:var(--org);font-weight:500}
-
 /* ── PROFILE PAGE ── */
 .prof-wrap{display:grid;grid-template-columns:260px 1fr;gap:20px;max-width:860px;}
 @media(max-width:768px){.prof-wrap{grid-template-columns:1fr;}}
@@ -980,7 +976,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 <!-- ═══════ ASSISTANT INVITE SCREEN ═══════ -->
 <div class="screen" id="scr-asst-invite">
   <div class="ob-wrap">
-    <div class="ob">
+    <div class="ob-card">
       <div class="ob-logo"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/NeurataLogoOrangeWhite.svg" alt="Neurata" style="height:36px"/></div>
       <div class="ob-h">You've been invited as an Assistant</div>
       <div class="ob-s">Create your account to access your assigned strata corporation.</div>
@@ -1111,7 +1107,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 <!-- ADMIN BROKERAGES (Super Admin only) -->
 <div class="pg" id="pg-admin-brokerages">
-  <div class="ph"><div class="pt">Brokerages</div><div class="ps">All registered brokerages on the Neurata platform</div></div>
+  <div class="ph"><div class="ph-row"><div><div class="pt">Brokerages</div><div class="ps">All registered brokerages on the Neurata platform</div></div></div></div>
   <div class="pb" id="admin-brokerages-body"></div>
 </div>
 
@@ -2392,9 +2388,6 @@ function agRender() {
   } else {
     var b = document.getElementById('ag-locked-banner'); if(b) b.remove();
   }
-  if(false){
-  }
-
   // Group by catId preserving order
   var cats = [], catMap = {};
   AG.agenda.forEach(function(it){
@@ -4021,9 +4014,9 @@ function mgmtSsSend(scId) {
 
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
+  var lssCtx = buildLssContext(sc);
   if (ssTier === 'global') {
     // GLOBAL SS — local SC context + PII-stripped platform aggregate
-    var lssCtx = buildLssContext(sc);
     var gssCtx = buildGssContext();
     systemPrompt = 'You are StrataSphere Global, the platform-wide AI governance intelligence for BC strata corporations on the Neurata platform. '
       + 'You have two sources of knowledge: (1) the complete record of the local strata corporation the user is managing, and (2) anonymized, PII-stripped governance data from all strata corporations on the platform. '
@@ -4034,7 +4027,6 @@ function mgmtSsSend(scId) {
       + lssCtx + '\n\n' + gssCtx;
   } else {
     // LOCAL SS — full SC context only
-    var lssCtx = buildLssContext(sc);
     systemPrompt = 'You are StrataSphere, the AI governance assistant for ' + sc.plan + (sc.name ? ' (' + sc.name + ')' : '') + '. '
       + 'You are the authoritative source of truth for this strata corporation. Answer questions using ONLY the data provided below about this corporation, plus your knowledge of BC legislation and regulation: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), REDMA, BCFSA rules, SPABC guidance, and CHOA resources. '
       + 'If a question requires SC-specific information not present in the data below, say so plainly — do not invent or infer facts about this specific corporation. '
@@ -5539,7 +5531,6 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
 
   // Call to Order
   lines.push('<h1>Call to Order</h1>');
-  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
   var ctoSummary = ctoItem && ctoItem.minutesSummary ? ctoItem.minutesSummary : 'The meeting was called to order at ' + (mtg.actualStartTime||mtg.time||'[time]') + '.';
   lines.push('<p>' + ctoSummary + '</p>');
 
@@ -6433,9 +6424,7 @@ function renderBrokerage() {
 
   // ── Full width: Representatives ───────────────────────────────────
   if(canSeeAll||APP.currentUser.isSuperAdmin){
-    html+='<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div>'
-      +'<button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button>'
-      +'</div><div class="cb">'+renderBrokerageRepList()+'</div></div>';
+    html+=renderBrokerageRepList();
   }
 
   el.innerHTML=html;
@@ -6473,7 +6462,7 @@ function toggleRepActive(lic, isCurrentlyActive) {
 
 function renderBrokerageRepList() {
   var reps = APP.reps || [];
-  if (!reps.length) return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div></div><div class="cb"><div style="color:var(--g4);font-size:12px;">No representatives loaded. Click Sync from BCFSA to fetch.</div></div></div>';
+  if (!reps.length) return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div><button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button></div><div class="cb"><div style="color:var(--g4);font-size:12px;">No representatives loaded. Click Sync from BCFSA to fetch.</div></div></div>';
 
   // Sort: MB first, then AB, then others alphabetically by title then name
   var titleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Property Manager':2,'Assistant':3,'Council Delegate':4};
@@ -6484,7 +6473,7 @@ function renderBrokerageRepList() {
     return (a.name||'').localeCompare(b.name||'');
   });
 
-  return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div><div class="cb"><div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
+  return '<div class="card"><div class="ch_"><div class="ct">\ud83d\udc65 Representatives</div><button class="btn sm pri" onclick="syncBrokerageReps()">\u21ba Sync from BCFSA</button><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div><div class="cb"><div class="rep-table-wrap"><table style="width:100%;border-collapse:collapse">' 
     +'<thead><tr>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Name</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Title</th>'
@@ -7973,7 +7962,7 @@ function launchPlatform(){
   var av=document.getElementById('u-av');var nm=document.getElementById('u-nm');if(av){if(u.photoUrl){av.innerHTML='<img src="'+u.photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';}else{av.textContent=u.initials||'?';}}
   if(nm)nm.textContent=u.name||'—';
   var mn=document.getElementById('menu-name');var ml=document.getElementById('menu-lic');
-  if(mn)mn.textContent=u.name||'';if(false)mr.textContent=u.role||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
+  if(mn)mn.textContent=u.name||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
