@@ -1713,8 +1713,9 @@ function activateFromRequest(id, scId, requestType) {
         // Global SS upgrade — update local state + DB
         sc_.ssTier = 'global';
         sc_.ssGlobalActivatedAt = new Date().toISOString();
+        sc_.mmStatus = 'ACTIVE';
         getSupabase().from('strata_corps').update({
-          ss_tier: 'global', ss_global_activated_at: sc_.ssGlobalActivatedAt
+          ss_tier: 'global', ss_global_activated_at: sc_.ssGlobalActivatedAt, is_subscribed: true
         }).eq('plan_number', sc_.plan).then(function(r){
           if (r.error) { nAlert('Error saving. Please try again.','Error','warn'); return; }
           getSupabase().from('activation_requests').update({status:'approved'}).eq('id',id).then(function(){});
@@ -1829,9 +1830,10 @@ function scTrialExhausted() {
   return adjCount >= PRICING.trialMeetings;
 }
 function scMmActive(s) {
-  // Active if: paid activation OR still within trial
+  // Active if: paid activation, any SS tier (SS requires MM), or still within trial
   if (!s) return false;
   if (s.mmActive === true || s.mmStatus === 'ACTIVE') return true;
+  if (s.ssTier === 'global' || s.ssTier === 'local') return true; // SS implies MM
   return !scTrialExhausted(); // trial counts as active
 }
 function scSsTier(s) {
@@ -1934,7 +1936,21 @@ function activateSCStrataSphere(scId, tier) {
   var price = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
   var label = tier === 'global' ? 'Local + Global StrataSphere' : 'Local StrataSphere';
   var monthly = (price * (sc_.lots||0)).toFixed(2);
-  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){     if (!ok) return;     sc_.ssTier = tier;     sc_.ssActivatedAt = new Date().toISOString();     getSupabase().from('strata_corps').update({       ss_tier: tier,       ss_activated_at: sc_.ssActivatedAt     }).eq('plan_number', sc_.plan).then(function(r){       if (r.error) console.error('Could not activate StrataSphere:', r.error);     });     sv('sc_'+sc_.id, sc_);     renderSCDetail(scId);     if(APP.currentScId===scId) renderMeetings();     nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');   }, 'Activate StrataSphere', 'info');
+  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){
+    if (!ok) return;
+    sc_.ssTier = tier;
+    sc_.ssActivatedAt = new Date().toISOString();
+    sc_.mmStatus = 'ACTIVE';
+    getSupabase().from('strata_corps').update({
+      ss_tier: tier, ss_activated_at: sc_.ssActivatedAt, is_subscribed: true
+    }).eq('plan_number', sc_.plan).then(function(r){
+      if (r.error) console.error('Could not activate StrataSphere:', r.error);
+    });
+    sv('sc_'+sc_.id, sc_);
+    renderSCDetail(scId);
+    if(APP.currentScId===scId) renderMeetings();
+    nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');
+  }, 'Activate StrataSphere', 'info');
 }
 function upgradeSCStrataSphere(scId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
@@ -1947,9 +1963,11 @@ function upgradeSCStrataSphere(scId) {
       if (!ok) return;
       sc_.ssTier = 'global';
       sc_.ssGlobalActivatedAt = new Date().toISOString();
+      sc_.mmStatus = 'ACTIVE';
       getSupabase().from('strata_corps').update({
         ss_tier: 'global',
-        ss_global_activated_at: sc_.ssGlobalActivatedAt
+        ss_global_activated_at: sc_.ssGlobalActivatedAt,
+        is_subscribed: true
       }).eq('plan_number', sc_.plan).then(function(r){
         if (r.error) { console.error('Could not upgrade SS:', r.error); nAlert('Error saving. Please try again.','Error','warn'); }
         else { renderBilling(); renderSCDetail(scId); nAlert('Global StrataSphere activated for '+sc_.plan+'.','Upgraded','success'); }
@@ -7268,12 +7286,12 @@ function approveActivationRequest(reqId, scId, requestType) {
     if (requestType === 'ss_global') {
       sc_.ssTier = 'global';
       sc_.ssGlobalActivatedAt = new Date().toISOString();
-      getSupabase().from('strata_corps').update({ss_tier:'global',ss_activated_at:sc_.ssGlobalActivatedAt}).eq('plan_number',sc_.plan).then(function(){});
+      sc_.mmStatus = 'ACTIVE';
+      getSupabase().from('strata_corps').update({ss_tier:'global', ss_global_activated_at:sc_.ssGlobalActivatedAt, is_subscribed:true}).eq('plan_number',sc_.plan).then(function(){});
     }
     // Mark request as approved
     getSupabase().from('activation_requests').update({status:'approved'}).eq('id',reqId).then(function(){});
     APP.pendingRequests = (APP.pendingRequests||[]).filter(function(r){ return r.id !== reqId; });
-    renderBilling();
     renderBilling();
     nAlert(label+' approved for '+scId+'.','Approved ✓','success');
   }, 'Approve Request', 'info');
