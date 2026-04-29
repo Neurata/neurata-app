@@ -9983,8 +9983,10 @@ function renderDocsList(sc, el) {
 
     // Three mutually exclusive states — shown as a single pill
     var statusPill = '';
-    if (!isPdf) {
-      statusPill = ''; // no pill for non-indexable files
+    if (doc._indexing) {
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px"><span class="spin" style="width:9px;height:9px;margin-right:4px;border-top-color:var(--amb);vertical-align:middle"></span>Indexing…</span>';
+    } else if (!isPdf) {
+      statusPill = '';
     } else if (!hasText) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
     } else if (isGssSafe) {
@@ -10001,8 +10003,8 @@ function renderDocsList(sc, el) {
       + (statusPill ? ' · ' + statusPill : '')
       + '</div></div>'
       + '<div style="display:flex;gap:6px;align-items:center">'
-      + (isPdf && !hasText && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
-      + (isPdf && hasText && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
+      + (isPdf && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
+      + (isPdf && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
       + '<button class="btn sm" onclick="downloadDoc(this)" '
       + 'data-name="' + escHtml(doc.name) + '" '
       + 'data-href="' + escHtml(doc.data || doc.url || '') + '">Download</button>'
@@ -10388,26 +10390,17 @@ function docExtractText(btn) {
   var dbId  = btn.dataset.dbid;
   var scId  = btn.dataset.scid;
   if (!storagePath || !dbId) { nAlert('Missing storage path — try re-uploading the document.', 'Error', 'warn'); return; }
-  btn.disabled = true;
 
-  // Animated feedback
-  var stages = ['Fetching document…','Reading pages…','Extracting text…','Processing content…','Almost there…'];
-  var stageIdx = 0, elapsed = 0;
-  function updateBtn() {
-    var mins = Math.floor(elapsed / 60), secs = elapsed % 60;
-    var timeStr = mins > 0 ? mins+'m '+secs+'s' : secs+'s';
-    btn.innerHTML = '<span class="spin spin-wh" style="margin-right:5px"></span>'
-      + stages[Math.min(stageIdx, stages.length-1)]
-      + ' <span style="opacity:.6;font-size:10px">'+timeStr+'</span>';
-  }
-  updateBtn();
-  var ticker = setInterval(function(){
-    elapsed++;
-    if (elapsed % 15 === 0 && stageIdx < stages.length-1) stageIdx++;
-    updateBtn();
-  }, 1000);
+  // Mark doc as indexing — survives tab navigation
+  var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+  var doc = sc_ && sc_.docs && sc_.docs.find(function(x){ return x.dbId === dbId; });
+  if (doc) doc._indexing = true;
 
-  // Create a signed URL for the private neurata-documents bucket (60s expiry is enough to fetch)
+  // Re-render docs list to show spinner pill immediately
+  var el2 = document.getElementById('mtg-body');
+  if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+
+  // Create a signed URL for the private neurata-documents bucket
   getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 60)
   .then(function(res) {
     if (res.error || !res.data || !res.data.signedUrl) {
@@ -10428,38 +10421,27 @@ function docExtractText(btn) {
     });
   })
   .then(function(b64){
-    clearInterval(ticker);
-    // Re-start ticker for multi-pass phase
-    stageIdx = 1; elapsed = 0;
-    ticker = setInterval(function(){
-      elapsed++;
-      if (elapsed % 15 === 0 && stageIdx < stages.length-1) stageIdx++;
-      updateBtn();
-    }, 1000);
-    // Run client-side multi-pass extraction — each pass is a separate short AI call
-    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1, btn, ticker);
+    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1);
   })
   .catch(function(e){
-    clearInterval(ticker);
     console.error('docExtractText error:', e);
-    btn.innerHTML = 'Failed — retry';
-    btn.disabled = false;
+    if (doc) doc._indexing = false;
+    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
     nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
   });
 }
 
-function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn, ticker) {
+function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass) {
+  var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+  var doc = sc_ && sc_.docs && sc_.docs.find(function(x){ return x.dbId === dbId; });
+
   if (pass > 5) {
-    if (ticker) clearInterval(ticker);
-    if (accumulated) {
-      _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
-    } else {
-      btn.innerHTML = 'Failed — retry'; btn.disabled = false;
-    }
+    if (accumulated) _finaliseDocExtract(dbId, scId, accumulated, b64);
+    else if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
     return;
   }
-  var isFirstPass = pass === 1;
 
+  var isFirstPass = pass === 1;
   var prompt = isFirstPass
     ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
     : 'Continue extracting the text of this document. You previously extracted up to:\n\n---\n' + accumulated.slice(-500) + '\n---\n\nContinue from exactly where that left off. Do not repeat any text already extracted. Extract everything remaining to the end of the document.';
@@ -10487,38 +10469,35 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn, ti
     if (!chunk) throw new Error('No text extracted');
     var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
     if (d.stop_reason === 'max_tokens') {
-      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1, btn, ticker);
+      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1);
     } else {
-      if (ticker) clearInterval(ticker);
-      _finaliseDocExtract(dbId, scId, fullText, b64, btn);
+      _finaliseDocExtract(dbId, scId, fullText, b64);
     }
   })
   .catch(function(e){
     console.error('docExtractText pass ' + pass + ' error:', e);
     if (accumulated) {
-      if (ticker) clearInterval(ticker);
-      _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
+      _finaliseDocExtract(dbId, scId, accumulated, b64);
     } else {
-      if (ticker) clearInterval(ticker);
-      btn.innerHTML = 'Failed — retry'; btn.disabled = false;
+      if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
       nAlert('Could not index document: ' + (e.message||'unknown'), 'Index Failed', 'warn');
     }
   });
 }
 
-function _finaliseDocExtract(dbId, scId, text, b64, btn) {
+function _reRenderDocs(sc_) {
+  var el2 = document.getElementById('mtg-body');
+  if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+}
+
+function _finaliseDocExtract(dbId, scId, text, b64) {
   _classifyAndSaveDocText(dbId, scId, text, b64);
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
     var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
-    if (doc) doc.documentText = text;
+    if (doc) { doc.documentText = text; doc._indexing = false; }
   }
-  btn.textContent = '✓ Indexed';
-  btn.disabled = true;
-  btn.style.color = 'var(--grn)';
-  btn.style.borderColor = 'var(--grn)';
-  var el2 = document.getElementById('mtg-body');
-  if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+  _reRenderDocs(sc_);
 }
 
 function downloadDoc(btn) {
