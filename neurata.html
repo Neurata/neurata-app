@@ -1873,10 +1873,12 @@ function scTrialExhausted() {
   return adjCount >= PRICING.trialMeetings;
 }
 function scMmActive(s) {
-  // Active if: paid activation, any SS tier (SS requires MM), or still within trial
+  // Active if: paid activation, any SS tier (SS requires MM), Stripe sub exists, or still within trial
   if (!s) return false;
   if (s.mmActive === true || s.mmStatus === 'ACTIVE') return true;
   if (s.ssTier === 'global' || s.ssTier === 'local') return true; // SS implies MM
+  if (s.stripeSubscriptionId) return true; // has an active Stripe subscription
+  if (s.mmActivatedAt) return true; // was activated at some point
   return !scTrialExhausted(); // trial counts as active
 }
 function scSsTier(s) {
@@ -8046,7 +8048,7 @@ function mapSCRow(sc) {
     brokerage_id:        sc.brokerage_id || '',
     mgr:                 '',
     mgrLic:              '',
-    mmStatus:            sc.is_subscribed ? 'ACTIVE' : '',
+    mmStatus:            (sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at) ? 'ACTIVE' : '',
     mmActivatedAt:       sc.mm_activated_at || null,
     mmPendingCancel:     sc.mm_pending_cancel || false,
     ssTier:              sc.ss_tier || null,
