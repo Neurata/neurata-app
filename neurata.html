@@ -7422,8 +7422,9 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="card" style="margin-bottom:14px">';
   html += '<div class="ch_"><div class="ct">Account Statements</div>'
     + '<select id="statements-range" style="font-size:12px;border:1px solid var(--g3);border-radius:4px;padding:4px 8px;font-family:inherit;color:var(--ch)" onchange="loadAccountStatements(document.getElementById(\'statements-body\'),this.value)">'
-    + '<option value="12">Last 12 months</option>'
+    + '<option value="all">All time</option>'
     + '<option value="ytd">Year to date</option>'
+    + '<option value="12">Last 12 months</option>'
     + (function(){
         var opts = '';
         var now = new Date();
@@ -7500,10 +7501,10 @@ function loadAccountStatements(el, range) {
   if (!el) return;
   var customerId = APP.brokerage && APP.brokerage.stripeCustomerId;
   if (!customerId) {
-    el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — statements appear here once your first payment is processed.</div>';
+    el.innerHTML = '<div style="color:var(--g4);font-size:13px">No payments yet — your first statement will appear here once a subscription is active.</div>';
     return;
   }
-  range = range || '12';
+  range = range || 'all';
   el.innerHTML = '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading…</div>';
 
   // Calculate unix timestamps for the selected range
@@ -7513,7 +7514,7 @@ function loadAccountStatements(el, range) {
     gteTs = Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000);
   } else if (range === '12') {
     gteTs = Math.floor(new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime() / 1000);
-  } else {
+  } else if (range !== 'all') {
     // YYYY-MM format — specific month
     var parts = range.split('-');
     var yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1;
@@ -7531,42 +7532,47 @@ function loadAccountStatements(el, range) {
     if (d.error) throw new Error(d.error);
     var html = '';
 
-    // Next charge preview — always shown if available
-    if (d.upcoming && d.upcoming.date) {
+    // Next charge preview — always shown, trusts Stripe's calculation completely
+    if (d.upcoming && d.upcoming.amount) {
       var upAmt = 'CA$'+(d.upcoming.amount/100).toFixed(2);
-      html += '<div style="padding:10px 14px;background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
-        + '<span style="font-size:13px"><strong>Next charge</strong> — '+escHtml(d.upcoming.date)+'</span>'
-        + '<span style="font-size:14px;font-weight:700;color:var(--org)">'+upAmt+'</span>'
+      var upDate = d.upcoming.date ? ' on '+escHtml(d.upcoming.date) : '';
+      html += '<div style="background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:14px;overflow:hidden">';
+      html += '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+        + '<span style="font-size:13px;font-weight:600">Next automatic charge'+upDate+'</span>'
+        + '<span style="font-size:15px;font-weight:700;color:var(--org)">'+upAmt+'</span>'
         + '</div>';
+      // Line item breakdown if available
+      if (d.upcoming.lines && d.upcoming.lines.length) {
+        html += '<div style="border-top:1px solid var(--org);padding:8px 14px">';
+        d.upcoming.lines.forEach(function(l) {
+          if (!l.amount) return;
+          html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ch3);padding:2px 0">'
+            + '<span>'+escHtml(l.description)+'</span>'
+            + '<span>CA$'+(l.amount/100).toFixed(2)+'</span>'
+            + '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
     }
 
-    // Receipt email note
-    if (d.receiptEmail) {
-      html += '<div style="font-size:11px;color:var(--g4);margin-bottom:12px">📧 Stripe receipts sent to <strong>'+escHtml(d.receiptEmail)+'</strong></div>';
-    }
-
-    // Invoice list — straight from Stripe
+    // Paid payments — straight from Stripe
     if (!d.invoices || !d.invoices.length) {
-      html += '<div style="color:var(--g4);font-size:13px">No invoices found for this period.</div>';
+      html += '<div style="color:var(--g4);font-size:13px">No payments recorded for this period.</div>';
       el.innerHTML = html;
       return;
     }
     html += '<table class="tbl"><thead><tr>'
-      + '<th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th>'
+      + '<th>Date</th><th>Description</th><th>Amount Paid</th><th></th>'
       + '</tr></thead><tbody>';
     d.invoices.forEach(function(inv) {
       var amt = inv.amount ? 'CA$'+(inv.amount/100).toFixed(2) : '—';
-      var statusTag = inv.status === 'paid'
-        ? '<span class="tag grn" style="font-size:10px">Paid</span>'
-        : '<span class="tag amb" style="font-size:10px">'+escHtml(inv.status)+'</span>';
       html += '<tr>'
         + '<td style="font-size:12px;white-space:nowrap">'+escHtml(inv.date)+'</td>'
         + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(inv.description || (inv.scPlan || 'Subscription'))+'</td>'
         + '<td style="font-size:13px;font-weight:600">'+amt+'</td>'
-        + '<td>'+statusTag+'</td>'
         + '<td style="white-space:nowrap">'
-        + (inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a> ' : '')
-        + (inv.pdfUrl    ? '<a href="'+escHtml(inv.pdfUrl)+'"    target="_blank" class="btn xs">PDF</a>'  : '')
+        + (inv.pdfUrl    ? '<a href="'+escHtml(inv.pdfUrl)+'"    target="_blank" class="btn xs">Receipt</a>' : '')
         + '</td>'
         + '</tr>';
     });
