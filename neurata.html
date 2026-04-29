@@ -7120,7 +7120,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
     allSCs.forEach(function(s) {
       var lots  = parseInt(s.lots) || 0;
-      var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive;
+      var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive || s.ssTier === 'global';
       var tier  = scSsTier(s);
       var monthlyRate = 0;
       if (isPaidActive) {
@@ -8308,16 +8308,16 @@ function renderSuperAdminDashboard(el) {
     var totalBrokerages = brokerages.length;
     var totalCorps = corps.length;
     var mmActive = corps.filter(function(s){ return s.is_subscribed; }).length;
-    var mmMRR = mmActive * PRICING.perBuilding;
-    // SS MRR — count actual active paid SS subscriptions with real lot counts
-    // MRR: every active (paid) SC = MM + Local SS bundle. Global SS replaces Local.
+
+    // MRR: use ss_tier directly from the corps query — don't rely on APP.sc
+    // A SC contributes to MRR if: is_subscribed OR ss_tier === 'global'
     var localSS = 0, globalSS = 0, localMRR = 0, globalMRR = 0;
-    corps.filter(function(s){ return s.is_subscribed; }).forEach(function(s){
+    corps.forEach(function(s){
       var lots = parseInt(s.lots) || 0;
-      // Check if global SS (from APP.sc which has ssTier loaded)
-      var scObj = (APP.sc||[]).find(function(x){ return x.plan === s.plan_number; });
-      var tier = scObj ? scSsTier(scObj) : 'local';
-      if (tier === 'global') {
+      var isGlobal = s.ss_tier === 'global';
+      var isPaid   = s.is_subscribed || isGlobal;
+      if (!isPaid) return;
+      if (isGlobal) {
         globalSS++;
         globalMRR += PRICING.perBuilding + (PRICING.perLotGlobal * lots);
       } else {
@@ -8325,10 +8325,9 @@ function renderSuperAdminDashboard(el) {
         localMRR += PRICING.perBuilding + (PRICING.perLotLocal * lots);
       }
     });
-    // MRR is $0 during trial (no paid subscriptions yet)
+    var totalMRR = localMRR + globalMRR;
     var anyPaid = (APP._allBrokerages||[]).some(function(b){ return b.subscription_status === 'active'; });
-    var totalMRR = anyPaid ? (localMRR + globalMRR) : 0;
-    var mmMRR = anyPaid ? mmActive * PRICING.perBuilding : 0; // for display only
+    var mmMRR = mmActive * PRICING.perBuilding; // for display only
 
     var html = '';
 
@@ -8362,7 +8361,7 @@ function renderSuperAdminDashboard(el) {
 
     if (saView === 'list') {
       html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
-        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>Address</th><th>AI Use</th>'
+        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th>MM Active</th><th>Trial</th><th>AI Use</th><th>Address</th>'
         + '</tr></thead><tbody>';
       brokerages.forEach(function(b) {
         var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
@@ -8395,11 +8394,12 @@ function renderSuperAdminDashboard(el) {
         var aiColor = bAiPct>=100?'var(--red)':bAiPct>=80?'var(--org)':'var(--g4)';
         var status = b.subscription_status || 'trial';
         var statusTag = status === 'active' ? '<span class="tag grn">Active</span>' : '<span class="tag amb">Trial</span>';
-        html += '<div class="card" style="padding:16px 18px;transition:box-shadow .15s"'
+        html += '<div class="card" style="padding:16px 18px;transition:box-shadow .15s;cursor:pointer"'
+          + ' onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')"'
           + ' onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.1)\'"'
           + ' onmouseout="this.style.boxShadow=\'\'">'
           + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">'
-          + '<div style="cursor:pointer" onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')">' 
+          + '<div>'
           + '<div style="font-size:14px;font-weight:700;color:var(--ch)">'+escHtml(b.name||'—')+'</div>'
           + '<div style="font-size:11px;color:var(--g4);margin-top:1px">'+escHtml(b.bcfsa_lic||'')+'</div>'
           + '</div>'+statusTag+'</div>'
@@ -8410,9 +8410,8 @@ function renderSuperAdminDashboard(el) {
           + '<span>'+(b.trial_meetings_used||0)+'/'+PRICING.trialMeetings+' trial</span>'
           + '</div>'
           + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '')
-          + '<div style="display:flex;gap:6px">'
-          + '<button class="btn xs pri" onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')" >Enter →</button>'
-          + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ')" >Manage Trial</button>'
+          + '<div style="display:flex;justify-content:flex-end">'
+          + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ')">Manage Trial</button>'
           + '</div>'
           + '</div>';
       });
