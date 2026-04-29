@@ -7420,9 +7420,25 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
   // ── Account Statements (from Stripe — full width) ─────────────────────
   html += '<div class="card" style="margin-bottom:14px">';
-  html += '<div class="ch_"><div class="ct">Account Statements</div></div>';
+  html += '<div class="ch_"><div class="ct">Account Statements</div>'
+    + '<select id="statements-range" style="font-size:12px;border:1px solid var(--g3);border-radius:4px;padding:4px 8px;font-family:inherit;color:var(--ch)" onchange="loadAccountStatements(document.getElementById(\'statements-body\'),this.value)">'
+    + '<option value="12">Last 12 months</option>'
+    + '<option value="ytd">Year to date</option>'
+    + (function(){
+        var opts = '';
+        var now = new Date();
+        for (var i = 0; i < 12; i++) {
+          var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          var val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+          var lbl = d.toLocaleDateString('en-CA', {year:'numeric', month:'long'});
+          opts += '<option value="'+val+'">'+lbl+'</option>';
+        }
+        return opts;
+      })()
+    + '</select>'
+    + '</div>';
   html += '<div class="cb" id="statements-body" style="padding:12px 15px">';
-  html += '<div style="color:var(--g4);font-size:13px">Loading statements…</div>';
+  html += '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading…</div>';
   html += '</div></div>';
 
   // ── Strata Corporations — full width with cost summary ────────────────
@@ -7480,36 +7496,58 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   loadAccountStatements(document.getElementById('statements-body'));
 }
 
-function loadAccountStatements(el) {
+function loadAccountStatements(el, range) {
   if (!el) return;
   var customerId = APP.brokerage && APP.brokerage.stripeCustomerId;
   if (!customerId) {
     el.innerHTML = '<div style="color:var(--g4);font-size:13px">No statements yet — statements appear here once your first payment is processed.</div>';
     return;
   }
-  el.innerHTML = '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading statements…</div>';
-  fetch(WORKER_URL + '/stripe/invoices?customerId=' + encodeURIComponent(customerId))
+  range = range || '12';
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px"><span class="spin" style="margin-right:6px"></span>Loading…</div>';
+
+  // Calculate unix timestamps for the selected range
+  var now = new Date();
+  var gteTs, lteTs;
+  if (range === 'ytd') {
+    gteTs = Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000);
+  } else if (range === '12') {
+    gteTs = Math.floor(new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime() / 1000);
+  } else {
+    // YYYY-MM format — specific month
+    var parts = range.split('-');
+    var yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1;
+    gteTs = Math.floor(new Date(yr, mo, 1).getTime() / 1000);
+    lteTs = Math.floor(new Date(yr, mo + 1, 0, 23, 59, 59).getTime() / 1000);
+  }
+
+  var url = WORKER_URL + '/stripe/invoices?customerId=' + encodeURIComponent(customerId)
+    + (gteTs ? '&created_gte=' + gteTs : '')
+    + (lteTs ? '&created_lte=' + lteTs : '');
+
+  fetch(url)
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.error) throw new Error(d.error);
     var html = '';
 
-    // Receipt email note
-    if (d.receiptEmail) {
-      html += '<div style="font-size:12px;color:var(--g4);margin-bottom:12px">📧 Receipts are sent to <strong>'+escHtml(d.receiptEmail)+'</strong> after each payment.</div>';
-    }
-
-    // Upcoming invoice
-    if (d.upcoming) {
+    // Next charge preview — always shown if available
+    if (d.upcoming && d.upcoming.date) {
       var upAmt = 'CA$'+(d.upcoming.amount/100).toFixed(2);
-      html += '<div style="padding:10px 14px;background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:12px;font-size:13px">'
-        + '<strong>Next charge:</strong> '+upAmt+' on '+escHtml(d.upcoming.date)
+      html += '<div style="padding:10px 14px;background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+        + '<span style="font-size:13px"><strong>Next charge</strong> — '+escHtml(d.upcoming.date)+'</span>'
+        + '<span style="font-size:14px;font-weight:700;color:var(--org)">'+upAmt+'</span>'
         + '</div>';
     }
 
-    // Past invoices
+    // Receipt email note
+    if (d.receiptEmail) {
+      html += '<div style="font-size:11px;color:var(--g4);margin-bottom:12px">📧 Stripe receipts sent to <strong>'+escHtml(d.receiptEmail)+'</strong></div>';
+    }
+
+    // Invoice list — straight from Stripe
     if (!d.invoices || !d.invoices.length) {
-      html += '<div style="color:var(--g4);font-size:13px">No statements yet — your first invoice will appear here after your next billing date.</div>';
+      html += '<div style="color:var(--g4);font-size:13px">No invoices found for this period.</div>';
       el.innerHTML = html;
       return;
     }
@@ -7523,11 +7561,12 @@ function loadAccountStatements(el) {
         : '<span class="tag amb" style="font-size:10px">'+escHtml(inv.status)+'</span>';
       html += '<tr>'
         + '<td style="font-size:12px;white-space:nowrap">'+escHtml(inv.date)+'</td>'
-        + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(inv.description || (inv.scPlan ? inv.scPlan : 'Subscription'))+'</td>'
+        + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(inv.description || (inv.scPlan || 'Subscription'))+'</td>'
         + '<td style="font-size:13px;font-weight:600">'+amt+'</td>'
         + '<td>'+statusTag+'</td>'
-        + '<td>'+(inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a> ' : '')
-        +     (inv.pdfUrl ? '<a href="'+escHtml(inv.pdfUrl)+'" target="_blank" class="btn xs">PDF</a>' : '')
+        + '<td style="white-space:nowrap">'
+        + (inv.hostedUrl ? '<a href="'+escHtml(inv.hostedUrl)+'" target="_blank" class="btn xs">View</a> ' : '')
+        + (inv.pdfUrl    ? '<a href="'+escHtml(inv.pdfUrl)+'"    target="_blank" class="btn xs">PDF</a>'  : '')
         + '</td>'
         + '</tr>';
     });
