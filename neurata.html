@@ -4750,6 +4750,8 @@ function mmCallToOrder() {
   _mmCallToOrderProceed();
 }
 function _mmCallToOrderProceed() {
+  // Cancel the 30-min quorum warning — meeting was called to order in time
+  if (MM.quorumTimer) { clearTimeout(MM.quorumTimer); MM.quorumTimer = null; }
   var it = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('call to order') >= 0; });
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
