@@ -9412,11 +9412,18 @@ function saveOwnerInfo() {
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
-  // Persist to Supabase
+  // Persist to Supabase — uses plan number as sc_id, lot_number not sl
+  var sc_plan = s.plan;
   getSupabase().from('council_members').upsert({
-    sc_id: s.id, sl: _oiSl, full_name: name, email: email||null,
-    council_role: role||null, is_council: isCouncil
-  }, {onConflict:'sc_id,sl'}).then(function(){});
+    sc_id:       sc_plan,
+    lot_number:  _oiSl,
+    full_name:   name,
+    email:       email||null,
+    council_role: role||null,
+    is_council:  isCouncil
+  }, {onConflict: 'sc_id,lot_number'}).then(function(r){
+    if(r.error) console.error('council_members upsert error:', r.error);
+  });
   closeMo('mo-owner-info');
   renderSCDetail(_oiScId);
 }
@@ -9561,6 +9568,16 @@ function saveCouncilMember() {
   }
   s.councilSLs=s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
+  getSupabase().from('council_members').upsert({
+    sc_id:       s.plan,
+    lot_number:  slVal,
+    full_name:   name,
+    email:       email||null,
+    council_role: role||null,
+    is_council:  true
+  }, {onConflict:'sc_id,lot_number'}).then(function(r){
+    if(r.error) console.error('council_members upsert error:', r.error);
+  });
   closeMo('mo-council-member');
   renderSCDetail(_cmScId);
 }
