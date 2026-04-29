@@ -2498,7 +2498,7 @@ function agRender() {
       + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'
       + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'
       + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'
-      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name" style="color:var(--g4)">✏️</button>'
+      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name">Edit</button>'
       + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
       + '</div>'
       + '<div class="ag-items">';
@@ -4466,7 +4466,28 @@ function renderCtr(it) {
       var nowTime  = new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});
 
       var scriptLines = [];
-      if (!isGenMtg) {
+      if (!hasQuorum && presentCount > 0) {
+        // Quorum not met — BC SPA script for what happens next
+        var waitMins = isGenMtg ? '30 minutes' : '30 minutes';
+        var adjournTime = (function(){
+          var d = new Date(); d.setMinutes(d.getMinutes()+30);
+          return d.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});
+        })();
+        scriptLines = [
+          '"Good '+greeting+', everyone.',
+          'I would like to note for the record that we have attempted to call this meeting of '+(isGenMtg?'the Owners':'the Strata Council')+' of Strata Plan '+plan+' to order at '+nowTime+'."',
+          '',
+          '<em style="color:var(--g4)">(State the attendance and quorum requirement)</em>',
+          '',
+          '"Unfortunately, quorum has not been achieved. We currently have '+presentCount+' '+(presentCount===1?'member':'members')+' present, and '+quorumRequired+' are required for quorum under '+(isGenMtg?'Section 49 of the Strata Property Act':'the Strata Property Act and our bylaws')+'."',
+          '',
+          isGenMtg
+            ? '"Under Section 49 of the Strata Property Act, if quorum is not achieved at an AGM, the meeting must be adjourned for at least one week. A new notice of meeting must be issued. At the adjourned meeting, the owners who are present will constitute quorum."'
+            : '"As we do not have quorum, no resolutions may be passed at this meeting. We will adjourn and reschedule. I will follow up with notice of a new meeting date."',
+          '',
+          '"The meeting is therefore adjourned at '+nowTime+'."'
+        ];
+      } else if (!isGenMtg) {
         // Council meeting script
         scriptLines = [
           '"Good '+greeting+', everyone.',
@@ -4498,7 +4519,7 @@ function renderCtr(it) {
 
       // Script card
       h += '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:16px 18px;margin-bottom:18px">';
-      h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:10px">Call to Order Script</div>';
+      h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:10px">'+(!hasQuorum && presentCount>0 ? 'No Quorum — Adjournment Script' : 'Call to Order Script')+'</div>';
       h += '<div style="font-size:13px;line-height:1.8;color:var(--ch)">';
       scriptLines.forEach(function(line){
         h += (line === '' ? '<br>' : '<div>'+line+'</div>');
@@ -4507,7 +4528,7 @@ function renderCtr(it) {
 
       // Call to Order button + quorum note
       h += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
-      h += '<button class="btn pri" style="font-size:13px;padding:10px 22px" id="cto-btn" onclick="mmCallToOrder()" '+(hasQuorum?'':'disabled title="Confirm attendance first"')+'>☎ Call to Order — Start Clock</button>';
+      h += '<button class="btn pri" style="font-size:13px;padding:10px 22px" id="cto-btn" onclick="mmCallToOrder()" '+(hasQuorum?'':'disabled title="Confirm attendance first"')+'>Call to Order</button>';
       if (!hasQuorum) h += '<span style="font-size:11px;color:var(--red)">Confirm attendance before calling to order</span>';
       h += '</div>';
       h += '<div style="font-size:11px;color:var(--g4);margin-top:10px">If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
@@ -5370,7 +5391,7 @@ function exportAgenda(scId, mtgId) {
     if (logoDataUrl && logoDataUrl.indexOf('base64,')>0) {
       var b64=logoDataUrl.split('base64,')[1]; var raw=atob(b64); var hex='';
       for(var bi=0;bi<raw.length;bi++){var hx=raw.charCodeAt(bi).toString(16);hex+=(hx.length===1?'0':'')+hx;}
-      r.push('{\\pict\\pngblip\\picwgoal3600\\picscalex60\\picscaley60 '+hex+'}');
+      r.push('{\\pict\\pngblip\\picwgoal3600 '+hex+'}');
       r.push('\\pard\\sb0\\sa20\\par');
     }
     if (APP.brokerage && APP.brokerage.name) {
@@ -5515,8 +5536,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       var hx = raw.charCodeAt(bi).toString(16);
       hex += (hx.length === 1 ? '0' : '') + hx;
     }
-    // Logo: max 2.5" wide, preserve aspect ratio — set width only, no forced height
-    r.push('{\\pict\\pngblip\\picwgoal3600\\picscalex60\\picscaley60 ' + hex + '}');
+    // Logo: max 2.5" wide (3600 twips), aspect ratio preserved — no forced height
+    r.push('{\\pict\\pngblip\\picwgoal3600 ' + hex + '}');
     r.push('\\pard\\sb0\\sa20\\par'); // spacing after logo
   }
   if (APP.brokerage && APP.brokerage.name) {
@@ -5531,6 +5552,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
 
   if (state==='DRAFT') {
     r.push('\\pard\\sb0\\sa80\\b\\fs20\\cf5 DRAFT \\u2014 Not yet approved by strata council\\b0\\cf0\\par');
+  } else if (state==='FINAL') {
+    r.push('\\pard\\sb0\\sa80\\fs20\\cf3 FINAL \\u2014 Approved minutes\\cf0\\par');
   }
 
   // ── MEETING TITLE ───────────────────────────────────────────────────
@@ -5848,6 +5871,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
 
   // Call to Order
   lines.push('<h1>Call to Order</h1>');
+  var ctoItem = (mtg.agenda||[]).find(function(it){ return (it.text||'').toLowerCase().indexOf('call to order')>=0; });
   var ctoSummary = ctoItem && ctoItem.minutesSummary ? ctoItem.minutesSummary : 'The meeting was called to order at ' + (mtg.actualStartTime||mtg.time||'[time]') + '.';
   lines.push('<p>' + ctoSummary + '</p>');
 
