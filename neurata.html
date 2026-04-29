@@ -236,7 +236,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-aiin{flex:1;background:rgba(255,255,255,.09);border:none;border-radius:4px 0 0 4px;padding:6px 9px;font-size:11px;color:#fff;font-family:inherit;outline:none}
 .mm-aiin::placeholder{color:rgba(255,255,255,.3)}
 .mm-aisend{background:var(--org);border:none;border-radius:0 4px 4px 0;padding:6px 11px;color:#fff;cursor:pointer;font-size:13px;font-weight:600}
-.mm-bot{height:56px;background:var(--wh);border-top:1px solid var(--g2);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;overflow-x:auto}
+.mm-bot{height:50px;min-height:50px;max-height:50px;background:var(--wh);border-top:1px solid var(--g2);display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;overflow:hidden;white-space:nowrap}
 .mm-bdiv{width:1px;height:30px;background:var(--g2)}
 .mm-dlbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);white-space:nowrap}
 .mm-dval{font-size:12px;font-weight:600;color:var(--ch);white-space:nowrap}
@@ -1194,42 +1194,38 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mm-bot">
-      <!-- Resolution type tag -->
+      <!-- Resolution + Decision inline -->
       <div id="mm-rtype" style="flex-shrink:0"></div>
-      <div class="mm-bdiv"></div>
-      <!-- Decision Type -->
-      <div style="flex-shrink:0"><div class="mm-dlbl">Decision</div><div class="mm-dval" id="mm-dtype">—</div></div>
-      <div class="mm-bdiv"></div>
+      <div class="mm-bdiv" data-motion="1"></div>
+      <span class="mm-dlbl" data-motion="1">Decision</span><span class="mm-dval" id="mm-dtype" style="margin-left:4px" data-motion="1">—</span>
+      <div class="mm-bdiv" data-motion="1"></div>
       <!-- Mover -->
-      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span class="mm-dlbl">Mover</span><select class="mm-sel" id="mm-mover"><option value="">Select...</option></select></div>
+      <span class="mm-dlbl" data-motion="1">Mover</span>
+      <select class="mm-sel" id="mm-mover" style="flex-shrink:0" data-motion="1"><option value="">Select...</option></select>
       <!-- Seconder -->
-      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span class="mm-dlbl">Seconder</span><select class="mm-sel" id="mm-secd"><option value="">Select...</option></select></div>
-      <div class="mm-bdiv"></div>
+      <span class="mm-dlbl" data-motion="1">Seconder</span>
+      <select class="mm-sel" id="mm-secd" style="flex-shrink:0" data-motion="1"><option value="">Select...</option></select>
+      <div class="mm-bdiv" data-motion="1"></div>
       <!-- Vote tallies -->
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0" id="mm-vote-row">
-        <div style="display:flex;align-items:center;gap:3px">
-          <span style="font-size:11px;font-weight:600;color:var(--grn)">For</span>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'for',-1)">−</button>
-          <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'for',1)">+</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:3px">
-          <span style="font-size:11px;font-weight:600;color:var(--red)">Against</span>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'against',-1)">−</button>
-          <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'against',1)">+</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:3px">
-          <span style="font-size:11px;font-weight:600;color:var(--g4)">Abstain</span>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',-1)">−</button>
-          <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
-          <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',1)">+</button>
-        </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0" id="mm-vote-row" data-motion="1">
+        <span style="font-size:11px;font-weight:600;color:var(--grn)">For</span>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'for',-1)">−</button>
+        <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'for',1)">+</button>
+        <span style="font-size:11px;font-weight:600;color:var(--red)">Against</span>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'against',-1)">−</button>
+        <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'against',1)">+</button>
+        <span style="font-size:11px;font-weight:600;color:var(--g4)">Abstain</span>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',-1)">−</button>
+        <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
+        <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',1)">+</button>
       </div>
+      <div class="mm-bdiv" data-motion="1"></div>
       <!-- Outcome -->
-      <div style="flex-shrink:0"><div class="mm-dlbl">Outcome</div><div id="mm-outcome" style="font-size:13px;font-weight:700;color:var(--g4)">—</div></div>
+      <span class="mm-dlbl" data-motion="1">Outcome</span><span id="mm-outcome" style="font-size:12px;font-weight:700;color:var(--g4);margin-left:4px" data-motion="1">—</span>
       <div class="mm-bdiv"></div>
-      <!-- Action buttons — right side -->
+      <!-- Action buttons pushed right -->
       <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0" id="mm-mover-row">
         <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
         <button class="btn sm" id="mm-defer-btn" onclick="deferItem()" style="display:none">Defer</button>
@@ -3049,11 +3045,10 @@ function renderAttendancePanel(it) {
 
   el.innerHTML = html;
 
-  // Call to Order is not a motion item — hide votes, confirm, and continue buttons
-  var voteSection = document.getElementById('mm-vote-row');
+  // Call to Order — hide all motion-specific elements and action buttons
+  document.querySelectorAll('.mm-bot [data-motion]').forEach(function(el){ el.style.display = 'none'; });
   var confBtn = document.getElementById('mm-confbtn');
   var nextBtn = document.getElementById('mm-next-btn');
-  if (voteSection) voteSection.style.display = 'none';
   if (confBtn) confBtn.style.display = 'none';
   if (nextBtn) nextBtn.style.display = 'none';
 }
@@ -4208,26 +4203,23 @@ function setItem(id) {
   autoPopulateItem(it);
   renderCtr(it); renderAtts(it); renderAI(it);
 
-  var voteRow  = document.getElementById('mm-vote-row');
   var nextBtn  = document.getElementById('mm-next-btn');
   var confBtn  = document.getElementById('mm-confbtn');
   var deferBtn = document.getElementById('mm-defer-btn');
   var unaBtn   = document.getElementById('mm-unanimous-btn');
   var moverEl  = document.getElementById('mm-mover');
   var secdEl   = document.getElementById('mm-secd');
-  var moverWrap = moverEl && moverEl.parentElement;
-  var secdWrap  = secdEl  && secdEl.parentElement;
   var dtypeEl  = document.getElementById('mm-dtype');
 
+  // Show/hide all motion-specific elements at once
+  var motionEls = document.querySelectorAll('.mm-bot [data-motion]');
+  motionEls.forEach(function(el){ el.style.display = it.motion ? '' : 'none'; });
+
   if (it.motion) {
-    // Motion item — show votes, mover/seconder, Confirm Decision + Unanimous + Defer
-    if (voteRow)    voteRow.style.display    = '';
-    if (moverWrap)  moverWrap.style.display  = '';
-    if (secdWrap)   secdWrap.style.display   = '';
-    if (nextBtn)    nextBtn.style.display    = 'none';
+    if (nextBtn)  nextBtn.style.display  = 'none';
     if (confBtn)  { confBtn.style.display = ''; confBtn.disabled = !!it.done; }
-    if (deferBtn)   deferBtn.style.display   = it.done ? 'none' : '';
-    if (unaBtn)     unaBtn.style.display     = it.done ? 'none' : '';
+    if (deferBtn) deferBtn.style.display  = it.done ? 'none' : '';
+    if (unaBtn)   unaBtn.style.display    = it.done ? 'none' : '';
 
     if (dtypeEl) dtypeEl.textContent = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[it.motion.dt]||'—';
 
@@ -4243,16 +4235,11 @@ function setItem(id) {
 
     updOutcome(it);
   } else {
-    // Non-motion item — hide votes and mover/seconder, show Continue only
-    if (voteRow)    voteRow.style.display    = 'none';
-    if (moverWrap)  moverWrap.style.display  = 'none';
-    if (secdWrap)   secdWrap.style.display   = 'none';
-    if (nextBtn)    nextBtn.style.display    = it.done ? 'none' : '';
+    if (nextBtn)  nextBtn.style.display  = it.done ? 'none' : '';
     if (confBtn)  { confBtn.style.display = 'none'; confBtn.disabled = true; }
-    if (deferBtn)   deferBtn.style.display   = 'none';
-    if (unaBtn)     unaBtn.style.display     = 'none';
-
-    if (dtypeEl) dtypeEl.textContent = '—';
+    if (deferBtn) deferBtn.style.display  = 'none';
+    if (unaBtn)   unaBtn.style.display    = 'none';
+    if (dtypeEl)  dtypeEl.textContent     = '—';
     document.getElementById('mm-outcome').textContent = it.done ? '✓ Done' : '—';
     document.getElementById('mm-outcome').style.color = it.done ? 'var(--grn)' : 'var(--g4)';
   }
