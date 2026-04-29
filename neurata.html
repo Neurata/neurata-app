@@ -236,7 +236,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-aiin{flex:1;background:rgba(255,255,255,.09);border:none;border-radius:4px 0 0 4px;padding:6px 9px;font-size:11px;color:#fff;font-family:inherit;outline:none}
 .mm-aiin::placeholder{color:rgba(255,255,255,.3)}
 .mm-aisend{background:var(--org);border:none;border-radius:0 4px 4px 0;padding:6px 11px;color:#fff;cursor:pointer;font-size:13px;font-weight:600}
-.mm-bot{min-height:50px;height:auto;background:var(--wh);border-top:1px solid var(--g2);display:flex;flex-direction:column;justify-content:center;padding:8px 12px;gap:6px;flex-shrink:0}
+.mm-bot{height:56px;background:var(--wh);border-top:1px solid var(--g2);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;overflow-x:auto}
 .mm-bdiv{width:1px;height:30px;background:var(--g2)}
 .mm-dlbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);white-space:nowrap}
 .mm-dval{font-size:12px;font-weight:600;color:var(--ch);white-space:nowrap}
@@ -551,7 +551,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   .mm-C { width: 100%; }
 
   /* Bottom bar wraps */
-  .mm-bot { height: auto; min-height: 50px; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
+  .mm-bot { height: auto; min-height: 50px; padding: 6px 8px; gap: 6px; overflow-x: auto; flex-wrap: nowrap; }
   .mm-bdiv { display: none; }
   .mm-mvrow { flex-wrap: wrap; }
   .mm-conf { order: 10; width: 100%; text-align: center; }
@@ -1194,45 +1194,47 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mm-bot">
-      <!-- Row 1: Resolution Type + Decision Type + Mover + Seconder + Buttons -->
-      <div id="mm-mover-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div><div class="mm-dlbl">Resolution</div><div id="mm-rtype" style="font-size:12px;color:var(--ch3)">—</div></div>
-        <div class="mm-bdiv"></div>
-        <div><div class="mm-dlbl">Decision Type</div><div class="mm-dval" id="mm-dtype">—</div></div>
-        <div class="mm-bdiv"></div>
-        <div style="display:flex;align-items:center;gap:5px"><span class="mm-dlbl">MOVER</span><select class="mm-sel" id="mm-mover"><option value="">Select...</option></select></div>
-        <div style="display:flex;align-items:center;gap:5px"><span class="mm-dlbl">SECONDER</span><select class="mm-sel" id="mm-secd"><option value="">Select...</option></select></div>
-        <div class="mm-bdiv"></div>
-        <button class="mm-conf" id="mm-confbtn" onclick="confirmDecision()" disabled>Confirm Decision</button>
-        <button class="btn sm pri" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Next Item →</button>
-        <button class="btn sm pri" id="mm-consensus-btn" onclick="consensusItem()" style="display:none">Consensus</button>
-        <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
-        <button class="btn sm" id="mm-defer-btn" onclick="deferItem()">Defer</button>
-      </div>
-      <div class="mm-bdiv" style="margin:6px 0"></div>
-      <!-- Row 2: Vote inputs + Outcome -->
-      <div style="display:flex;align-items:center;gap:12px" id="mm-vote-row">
-        <div class="mm-dlbl" style="white-space:nowrap">VOTES</div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:11px;font-weight:600;color:var(--grn);width:28px">For</span>
+      <!-- Resolution type tag -->
+      <div id="mm-rtype" style="flex-shrink:0"></div>
+      <div class="mm-bdiv"></div>
+      <!-- Decision Type -->
+      <div style="flex-shrink:0"><div class="mm-dlbl">Decision</div><div class="mm-dval" id="mm-dtype">—</div></div>
+      <div class="mm-bdiv"></div>
+      <!-- Mover -->
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span class="mm-dlbl">Mover</span><select class="mm-sel" id="mm-mover"><option value="">Select...</option></select></div>
+      <!-- Seconder -->
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span class="mm-dlbl">Seconder</span><select class="mm-sel" id="mm-secd"><option value="">Select...</option></select></div>
+      <div class="mm-bdiv"></div>
+      <!-- Vote tallies -->
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0" id="mm-vote-row">
+        <div style="display:flex;align-items:center;gap:3px">
+          <span style="font-size:11px;font-weight:600;color:var(--grn)">For</span>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'for',-1)">−</button>
           <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'for',1)">+</button>
         </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:11px;font-weight:600;color:var(--red);width:44px">Against</span>
+        <div style="display:flex;align-items:center;gap:3px">
+          <span style="font-size:11px;font-weight:600;color:var(--red)">Against</span>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'against',-1)">−</button>
           <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'against',1)">+</button>
         </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:11px;font-weight:600;color:var(--g4);width:44px">Abstain</span>
+        <div style="display:flex;align-items:center;gap:3px">
+          <span style="font-size:11px;font-weight:600;color:var(--g4)">Abstain</span>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',-1)">−</button>
           <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
           <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',1)">+</button>
         </div>
-        <div class="mm-bdiv"></div>
-        <div><div class="mm-dlbl">Outcome</div><div id="mm-outcome" style="font-size:13px;font-weight:700;color:var(--g4)">Pending</div></div>
+      </div>
+      <!-- Outcome -->
+      <div style="flex-shrink:0"><div class="mm-dlbl">Outcome</div><div id="mm-outcome" style="font-size:13px;font-weight:700;color:var(--g4)">—</div></div>
+      <div class="mm-bdiv"></div>
+      <!-- Action buttons — right side -->
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0" id="mm-mover-row">
+        <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
+        <button class="btn sm" id="mm-defer-btn" onclick="deferItem()" style="display:none">Defer</button>
+        <button class="btn sm pri" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Continue →</button>
+        <button class="mm-conf" id="mm-confbtn" onclick="confirmDecision()" disabled style="display:none">Confirm Decision</button>
       </div>
     </div>
   </div>
@@ -3047,22 +3049,13 @@ function renderAttendancePanel(it) {
 
   el.innerHTML = html;
 
-  // Update confirm button state
-  // Hide voting section entirely for FOR_INFORMATION items (no motion needed)
-  var mvrow = document.getElementById('mm-mover-row');
+  // Call to Order is not a motion item — hide votes, confirm, and continue buttons
   var voteSection = document.getElementById('mm-vote-row');
   var confBtn = document.getElementById('mm-confbtn');
-  var isInfoItem = !it || !it.motion;
-  if (mvrow) mvrow.style.display = isInfoItem ? 'none' : '';
-  if (voteSection) voteSection.style.display = isInfoItem ? 'none' : '';
-  if (confBtn) {
-    if (isInfoItem) { confBtn.style.display = 'none'; }
-    else {
-      confBtn.style.display = '';
-      confBtn.disabled = !hasQuorum;
-      confBtn.title = hasQuorum ? 'Confirm attendance and call meeting to order' : 'Cannot proceed — quorum not met';
-    }
-  }
+  var nextBtn = document.getElementById('mm-next-btn');
+  if (voteSection) voteSection.style.display = 'none';
+  if (confBtn) confBtn.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'none';
 }
 
 function attMarkSL(sl, status, itemId) {
@@ -3136,21 +3129,11 @@ function refreshQuorumBar(it) {
   if(moverEl) moverEl.innerHTML = opts;
   if(secdEl)  secdEl.innerHTML  = opts;
 
-  // Lock/unlock confirm button
-  // Hide voting section entirely for FOR_INFORMATION items (no motion needed)
-  var mvrow = document.getElementById('mm-mover-row');
-  var voteSection = document.getElementById('mm-vote-row');
+  // Lock/unlock confirm button — only relevant for motion items (not CTO)
   var confBtn = document.getElementById('mm-confbtn');
-  var isInfoItem = !it || !it.motion;
-  if (mvrow) mvrow.style.display = isInfoItem ? 'none' : '';
-  if (voteSection) voteSection.style.display = isInfoItem ? 'none' : '';
-  if (confBtn) {
-    if (isInfoItem) { confBtn.style.display = 'none'; }
-    else {
-      confBtn.style.display = '';
-      confBtn.disabled = !hasQuorum;
-      confBtn.title = hasQuorum ? 'Confirm attendance and call meeting to order' : 'Cannot proceed — quorum not met';
-    }
+  if (confBtn && confBtn.style.display !== 'none') {
+    confBtn.disabled = !hasQuorum;
+    confBtn.title = hasQuorum ? '' : 'Cannot proceed — quorum not met';
   }
 }
 
@@ -4226,34 +4209,31 @@ function setItem(id) {
   renderCtr(it); renderAtts(it); renderAI(it);
 
   var voteRow  = document.getElementById('mm-vote-row');
-  var moverRow = document.getElementById('mm-mover-row');
   var nextBtn  = document.getElementById('mm-next-btn');
   var confBtn  = document.getElementById('mm-confbtn');
   var deferBtn = document.getElementById('mm-defer-btn');
   var unaBtn   = document.getElementById('mm-unanimous-btn');
-  var conBtn   = document.getElementById('mm-consensus-btn');
+  var moverEl  = document.getElementById('mm-mover');
+  var secdEl   = document.getElementById('mm-secd');
+  var moverWrap = moverEl && moverEl.parentElement;
+  var secdWrap  = secdEl  && secdEl.parentElement;
+  var dtypeEl  = document.getElementById('mm-dtype');
 
   if (it.motion) {
-    // Motion item — show vote row, mover/seconder, confirm button
-    if (voteRow)  voteRow.style.display  = '';
-    if (moverRow) moverRow.style.display = '';
-    if (nextBtn)  nextBtn.style.display  = 'none';
-    if (confBtn)  { confBtn.disabled = !!it.done; confBtn.style.display = ''; }
-    if (deferBtn) deferBtn.style.display = it.done ? 'none' : '';
-    if (conBtn)   conBtn.style.display   = 'none';
-    if (unaBtn)   unaBtn.style.display   = (!it.done ? '' : 'none');
+    // Motion item — show votes, mover/seconder, Confirm Decision + Unanimous + Defer
+    if (voteRow)    voteRow.style.display    = '';
+    if (moverWrap)  moverWrap.style.display  = '';
+    if (secdWrap)   secdWrap.style.display   = '';
+    if (nextBtn)    nextBtn.style.display    = 'none';
+    if (confBtn)  { confBtn.style.display = ''; confBtn.disabled = !!it.done; }
+    if (deferBtn)   deferBtn.style.display   = it.done ? 'none' : '';
+    if (unaBtn)     unaBtn.style.display     = it.done ? 'none' : '';
 
-    document.getElementById('mm-dtype').textContent = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[it.motion.dt]||'—';
+    if (dtypeEl) dtypeEl.textContent = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[it.motion.dt]||'—';
 
-    // Restore saved mover/seconder — clear if item not done
-    var moverEl = document.getElementById('mm-mover');
-    var secdEl  = document.getElementById('mm-secd');
-    if (!it.done) {
-      if (moverEl) moverEl.value = it.motion.mover || '';
-      if (secdEl)  secdEl.value  = it.motion.sec   || '';
-    }
+    if (moverEl) moverEl.value = it.motion.mover || '';
+    if (secdEl)  secdEl.value  = it.motion.sec   || '';
 
-    // Sync vote counts
     var vfor=document.getElementById('mm-vfor');
     var vag=document.getElementById('mm-vagainst');
     var vab=document.getElementById('mm-vabstain');
@@ -4263,16 +4243,16 @@ function setItem(id) {
 
     updOutcome(it);
   } else {
-    // Non-motion item — hide vote row, mover/seconder, show Next Item button
-    if (voteRow)  voteRow.style.display  = 'none';
-    if (moverRow) moverRow.style.display = 'none';
-    if (nextBtn)  nextBtn.style.display  = it.done ? 'none' : '';
-    if (confBtn)  { confBtn.disabled = true; confBtn.style.display = 'none'; }
-    if (deferBtn) deferBtn.style.display = 'none';
-    if (conBtn)   conBtn.style.display   = 'none';
-    if (unaBtn)   unaBtn.style.display   = 'none';
+    // Non-motion item — hide votes and mover/seconder, show Continue only
+    if (voteRow)    voteRow.style.display    = 'none';
+    if (moverWrap)  moverWrap.style.display  = 'none';
+    if (secdWrap)   secdWrap.style.display   = 'none';
+    if (nextBtn)    nextBtn.style.display    = it.done ? 'none' : '';
+    if (confBtn)  { confBtn.style.display = 'none'; confBtn.disabled = true; }
+    if (deferBtn)   deferBtn.style.display   = 'none';
+    if (unaBtn)     unaBtn.style.display     = 'none';
 
-    document.getElementById('mm-dtype').textContent = 'N/A';
+    if (dtypeEl) dtypeEl.textContent = '—';
     document.getElementById('mm-outcome').textContent = it.done ? '✓ Done' : '—';
     document.getElementById('mm-outcome').style.color = it.done ? 'var(--grn)' : 'var(--g4)';
   }
