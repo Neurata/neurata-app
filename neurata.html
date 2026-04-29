@@ -3198,6 +3198,7 @@ function mmBuildAttendeeOpts(attendees) {
   }).join('');
 }
 
+function attMarkAll(itemId, status) {
   var it = MM.agenda.find(function(a){return a.id===itemId;});
   if (!it) return;
   if (!it.attendance) it.attendance = {};
