@@ -236,14 +236,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-aiin{flex:1;background:rgba(255,255,255,.09);border:none;border-radius:4px 0 0 4px;padding:6px 9px;font-size:11px;color:#fff;font-family:inherit;outline:none}
 .mm-aiin::placeholder{color:rgba(255,255,255,.3)}
 .mm-aisend{background:var(--org);border:none;border-radius:0 4px 4px 0;padding:6px 11px;color:#fff;cursor:pointer;font-size:13px;font-weight:600}
-.mm-bot{height:54px;min-height:54px;max-height:54px;background:var(--wh);border-top:2px solid var(--g2);display:flex;align-items:center;padding:0 14px;gap:0;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
-.mm-bdiv{width:1px;height:28px;background:var(--g2);margin:0 12px;flex-shrink:0}
-.mm-lbl{font-size:10px;font-weight:600;color:var(--g4);white-space:nowrap;flex-shrink:0;margin-bottom:2px}
-.mm-val{font-size:12px;font-weight:600;color:var(--ch);white-space:nowrap;flex-shrink:0}
-.mm-field{display:flex;flex-direction:column;justify-content:center;flex-shrink:0}
-.mm-sel{border:1px solid var(--g3);border-radius:4px;padding:3px 6px;font-size:12px;font-family:inherit;color:var(--ch);background:var(--wh);width:130px;margin-top:2px}
+.mm-bot{height:48px;min-height:48px;max-height:48px;background:var(--wh);border-top:1px solid var(--g2);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;font-size:12px}
+.mm-bdiv{width:1px;height:24px;background:var(--g2);flex-shrink:0}
+.mm-lbl{color:var(--g4);font-size:11px;margin-right:4px;flex-shrink:0;white-space:nowrap}
+.mm-sel{border:1px solid var(--g3);border-radius:4px;padding:3px 6px;font-size:12px;font-family:inherit;color:var(--ch);background:var(--wh);width:120px;flex-shrink:0}
 .mm-sel:focus{outline:none;border-color:var(--org)}
-.mm-ninput{width:40px;text-align:center;border:1px solid var(--g3);border-radius:4px;padding:3px 4px;font-size:13px;font-weight:700;font-family:inherit;outline:none;background:var(--wh);margin-top:2px}
+.mm-ninput{width:38px;text-align:center;border:1px solid var(--g3);border-radius:4px;padding:3px 4px;font-size:12px;font-weight:600;font-family:inherit;outline:none;background:var(--wh);flex-shrink:0}
 .mm-ninput:focus{border-color:var(--org)}
 .mm-conf{background:var(--red);color:#fff;border:none;padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0}
 .mm-conf:hover{background:var(--redd)}.mm-conf:disabled{background:var(--g3);cursor:not-allowed}
@@ -1197,51 +1195,20 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mm-bot">
-      <!-- Resolution -->
-      <div class="mm-field" data-motion="1">
-        <span class="mm-lbl">Resolution</span>
-        <div id="mm-rtype" style="flex-shrink:0"></div>
-      </div>
+      <span class="mm-lbl" data-motion="1">Resolution</span><div id="mm-rtype" data-motion="1" style="flex-shrink:0"></div>
       <div class="mm-bdiv" data-motion="1"></div>
-      <!-- Decision Type -->
-      <div class="mm-field" data-motion="1">
-        <span class="mm-lbl">Decision Type</span>
-        <span class="mm-val" id="mm-dtype">—</span>
-      </div>
+      <span class="mm-lbl" data-motion="1">Decision Type</span><span id="mm-dtype" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--ch);white-space:nowrap">—</span>
       <div class="mm-bdiv" data-motion="1"></div>
-      <!-- Mover -->
-      <div class="mm-field" data-motion="1">
-        <span class="mm-lbl">Mover</span>
-        <select class="mm-sel" id="mm-mover"><option value="">Select...</option></select>
-      </div>
-      <!-- Seconder -->
-      <div class="mm-field" data-motion="1" style="margin-left:10px">
-        <span class="mm-lbl">Seconder</span>
-        <select class="mm-sel" id="mm-secd"><option value="">Select...</option></select>
-      </div>
+      <span class="mm-lbl" data-motion="1">Mover</span><select class="mm-sel" id="mm-mover" data-motion="1"><option value="">Select...</option></select>
+      <span class="mm-lbl" data-motion="1" style="margin-left:6px">Seconder</span><select class="mm-sel" id="mm-secd" data-motion="1"><option value="">Select...</option></select>
       <div class="mm-bdiv" data-motion="1"></div>
-      <!-- Vote tallies -->
-      <div class="mm-field" data-motion="1">
-        <span class="mm-lbl">For</span>
-        <input id="mm-vfor" type="number" min="0" value="0" class="mm-ninput" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
-      </div>
-      <div class="mm-field" data-motion="1" style="margin-left:10px">
-        <span class="mm-lbl">Against</span>
-        <input id="mm-vagainst" type="number" min="0" value="0" class="mm-ninput" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
-      </div>
-      <div class="mm-field" data-motion="1" style="margin-left:10px">
-        <span class="mm-lbl">Abstain</span>
-        <input id="mm-vabstain" type="number" min="0" value="0" class="mm-ninput" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
-      </div>
+      <span class="mm-lbl" data-motion="1">For</span><input id="mm-vfor" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
+      <span class="mm-lbl" data-motion="1" style="margin-left:6px">Against</span><input id="mm-vagainst" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
+      <span class="mm-lbl" data-motion="1" style="margin-left:6px">Abstain</span><input id="mm-vabstain" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
       <div class="mm-bdiv" data-motion="1"></div>
-      <!-- Decision Result -->
-      <div class="mm-field" data-motion="1">
-        <span class="mm-lbl">Decision Result</span>
-        <span id="mm-outcome" class="mm-val" style="color:var(--g4)">—</span>
-      </div>
+      <span class="mm-lbl" data-motion="1">Decision Result</span><span id="mm-outcome" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--g4);white-space:nowrap">—</span>
       <div class="mm-bdiv"></div>
-      <!-- Action buttons — pushed right -->
-      <div id="mm-mover-row" style="display:flex;flex-wrap:nowrap;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
+      <div id="mm-mover-row" style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
         <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
         <button class="btn sm" id="mm-defer-btn" onclick="deferItem()" style="display:none">Defer</button>
         <button class="btn sm" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Continue →</button>
