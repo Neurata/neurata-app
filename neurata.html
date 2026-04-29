@@ -2950,12 +2950,11 @@ function initMM() {
     mmStartTimer();
   }
   // Attendees → mover/seconder dropdowns (SL numbers)
-  var slOpts = '';
-  for (var i=1; i<=Math.min((sc_?sc_.lots:20),20); i++) {
-    slOpts += '<option>SL'+String(i).padStart(3,'0')+'</option>';
-  }
-  document.getElementById('mm-mover').innerHTML = '<option value="">Select...</option>'+slOpts;
-  document.getElementById('mm-secd').innerHTML  = '<option value="">Select...</option>'+slOpts;
+  var slOpts = mmBuildAttendeeOpts(MM.attendees && MM.attendees.length ? MM.attendees : (function(){
+    var arr=[]; for(var i=1;i<=Math.min((sc_?sc_.lots:20),20);i++) arr.push('SL'+String(i).padStart(3,'0')); return arr;
+  })());
+  document.getElementById('mm-mover').innerHTML = slOpts;
+  document.getElementById('mm-secd').innerHTML  = slOpts;
   renderMmNav();
   // Always start on the Attendance panel so managers record attendance first
   mmShowAttendance();
@@ -3166,7 +3165,7 @@ function attConfirm(ctoId) {
   if (!ctoItem) return;
   MM.attendees = Object.keys(ctoItem.attendance||{}).filter(function(k){return ctoItem.attendance[k]==='present';});
   // Lock in mover/seconder dropdowns to present members only
-  var opts = '<option value="">Select...</option>' + MM.attendees.map(function(sl){return '<option>'+sl+'</option>';}).join('');
+  var opts = mmBuildAttendeeOpts(MM.attendees);
   var moverEl = document.getElementById('mm-mover'); if(moverEl) moverEl.innerHTML = opts;
   var secdEl  = document.getElementById('mm-secd');  if(secdEl)  secdEl.innerHTML  = opts;
   // Save to meeting
@@ -3183,7 +3182,22 @@ function attConfirm(ctoId) {
   setItem(ctoId);
 }
 
-function attMarkAll(itemId, status) {
+function mmBuildAttendeeOpts(attendees) {
+  // For council meetings: show "SL001 — Jane Smith" in dropdown, value stays SL001
+  // For AGM/SGM: SL number only
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtgObj = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  var isGeneral = mtgObj && (mtgObj.type==='agm'||mtgObj.type==='sgm');
+  var memberMap = {};
+  if (!isGeneral && sc_ && sc_.councilMembers) {
+    sc_.councilMembers.forEach(function(m){ if(m.sl) memberMap[m.sl] = m.name||''; });
+  }
+  return '<option value="">Select...</option>' + (attendees||[]).map(function(sl){
+    var label = (!isGeneral && memberMap[sl]) ? sl + ' \u2014 ' + memberMap[sl] : sl;
+    return '<option value="'+sl+'">'+label+'</option>';
+  }).join('');
+}
+
   var it = MM.agenda.find(function(a){return a.id===itemId;});
   if (!it) return;
   if (!it.attendance) it.attendance = {};
@@ -3232,7 +3246,7 @@ function refreshQuorumBar(it) {
 
   // Update mover/seconder dropdowns to only show present members
   MM.attendees = slList.filter(function(sl){ return it.attendance && it.attendance[sl]==='present'; });
-  var opts = '<option value="">Select...</option>' + MM.attendees.map(function(sl){return '<option>'+sl+'</option>';}).join('');
+  var opts = mmBuildAttendeeOpts(MM.attendees);
   var moverEl = document.getElementById('mm-mover');
   var secdEl  = document.getElementById('mm-secd');
   if(moverEl) moverEl.innerHTML = opts;
@@ -4660,7 +4674,7 @@ function _confirmDecisionProceed(it){
           +' Quorum was confirmed and the meeting was called to order.';
       }
       MM.attendees=present;
-      var opts='<option value="">Select...</option>'+present.map(function(sl){return'<option>'+sl+'</option>';}).join('');
+      var opts=mmBuildAttendeeOpts(present);
       var mv2=document.getElementById('mm-mover'); if(mv2) mv2.innerHTML=opts;
       var sc3=document.getElementById('mm-secd');  if(sc3) sc3.innerHTML=opts;
     }
