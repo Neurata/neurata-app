@@ -3712,6 +3712,17 @@ function sendDelegateInviteEmail(email, name, scId, sl) {
 
 function renderMgmtStrataSphere(sc, el) {
   var scId = sc.id;
+  // If no convs in memory for this SC, try loading from Supabase first
+  if (!SS.convs[scId] || !SS.convs[scId].length) {
+    if (!SS._loading) {
+      SS._loading = true;
+      ssLoadConversations(function() {
+        SS._loading = false;
+        renderMgmtStrataSphere(sc, el);
+      });
+      return;
+    }
+  }
   var convs = SS.convs[scId] || [];
   updateMtgHeaderBtn('stratasphere', convs.length > 0);
   var conv = SS.activeConv && SS.activeConv.scId === scId
@@ -4191,33 +4202,45 @@ function mgmtSsSend(scId) {
       + lssCtx;
   }
 
-  fetch(WORKER_URL+'/ai', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      _usageType: ssTier==='global' ? 'ss_global' : 'ss_local',
-      _brokerageId: APP.brokerage.lic || '',
-      _scId: sc.plan,
-      _userId: APP.currentUser && APP.currentUser.id || '',
-      system: systemPrompt,
-      messages: history.concat([lastUser || {role:'user', content:msg}])
+  function ssFetch(attempt) {
+    fetch(WORKER_URL+'/ai', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        _usageType: ssTier==='global' ? 'ss_global' : 'ss_local',
+        _brokerageId: APP.brokerage.lic || '',
+        _scId: sc.plan,
+        _userId: APP.currentUser && APP.currentUser.id || '',
+        system: systemPrompt,
+        messages: history.concat([lastUser || {role:'user', content:msg}])
+      })
     })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
-    if(d.error==='usage_limit_exceeded'){ nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn'); if(sc) renderMgmtStrataSphere(sc,document.getElementById('mtg-body')); return; }
-    if(d._usageWarning){ nAlert(d._usageWarning.message,'AI Usage Notice','info'); }
-    var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim() || 'Unable to respond.';
-    conv.msgs.push({role:'assistant', text:txt});
-    ssPersistConv(scId, conv);
-    if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
-  })
-  .catch(function(){
-    var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
-    conv.msgs.push({role:'assistant', text:'Network error. Please try again.'});
-    if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
-  });
+    .then(function(r){
+      if (r.status === 429 && attempt < 3) {
+        var typing = document.getElementById('mgmt-typing');
+        if (typing) typing.innerHTML = '<em style="font-size:12px;color:var(--g4)">Rate limit — retrying in 60 seconds… (attempt '+(attempt+1)+' of 3)</em>';
+        setTimeout(function(){ ssFetch(attempt+1); }, 60000);
+        return;
+      }
+      return r.json();
+    })
+    .then(function(d){
+      if (!d) return; // retrying
+      var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
+      if(d.error==='usage_limit_exceeded'){ nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn'); if(sc) renderMgmtStrataSphere(sc,document.getElementById('mtg-body')); return; }
+      if(d._usageWarning){ nAlert(d._usageWarning.message,'AI Usage Notice','info'); }
+      var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim() || 'Unable to respond.';
+      conv.msgs.push({role:'assistant', text:txt});
+      ssPersistConv(scId, conv);
+      if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
+    })
+    .catch(function(){
+      var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
+      conv.msgs.push({role:'assistant', text:'Network error. Please try again.'});
+      if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
+    });
+  }
+  ssFetch(1);
 }
 
 
@@ -5893,24 +5916,22 @@ function ssPersistConv(scId, conv) {
   });
 }
 
-function ssLoadConversations() {
-  if (!APP.currentUser || !APP.currentUser.id) return;
+function ssLoadConversations(cb) {
+  if (!APP.currentUser || !APP.currentUser.id) { if(cb) cb(); return; }
   var planNumbers = APP.sc.map(function(s){return s.plan;});
-  if (!planNumbers.length) return;
+  if (!planNumbers.length) { if(cb) cb(); return; }
   getSupabase().from('ss_conversations')
     .select('*')
     .eq('user_id', APP.currentUser.id)
     .in('sc_id', planNumbers)
     .order('updated_at', {ascending: false})
     .then(function(r) {
-      if (r.error || !r.data || !r.data.length) return;
+      if (r.error || !r.data || !r.data.length) { if(cb) cb(); return; }
       r.data.forEach(function(row) {
-        // Find the scId from plan number
         var sc_ = APP.sc.find(function(s){return s.plan === row.sc_id;});
         if (!sc_) return;
         var scId = sc_.id;
         if (!SS.convs[scId]) SS.convs[scId] = [];
-        // Only add if not already in memory
         var exists = SS.convs[scId].find(function(c){return c.id===row.id;});
         if (!exists) {
           SS.convs[scId].push({
@@ -5922,13 +5943,13 @@ function ssLoadConversations() {
           });
         }
       });
-      // Sort each SC's convs by ts descending
       Object.keys(SS.convs).forEach(function(scId) {
         SS.convs[scId].sort(function(a,b){return b.ts-a.ts;});
       });
-      // Re-render conv list if needed
       ssRenderConvList();
-    });
+      if(cb) cb();
+    })
+    .catch(function(){ if(cb) cb(); });
 }
 
 
