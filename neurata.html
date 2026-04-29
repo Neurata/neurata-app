@@ -10407,10 +10407,13 @@ function docExtractText(btn) {
     updateBtn();
   }, 1000);
 
-  // Fetch PDF from Supabase storage client-side — avoids Cloudflare 100s worker timeout
-  var storageUrl = SUPABASE_URL + '/storage/v1/object/' + storagePath;
-  fetch(storageUrl, {
-    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+  // Create a signed URL for the private neurata-documents bucket (60s expiry is enough to fetch)
+  getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 60)
+  .then(function(res) {
+    if (res.error || !res.data || !res.data.signedUrl) {
+      throw new Error('Could not generate signed URL: ' + (res.error && res.error.message || 'unknown'));
+    }
+    return fetch(res.data.signedUrl);
   })
   .then(function(r){
     if (!r.ok) throw new Error('Could not fetch document from storage (' + r.status + ')');
