@@ -1286,8 +1286,16 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             <option value="committee">Committee Meeting</option>
           </select>
         </div>
-        <div class="fg"><label>Date *</label><input type="date" id="nm-date"/></div>
+        <div class="fg"><label>Date *</label><input type="date" id="nm-date" min=""/></div>
         <div class="fg"><label>Start Time</label><input type="time" id="nm-time" value="19:00"/></div>
+        <div class="fg"><label>Time Zone</label><select id="nm-tz">
+          <option value="America/Vancouver">Pacific (PT)</option>
+          <option value="America/Edmonton">Mountain (MT)</option>
+          <option value="America/Winnipeg">Central (CT)</option>
+          <option value="America/Toronto">Eastern (ET)</option>
+          <option value="America/Halifax">Atlantic (AT)</option>
+          <option value="America/St_Johns">Newfoundland (NT)</option>
+        </select></div>
         <div class="fg"><label>Format</label><select id="nm-fmt"><option>Electronic</option><option>In-Person</option><option>Hybrid</option></select></div>
         <div class="fg" style="grid-column:1/-1"><label>Location / Platform</label><input id="nm-loc" placeholder="e.g. Zoom link, or 123 Main St, Kelowna BC"/></div>
       </div>
@@ -2117,7 +2125,7 @@ var TEMPLATE_CATS = [
     {text:'Set Next Meeting Date',       type:'FOR_INFORMATION', dt:null,   vt:null}
   ]},
   {name:'Adjournment',               items:[
-    {text:'Adjournment',                 type:'FOR_INFORMATION', dt:null,   vt:null}
+    {text:'Adjournment',                 type:'FOR_APPROVAL', dt:'MAJORITY',   vt:null}
   ]}
 ];
 
@@ -2816,8 +2824,17 @@ function openNewMtgModal() {
     var nextHour = String(now.getHours()+1).padStart(2,'0');
     time.value = nextHour + ':00';
   }
-  if (fmt)  fmt.value  = 'InPerson';
+  if (fmt)  fmt.value  = 'Electronic';
   if (loc)  loc.value  = '';
+  // Auto-select timezone from browser
+  var tzEl = document.getElementById('nm-tz');
+  if (tzEl) {
+    try {
+      var detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var opt = tzEl.querySelector('option[value="'+detected+'"]');
+      if (opt) tzEl.value = detected;
+    } catch(e) {}
+  }
   // Reset edit state
   NM._editMtgId = null;
   NM._editScId  = null;
@@ -2832,6 +2849,7 @@ function saveMtg() {
   var type = document.getElementById('nm-type').value;
   var date = document.getElementById('nm-date').value;
   var time = document.getElementById('nm-time').value;
+  var tz   = document.getElementById('nm-tz').value || 'America/Vancouver';
   var fmt  = document.getElementById('nm-fmt').value;
   var loc  = document.getElementById('nm-loc').value.trim();
   if (!date) { nAlert('Please select a meeting date.'); return; }
@@ -2855,7 +2873,7 @@ function saveMtg() {
   if (!sc_) { nAlert('No strata corporation selected. Please select one from the sidebar first.'); return; }
   var mtg = {
     id: 'mtg_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), scId: sc_.id,
-    type: type, date: date, time: time, fmt: fmt, loc: loc,
+    type: type, date: date, time: time, tz: tz, fmt: fmt, loc: loc,
     status: 'DRAFT',
     agenda: JSON.parse(JSON.stringify(NM.agenda)),
     councilSLs: sc_.councilSLs || ['SL001','SL002','SL003'],
@@ -4367,12 +4385,10 @@ function renderCtr(it) {
     if (!alreadyCalled) {
       // Quorum checkbox
       h += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;margin-bottom:18px;padding:12px 14px;border:1px solid var(--g2);border-radius:6px;background:var(--g1)">'
-        + '<input type="checkbox" id="cto-quorum-ck" '+(hasQuorum?'checked':'')+' style="width:17px;height:17px;accent-color:var(--org);cursor:pointer">'
-        + '<span>Quorum has been achieved and the meeting may proceed</span>'
+        + '<input type="checkbox" id="cto-quorum-ck" '+(hasQuorum?'checked':'')+' style="width:17px;height:17px;accent-color:var(--org);cursor:pointer" onchange="mmCallToOrder()">'
+        + '<span>Quorum has been achieved — call the meeting to order</span>'
         + '</label>';
-      // Call to Order button
-      h += '<button class="btn red" style="font-size:13px;padding:10px 24px" id="cto-btn" onclick="mmCallToOrder()">☎ Call to Order — Start Meeting Clock</button>';
-      h += '<div style="font-size:11px;color:var(--g4);margin-top:10px">The meeting clock starts when you call the meeting to order. If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
+      h += '<div style="font-size:11px;color:var(--g4)">Checking this box calls the meeting to order and starts the meeting clock. If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
     } else {
       h += '<div style="padding:12px 14px;border-radius:6px;background:var(--grnl);color:var(--grn);font-size:13px;font-weight:600">✓ Meeting called to order — clock running</div>';
     }
@@ -4389,9 +4405,10 @@ function renderCtr(it) {
 
   // Special: date picker for "Set Next Meeting Date" item
   if(itemLower.indexOf('next meeting')>=0 || itemLower.indexOf('set next')>=0){
+    var todayStr = new Date().toISOString().slice(0,10);
     h+='<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Next Meeting Date</span><span class="mm-stog">▼</span></div>'
       +'<div class="mm-sbd"><label style="font-size:11px;color:var(--g4);margin-bottom:4px;display:block">Select the date for the next meeting:</label>'
-      +'<input type="date" id="mm-next-date" value="'+(it.nextMeetingDate||'')+'" style="border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)">'
+      +'<input type="date" id="mm-next-date" min="'+todayStr+'" value="'+(it.nextMeetingDate||'')+'" style="border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)">'
       +'</div></div>';
   }
 
@@ -4728,25 +4745,24 @@ function closeMMPanels() {
 
 
 function mmCallToOrder() {
-  // Check the quorum checkbox — warn but don't block
   var ck = document.getElementById('cto-quorum-ck');
-  if (ck && !ck.checked) {
-    nConfirm('Quorum has not been confirmed. Starting the meeting without quorum means no decisions can be formally made.\n\nProceed anyway?', function(ok){
-      if (ok) _mmCallToOrderProceed();
-    }, 'Quorum Not Confirmed', 'warn');
-    return;
-  }
+  if (!ck || !ck.checked) return; // unchecking does nothing
   _mmCallToOrderProceed();
 }
 function _mmCallToOrderProceed() {
   var it = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('call to order') >= 0; });
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  var tz = (mtg && mtg.tz) || 'America/Vancouver';
+  var now = new Date();
+  var actualTime = now.toLocaleTimeString('en-CA', {hour:'2-digit', minute:'2-digit', timeZone: tz, hour12: false}) + ' ' + now.toLocaleString('en-CA', {timeZoneName:'short', timeZone: tz}).split(' ').pop();
   if (it) {
     it.done = true;
     it.attendanceLocked = true;
-    // Record actual call-to-order time
-    var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
-    var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
-    if (mtg) mtg.actualStartTime = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  }
+  if (mtg) {
+    mtg.actualStartTime = actualTime;
+    mtg.actualStartDate = now.toLocaleDateString('en-CA', {timeZone: tz});
   }
   mmStartTimer();
   mmSyncToMtg();
@@ -5231,7 +5247,7 @@ function exportAgenda(scId, mtgId) {
     if (logoDataUrl && logoDataUrl.indexOf('base64,')>0) {
       var b64=logoDataUrl.split('base64,')[1]; var raw=atob(b64); var hex='';
       for(var bi=0;bi<raw.length;bi++){var hx=raw.charCodeAt(bi).toString(16);hex+=(hx.length===1?'0':'')+hx;}
-      r.push('{\\pict\\pngblip\\picwgoal3600\\pichgoal1080\\picscalex50\\picscaley50 '+hex+'}');
+      r.push('{\\pict\\pngblip\\picwgoal3600\\picscalex60\\picscaley60 '+hex+'}');
       r.push('\\pard\\sb0\\sa20\\par');
     }
     if (APP.brokerage && APP.brokerage.name) {
@@ -5345,7 +5361,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // RTF header — style guide: Helvetica/Arial, 11pt body, 12pt headings
   // Margins: 1" sides (1440 twips), 1.1" top/bottom (1584 twips)
   // Line spacing: 1.15 (276 twips = 1.15 * 240)
-  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1440\\margr1440\\margt1584\\margb1584\\widowctrl\\ftnbj}');
+  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Helvetica;}{\\f1\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1584\\margr1584\\margt1584\\margb1584\\widowctrl\\ftnbj}');
 
   function esc(s) {
     return String(s||'')
@@ -5376,9 +5392,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       var hx = raw.charCodeAt(bi).toString(16);
       hex += (hx.length === 1 ? '0' : '') + hx;
     }
-    // picwgoal/pichgoal in twips — 1440 twips per inch
-    // Logo target: max 2.5" wide × 0.75" tall = 3600 × 1080 twips
-    r.push('{\\pict\\pngblip\\picwgoal3600\\pichgoal1080\\picscalex50\\picscaley50 ' + hex + '}');
+    // Logo: max 2.5" wide, preserve aspect ratio — set width only, no forced height
+    r.push('{\\pict\\pngblip\\picwgoal3600\\picscalex60\\picscaley60 ' + hex + '}');
     r.push('\\pard\\sb0\\sa20\\par'); // spacing after logo
   }
   if (APP.brokerage && APP.brokerage.name) {
@@ -5408,7 +5423,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   var actualStart = mtg.actualStartTime || mtg.time || '';
   var actualDate  = mtg.actualStartDate || date;
   r.push(meta('Date: '+esc(actualDate)));
-  r.push(meta('Called to Order: '+esc(actualStart)));
+  r.push(meta('Called to Order: '+esc(actualStart) + (mtg.tz ? ' ('+mtg.tz.replace('America/','').replace('_',' ')+')' : '')));
   r.push(meta('Adjourned: '+esc(mtg.adjTime||'')));
   if (mtg.fmt || mtg.loc) r.push(meta('Format: '+esc(mtg.fmt||''+(mtg.loc?' \u2014 '+mtg.loc:''))));
 
@@ -5486,7 +5501,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   r.push('\\pard\\sb0\\sa20\\fs18\\cf2 Strata Council Secretary\\tab Strata Manager'+esc(mgrLic?' \u2014 '+mgrLic:'')+' \\cf0\\par');
   // ── FOOTER — Neurata branding ──────────────────────────────────────
   r.push('\\pard\\sb480\\sa0\\brdrb\\brdrs\\brdrw6\\brdrcf2 \\par');
-  r.push('\\pard\\qc\\sb80\\sa0\\fs16\\cf2 Minutes prepared by Neurata.ai \\u00B7  neurata.ai\\cf0\\par');
+  r.push('\\pard\\qc\\sb80\\sa0\\fs16\\cf2 Finish your strata meeting with the minutes already done \\u2014 neurata.ai\\cf0\\par');
   r.push('}');
 
   // Generate true .docx using docx.js if available, else fall back to RTF
