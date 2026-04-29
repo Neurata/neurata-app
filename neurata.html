@@ -3062,8 +3062,8 @@ function renderAttendancePanel(it) {
     + cards
     + '</div></div>'
     // Confirm button
-    + '<div style="flex-shrink:0;margin-top:12px">'
-    + '<button class="btn pri" style="width:100%" onclick="attConfirm(\''+ctoItem.id+'\')">Confirm Attendance</button>'
+    + '<div style="flex-shrink:0;margin-top:12px;display:flex;justify-content:flex-end">'
+    + '<button class="btn pri" onclick="attConfirm(\''+ctoItem.id+'\')">Confirm Attendance →</button>'
     + '</div>'
     + '</div>';
 
@@ -3147,7 +3147,7 @@ function attConfirm(ctoId) {
   var ctoItem = MM.agenda.find(function(a){return a.id===ctoId;});
   if (!ctoItem) return;
   MM.attendees = Object.keys(ctoItem.attendance||{}).filter(function(k){return ctoItem.attendance[k]==='present';});
-  // Update mover/seconder dropdowns
+  // Lock in mover/seconder dropdowns to present members only
   var opts = '<option value="">Select...</option>' + MM.attendees.map(function(sl){return '<option>'+sl+'</option>';}).join('');
   var moverEl = document.getElementById('mm-mover'); if(moverEl) moverEl.innerHTML = opts;
   var secdEl  = document.getElementById('mm-secd');  if(secdEl)  secdEl.innerHTML  = opts;
@@ -3160,8 +3160,9 @@ function attConfirm(ctoId) {
   }
   var attBtn = document.getElementById('mm-att-btn');
   if (attBtn) attBtn.textContent = '👥 ' + MM.attendees.length + ' Present';
-  nAlert('Attendance confirmed. '+MM.attendees.length+' present. Mover/Seconder dropdowns updated.', 'Attendance Saved', 'success');
   renderMmNav();
+  // Navigate to the Call to Order item
+  setItem(ctoId);
 }
 
 function attMarkAll(itemId, status) {
@@ -4321,7 +4322,8 @@ function setItem(id) {
 
     updOutcome(it);
   } else {
-    if (nextBtn)  nextBtn.style.display  = it.done ? 'none' : '';
+    var isCTO = isCallToOrderItem(it);
+    if (nextBtn)  nextBtn.style.display  = (it.done || isCTO) ? 'none' : '';
     if (confBtn)  { confBtn.style.display = 'none'; confBtn.disabled = true; }
     if (deferBtn) deferBtn.style.display  = 'none';
     if (unaBtn)   unaBtn.style.display    = 'none';
@@ -4334,6 +4336,51 @@ function setItem(id) {
 function renderCtr(it) {
   var h='';
   var itemLower = (it.text||'').toLowerCase();
+  var isCallToOrder = itemLower.indexOf('call to order') >= 0;
+
+  // ── Call to Order: quorum confirmation + clock start ─────────────
+  if (isCallToOrder) {
+    var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+    var mtgObj = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+    var isGeneral = mtgObj && (mtgObj.type==='agm'||mtgObj.type==='sgm');
+    var lots = sc_ ? sc_.lots : 20;
+    var council = sc_ ? (sc_.councilMembers||[]).filter(function(m){return m.isCouncil;}) : [];
+    var total = (!isGeneral && council.length) ? council.length : lots;
+    var quorumRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(total/2);
+    var presentCount = MM.attendees ? MM.attendees.length : 0;
+    var hasQuorum = presentCount >= quorumRequired;
+    var alreadyCalled = it.done || MM.running;
+
+    var quorumColor = hasQuorum ? 'var(--grn)' : 'var(--red)';
+    var quorumText  = hasQuorum
+      ? '✓ Quorum confirmed — '+presentCount+' present ('+quorumRequired+' required)'
+      : presentCount === 0
+        ? 'No attendance recorded — go to Attendance first'
+        : '✗ Quorum not met — '+presentCount+' present, '+quorumRequired+' required';
+
+    h += '<div style="padding:18px 16px">';
+    // Quorum status
+    h += '<div style="padding:12px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;font-weight:600;'
+      + 'background:'+(hasQuorum?'var(--grnl)':'var(--redl)')+';color:'+quorumColor+';">'
+      + quorumText + '</div>';
+
+    if (!alreadyCalled) {
+      // Quorum checkbox
+      h += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;margin-bottom:18px;padding:12px 14px;border:1px solid var(--g2);border-radius:6px;background:var(--g1)">'
+        + '<input type="checkbox" id="cto-quorum-ck" '+(hasQuorum?'checked':'')+' style="width:17px;height:17px;accent-color:var(--org);cursor:pointer">'
+        + '<span>Quorum has been achieved and the meeting may proceed</span>'
+        + '</label>';
+      // Call to Order button
+      h += '<button class="btn red" style="font-size:13px;padding:10px 24px" id="cto-btn" onclick="mmCallToOrder()">☎ Call to Order — Start Meeting Clock</button>';
+      h += '<div style="font-size:11px;color:var(--g4);margin-top:10px">The meeting clock starts when you call the meeting to order. If quorum is not achieved within 30 minutes of the scheduled start time, no decisions may be made.</div>';
+    } else {
+      h += '<div style="padding:12px 14px;border-radius:6px;background:var(--grnl);color:var(--grn);font-size:13px;font-weight:600">✓ Meeting called to order — clock running</div>';
+    }
+    h += '</div>';
+
+    var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
+    return;
+  }
 
   // Background / Financial / Risk — always render, collapsed by default
   h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
@@ -4681,12 +4728,28 @@ function closeMMPanels() {
 
 
 function mmCallToOrder() {
-  var btn = document.getElementById('cto-btn');
-  if (btn) btn.style.display = 'none';
-  // Mark item done and advance
+  // Check the quorum checkbox — warn but don't block
+  var ck = document.getElementById('cto-quorum-ck');
+  if (ck && !ck.checked) {
+    nConfirm('Quorum has not been confirmed. Starting the meeting without quorum means no decisions can be formally made.\n\nProceed anyway?', function(ok){
+      if (ok) _mmCallToOrderProceed();
+    }, 'Quorum Not Confirmed', 'warn');
+    return;
+  }
+  _mmCallToOrderProceed();
+}
+function _mmCallToOrderProceed() {
   var it = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('call to order') >= 0; });
-  if (it) { it.done = true; }
+  if (it) {
+    it.done = true;
+    it.attendanceLocked = true;
+    // Record actual call-to-order time
+    var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+    var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+    if (mtg) mtg.actualStartTime = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  }
   mmStartTimer();
+  mmSyncToMtg();
   renderMmNav();
   mmAdvance();
 }
