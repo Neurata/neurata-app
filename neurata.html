@@ -4877,6 +4877,24 @@ function openMinutesModal(mtg, sc_) {
   openMo('mo-minutes');
 }
 
+function _buildAttendanceSummary(mtg, sc_) {
+  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
+  var attendance = (ctoItem && ctoItem.attendance) || {};
+  var present = Object.keys(attendance).filter(function(k){return attendance[k]==='present';});
+  var regrets = Object.keys(attendance).filter(function(k){return attendance[k]==='regrets';});
+  var proxies = Object.keys(attendance).filter(function(k){return attendance[k]==='proxy';});
+  if (mtg.attendees && mtg.attendees.length && !present.length) present = mtg.attendees;
+
+  var mtgType = mtg.type || 'council';
+  var isGeneral = (mtgType==='agm'||mtgType==='sgm');
+  var lots = sc_ ? sc_.lots : 0;
+  var councilCount = (sc_&&sc_.councilMembers) ? sc_.councilMembers.filter(function(m){return m.isCouncil;}).length : 0;
+  var qRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(councilCount/2);
+  var hasQuorum = present.length >= qRequired;
+
+  return { present:present, regrets:regrets, proxies:proxies, qRequired:qRequired, hasQuorum:hasQuorum, isGeneral:isGeneral, lots:lots };
+}
+
 function renderMinutesContent(mtg, sc_) {
   var el = document.getElementById('min-content'); if(!el) return;
   var agenda = mtg.agenda || [];
@@ -4890,8 +4908,35 @@ function renderMinutesContent(mtg, sc_) {
     +'<div class="min-row"><span class="min-lbl">Format</span><span class="min-val">'+(mtg.fmt||'')+(mtg.loc?' · '+mtg.loc:'')+'</span></div>'
     +'<div class="min-row"><span class="min-lbl">Strata Manager</span><span class="min-val">'+escHtml(mgr)+'</span></div>'
     +'</div>';
+  var att = _buildAttendanceSummary(mtg, sc_);
+  html += '<div class="min-section-hd">ATTENDANCE</div>';
+
+  if (att.isGeneral) {
+    // AGM/SGM — show lot counts
+    var absentCount = Math.max(0, (sc_ ? sc_.lots : 0) - att.present.length - att.proxies.length);
+    html += '<div class="min-para">'
+      + att.present.length + ' strata lots present'
+      + (att.proxies.length ? ', ' + att.proxies.length + ' by proxy' : '')
+      + ', ' + absentCount + ' absent.'
+      + '</div>';
+  } else {
+    // Council meeting — list SL numbers
+    if (att.present.length) html += '<div class="min-para"><strong>Council Members Present:</strong> ' + escHtml(att.present.join(', ')) + '</div>';
+    if (att.regrets.length) html += '<div class="min-para"><strong>Regrets:</strong> ' + escHtml(att.regrets.join(', ')) + '</div>';
+    if (att.proxies.length) html += '<div class="min-para"><strong>Proxies:</strong> ' + escHtml(att.proxies.join(', ')) + '</div>';
+  }
+  html += '<div class="min-para"><strong>Strata Manager:</strong> ' + escHtml(mgr) + '</div>';
+
+  // Quorum line
+  var quorumLine = att.present.length + ' present';
+  if (att.proxies.length) quorumLine += ', ' + att.proxies.length + ' by proxy';
+  if (!att.isGeneral && att.regrets.length) quorumLine += ', ' + att.regrets.length + ' regrets';
+  quorumLine += '. Quorum requires ' + att.qRequired + '. ';
+  quorumLine += att.hasQuorum ? 'Quorum confirmed.' : 'QUORUM NOT MET.';
+  html += '<div class="min-para" style="color:'+(att.hasQuorum?'var(--grn)':'var(--red)')+';font-weight:600">' + quorumLine + '</div>';
+
   html += '<div class="min-section-hd">CALL TO ORDER</div>'
-    +'<div class="min-para">The meeting was called to order at '+(mtg.time||'[time]')+'.</div>';
+    +'<div class="min-para">The meeting was called to order at '+(mtg.actualStartTime||mtg.time||'[time]')+'.</div>';
   // Agenda items grouped by category
   var cats=[]; var catMap={};
   agenda.forEach(function(it){
@@ -5200,32 +5245,27 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   r.push(meta('Strata Manager / Property Manager: '+esc(mgr)+(mgrLic?' \u2014 '+esc(mgrLic):'')));
 
   // ── ATTENDANCE ────────────────────────────────────────────────────────
-  // Get from Call to Order item if available
-  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
-  var attendance = (ctoItem && ctoItem.attendance) || {};
-  var present  = Object.keys(attendance).filter(function(k){return attendance[k]==='present';});
-  var regrets  = Object.keys(attendance).filter(function(k){return attendance[k]==='regrets';});
-  var proxies  = Object.keys(attendance).filter(function(k){return attendance[k]==='proxy';});
-  if (mtg.attendees && mtg.attendees.length && !present.length) present = mtg.attendees;
+  var att = _buildAttendanceSummary(mtg, sc_);
+  var present = att.present, regrets = att.regrets, proxies = att.proxies;
 
   r.push(heading('Attendance'));
-  if (present.length)  r.push(meta('Present: '+present.join(', ')));
-  if (regrets.length)  r.push(meta('Regrets: '+regrets.join(', ')));
-  if (proxies.length)  r.push(meta('Proxies: '+proxies.join(', ')));
+  if (att.isGeneral) {
+    var absentCount = Math.max(0, (sc_ ? sc_.lots : 0) - present.length - proxies.length);
+    r.push(meta(present.length+' strata lots present'+(proxies.length?', '+proxies.length+' by proxy':'')+', '+absentCount+' absent.'));
+  } else {
+    if (present.length) r.push(meta('Council Members Present: '+present.join(', ')));
+    if (regrets.length) r.push(meta('Regrets: '+regrets.join(', ')));
+    if (proxies.length) r.push(meta('Proxies: '+proxies.join(', ')));
+  }
+  r.push(meta('Strata Manager: '+esc(mgr)+(mgrLic?' \u2014 '+esc(mgrLic):'')));
 
-  // Quorum confirmation
-  var sc_lots = sc_ ? sc_.lots : 20;
-  var mtgType = (function(){
-    if(sc_&&sc_.meetings){var m=sc_.meetings.find(function(m){return String(m.id)===String(mtg.id);});return m?m.type:'council';}
-    return 'council';
-  })();
-  var isGeneral = (mtgType==='agm'||mtgType==='sgm');
-  var councilCount = (sc_&&sc_.councilMembers) ? sc_.councilMembers.filter(function(m){return m.isCouncil;}).length : 5;
-  var qRequired = isGeneral ? Math.ceil(sc_lots/3) : Math.ceil(councilCount/2);
-  r.push(meta('Quorum: '+present.length+' present. Required: '+qRequired+'. Quorum '+(present.length>=qRequired?'confirmed \u2713':'NOT MET \u2717')+'.'));
-
-  // Chairperson / Secretary (from council members if available)
-  r.push(meta('Property Manager: '+esc(mgr)));
+  // Quorum line
+  var quorumLine = present.length+' present';
+  if (proxies.length) quorumLine += ', '+proxies.length+' by proxy';
+  if (!att.isGeneral && regrets.length) quorumLine += ', '+regrets.length+' regrets';
+  quorumLine += '. Quorum requires '+att.qRequired+'. ';
+  quorumLine += att.hasQuorum ? 'Quorum confirmed \u2713' : 'QUORUM NOT MET \u2717';
+  r.push(meta(quorumLine));
 
   r.push('\\pard\\sb0\\sa80\\fs20\\cf2 \\par\\cf0');
 
@@ -5479,16 +5519,23 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('<p class="meta" style="text-align:center">Strata Manager: ' + mgr + (mgrLic?' &nbsp;|&nbsp; '+mgrLic:'') + '</p>');
 
   // Attendance
-  var ctoItem = mtg.agenda && mtg.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
-  var attendance = (ctoItem && ctoItem.attendance) || {};
-  var present = Object.keys(attendance).filter(function(k){return attendance[k]==='present';});
-  var regrets = Object.keys(attendance).filter(function(k){return attendance[k]==='regrets';});
-  if (present.length || regrets.length) {
-    lines.push('<h1>Attendance</h1>');
-    if (present.length) lines.push('<p class="meta"><strong>Council Present:</strong> ' + present.join(', ') + '</p>');
-    if (regrets.length) lines.push('<p class="meta"><strong>Regrets:</strong> ' + regrets.join(', ') + '</p>');
-    lines.push('<p class="meta"><strong>Strata Manager:</strong> ' + mgr + '</p>');
+  var att = _buildAttendanceSummary(mtg, sc_);
+  lines.push('<h1>Attendance</h1>');
+  if (att.isGeneral) {
+    var absentCount = Math.max(0, (sc_ ? sc_.lots : 0) - att.present.length - att.proxies.length);
+    lines.push('<p class="meta">' + att.present.length + ' strata lots present' + (att.proxies.length ? ', ' + att.proxies.length + ' by proxy' : '') + ', ' + absentCount + ' absent.</p>');
+  } else {
+    if (att.present.length) lines.push('<p class="meta"><strong>Council Members Present:</strong> ' + att.present.join(', ') + '</p>');
+    if (att.regrets.length) lines.push('<p class="meta"><strong>Regrets:</strong> ' + att.regrets.join(', ') + '</p>');
+    if (att.proxies.length) lines.push('<p class="meta"><strong>Proxies:</strong> ' + att.proxies.join(', ') + '</p>');
   }
+  lines.push('<p class="meta"><strong>Strata Manager:</strong> ' + mgr + '</p>');
+  var quorumLine2 = att.present.length + ' present';
+  if (att.proxies.length) quorumLine2 += ', ' + att.proxies.length + ' by proxy';
+  if (!att.isGeneral && att.regrets.length) quorumLine2 += ', ' + att.regrets.length + ' regrets';
+  quorumLine2 += '. Quorum requires ' + att.qRequired + '. ';
+  quorumLine2 += att.hasQuorum ? 'Quorum confirmed ✓' : 'QUORUM NOT MET ✗';
+  lines.push('<p class="meta" style="color:' + (att.hasQuorum ? '#155724' : '#b02a37') + ';font-weight:600">' + quorumLine2 + '</p>');
 
   // Call to Order
   lines.push('<h1>Call to Order</h1>');
