@@ -1194,13 +1194,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="mm-ai">
           <div class="mm-aihd"><div class="ai-dot"></div><div><div class="mm-aittl">StrataSphere</div><div class="mm-aisub">Context-aware · PIPA-compliant</div></div></div>
           <div class="mm-aimsgs" id="mm-aimsgs"></div>
-          <div class="mm-airow"><input class="mm-aiin" id="mm-aiin" placeholder="Ask about this item..." onkeydown="if(event.key==='Enter')mmAiSend()"/><button class="mm-aisend" onclick="mmAiSend()">→</button></div>
+          <div class="mm-airow"><textarea class="mm-aiin" id="mm-aiin" placeholder="Ask about this item…" rows="2" style="resize:none;line-height:1.4" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mmAiSend()}"></textarea><button class="mm-aisend" onclick="mmAiSend()">→</button></div>
         </div>
       </div>
     </div>
     <div class="mm-bot">
       <!-- Row 1: Resolution Type + Decision Type + Mover + Seconder + Buttons -->
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div id="mm-mover-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div><div class="mm-dlbl">Resolution</div><div id="mm-rtype" style="font-size:12px;color:var(--ch3)">—</div></div>
         <div class="mm-bdiv"></div>
         <div><div class="mm-dlbl">Decision Type</div><div class="mm-dval" id="mm-dtype">—</div></div>
@@ -1209,6 +1209,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div style="display:flex;align-items:center;gap:5px"><span class="mm-dlbl">SECONDER</span><select class="mm-sel" id="mm-secd"><option value="">Select...</option></select></div>
         <div class="mm-bdiv"></div>
         <button class="mm-conf" id="mm-confbtn" onclick="confirmDecision()" disabled>Confirm Decision</button>
+        <button class="btn sm pri" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Next Item →</button>
         <button class="btn sm pri" id="mm-consensus-btn" onclick="consensusItem()" style="display:none">Consensus</button>
         <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
         <button class="btn sm" id="mm-defer-btn" onclick="deferItem()">Defer</button>
@@ -2414,6 +2415,7 @@ function agRender() {
       + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'
       + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'
       + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'
+      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name" style="color:var(--g4)">✏️</button>'
       + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
       + '</div>'
       + '<div class="ag-items">';
@@ -2900,12 +2902,12 @@ function initMM() {
   // Select first undone item
   var first = MM.agenda.find(function(a){return !a.done;}) || MM.agenda[0];
   if (first) { curItem = first.id; setItem(curItem); }
-  // Start 30-minute quorum countdown if meeting not yet called to order
+  // Start 30-minute quorum countdown — only if quorum not yet confirmed
   var ctoItem = MM.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
-  if (ctoItem && !ctoItem.attendanceLocked) {
+  if (ctoItem && !ctoItem.attendanceLocked && !ctoItem.done) {
     MM.quorumTimer = setTimeout(function(){
       var cto = MM.agenda.find(function(a){return (a.text||'').toLowerCase().indexOf('call to order')>=0;});
-      if (cto && !cto.attendanceLocked) {
+      if (cto && !cto.attendanceLocked && !cto.done) {
         nConfirm('30 minutes have elapsed since the scheduled start time and quorum has not been confirmed.\n\nPer the BC Strata Property Act, the meeting must be adjourned or rescheduled.\n\nAdjourn the meeting now?', function(ok){ if(ok) adjournMtg(); }, 'Quorum Not Met — 30 Min Elapsed', 'danger');
       }
     }, 30 * 60 * 1000);
@@ -3052,9 +3054,6 @@ function attMarkAll(itemId, status) {
 
 function refreshQuorumBar(it) {
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
-  var slList = (sc_ && sc_.councilSLs && sc_.councilSLs.length > 0) ? sc_.councilSLs
-    : (function(){ var arr=[]; for(var i=1;i<=Math.min((sc_?sc_.lots:20),100);i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
-
   var mtgType = '';
   if (sc_ && sc_.meetings) {
     var m = sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
@@ -3062,6 +3061,17 @@ function refreshQuorumBar(it) {
   }
   var isGeneral = (mtgType==='agm'||mtgType==='sgm');
   var lots = sc_ ? sc_.lots : 20;
+
+  // Use same logic as renderAttendancePanel — council members for council, all lots for AGM/SGM
+  var slList;
+  if (!isGeneral && sc_ && sc_.councilMembers && sc_.councilMembers.length > 0) {
+    slList = sc_.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+  } else if (isGeneral && sc_ && sc_.councilMembers && sc_.councilMembers.length > 0) {
+    slList = sc_.councilMembers.map(function(m){return m.sl;});
+  } else {
+    slList = (function(){ var arr=[]; for(var i=1;i<=lots;i++) arr.push('SL'+String(i).padStart(3,'0')); return arr; })();
+  }
+
   var quorumRequired = isGeneral ? Math.ceil(lots/3) : Math.ceil(slList.length/2);
   var presentCount = slList.filter(function(sl){ return it.attendance && it.attendance[sl]==='present'; }).length;
   var hasQuorum = presentCount >= quorumRequired;
@@ -3661,7 +3671,7 @@ function renderMgmtStrataSphere(sc, el) {
         + '</div>')
     + '</div>'
     + '<div style="border-top:1px solid var(--g2);padding:10px;display:flex;gap:8px">'
-    + '<input id="mgmt-ss-in" placeholder="Ask about '+escHtml(sc.plan)+'…" style="flex:1;border:1px solid var(--g3);border-radius:5px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key===\'Enter\')mgmtSsSend(\''+scId+'\')">'
+    + '<textarea id="mgmt-ss-in" placeholder="Ask about '+escHtml(sc.plan)+'…" rows="2" style="flex:1;border:1px solid var(--g3);border-radius:5px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;resize:none;line-height:1.4" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();mgmtSsSend(\''+scId+'\')}"></textarea>'
     + '<button onclick="mgmtSsSend(\''+scId+'\')" style="background:var(--org);color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">Send</button>'
     + '</div></div>'
     + '</div>';
@@ -4115,13 +4125,17 @@ function setItem(id) {
     var curIt = MM.agenda.find(function(a){return a.id===curItem;});
     if (curIt && !curIt.done && isCallToOrderItem(curIt)) {
       var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
-      var slList = (sc_&&sc_.councilSLs&&sc_.councilSLs.length>0)?sc_.councilSLs
-        :(function(){var arr=[];for(var i=1;i<=Math.min((sc_?sc_.lots:20),100);i++) arr.push('SL'+String(i).padStart(3,'0'));return arr;})();
-      var presentCount = slList.filter(function(sl){return curIt.attendance&&curIt.attendance[sl]==='present';}).length;
-      var mtgType='council';
-      if(sc_&&sc_.meetings){var m=sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});if(m)mtgType=m.type||'council';}
-      var isGeneral=(mtgType==='agm'||mtgType==='sgm');
-      var quorumRequired=isGeneral?Math.ceil((sc_?sc_.lots:20)/3):Math.ceil(slList.length/2);
+      var mtgTypeCheck = 'council';
+      if(sc_&&sc_.meetings){var mc=sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});if(mc)mtgTypeCheck=mc.type||'council';}
+      var isGeneralCheck = (mtgTypeCheck==='agm'||mtgTypeCheck==='sgm');
+      var slListCheck;
+      if (!isGeneralCheck && sc_ && sc_.councilMembers && sc_.councilMembers.length > 0) {
+        slListCheck = sc_.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+      } else {
+        slListCheck = (function(){var arr=[];for(var i=1;i<=(sc_?sc_.lots:20);i++) arr.push('SL'+String(i).padStart(3,'0'));return arr;})();
+      }
+      var presentCount = slListCheck.filter(function(sl){return curIt.attendance&&curIt.attendance[sl]==='present';}).length;
+      var quorumRequired = isGeneralCheck ? Math.ceil((sc_?sc_.lots:20)/3) : Math.ceil(slListCheck.length/2);
       if(presentCount<quorumRequired){
         nAlert('Please complete Registration & Attendance and confirm quorum before proceeding.');
         return;
@@ -4130,6 +4144,10 @@ function setItem(id) {
   }
   curItem = id;
   var it = MM.agenda.find(function(a){return a.id===id;}); if(!it) return;
+  // Ensure motion object exists for items that need one (handles AI-parsed agendas)
+  if (NEEDS_MOTION.indexOf(it.type) >= 0 && !it.motion) {
+    it.motion = {text:'', dt:'MAJORITY', for:0, against:0, abstain:0, outcome:null, mover:'', sec:''};
+  }
   document.querySelectorAll('.nav-it,.nav-sub').forEach(function(e){e.classList.remove('on');});
   var ne = document.getElementById('nav'+id); if(ne) ne.classList.add('on');
   document.getElementById('mm-cat').textContent = it.cat||'';
@@ -4147,31 +4165,57 @@ function setItem(id) {
   // Auto-populate standard language for known item types
   autoPopulateItem(it);
   renderCtr(it); renderAtts(it); renderAI(it);
+
+  var voteRow  = document.getElementById('mm-vote-row');
+  var moverRow = document.getElementById('mm-mover-row');
+  var nextBtn  = document.getElementById('mm-next-btn');
+  var confBtn  = document.getElementById('mm-confbtn');
+  var deferBtn = document.getElementById('mm-defer-btn');
+  var unaBtn   = document.getElementById('mm-unanimous-btn');
+  var conBtn   = document.getElementById('mm-consensus-btn');
+
   if (it.motion) {
+    // Motion item — show vote row, mover/seconder, confirm button
+    if (voteRow)  voteRow.style.display  = '';
+    if (moverRow) moverRow.style.display = '';
+    if (nextBtn)  nextBtn.style.display  = 'none';
+    if (confBtn)  { confBtn.disabled = !!it.done; confBtn.style.display = ''; }
+    if (deferBtn) deferBtn.style.display = it.done ? 'none' : '';
+    if (conBtn)   conBtn.style.display   = 'none';
+    if (unaBtn)   unaBtn.style.display   = (!it.done ? '' : 'none');
+
     document.getElementById('mm-dtype').textContent = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[it.motion.dt]||'—';
-    document.getElementById('mm-confbtn').disabled = false;
-    if(it.motion.mover) document.getElementById('mm-mover').value=it.motion.mover;
-    if(it.motion.sec)   document.getElementById('mm-secd').value=it.motion.sec;
-    // Sync vote counts to bottom bar
+
+    // Restore saved mover/seconder — clear if item not done
+    var moverEl = document.getElementById('mm-mover');
+    var secdEl  = document.getElementById('mm-secd');
+    if (!it.done) {
+      if (moverEl) moverEl.value = it.motion.mover || '';
+      if (secdEl)  secdEl.value  = it.motion.sec   || '';
+    }
+
+    // Sync vote counts
     var vfor=document.getElementById('mm-vfor');
     var vag=document.getElementById('mm-vagainst');
     var vab=document.getElementById('mm-vabstain');
     if(vfor){vfor.value=it.motion.for||0; vfor.disabled=!!it.done;}
     if(vag) {vag.value=it.motion.against||0; vag.disabled=!!it.done;}
     if(vab) {vab.value=it.motion.abstain||0; vab.disabled=!!it.done;}
-    // Show the vote row for motion items
-    var voteRow = document.getElementById('mm-vote-row');
-    if (voteRow) voteRow.style.display = '';    var moverRow = document.getElementById('mm-mover-row');
-    if (moverRow) moverRow.style.display = '';
-    // Show Unanimous for undone motion items, hide Consensus
-    var cb2 = document.getElementById('mm-consensus-btn'); if(cb2) cb2.style.display='none';
-    var ub2 = document.getElementById('mm-unanimous-btn'); if(ub2) ub2.style.display = (!it.done ? '' : 'none');
+
     updOutcome(it);
   } else {
-    document.getElementById('mm-dtype').textContent='N/A';
-    document.getElementById('mm-confbtn').disabled=true;
-    document.getElementById('mm-outcome').textContent='N/A';
-    document.getElementById('mm-outcome').style.color='var(--g4)';
+    // Non-motion item — hide vote row, mover/seconder, show Next Item button
+    if (voteRow)  voteRow.style.display  = 'none';
+    if (moverRow) moverRow.style.display = 'none';
+    if (nextBtn)  nextBtn.style.display  = it.done ? 'none' : '';
+    if (confBtn)  { confBtn.disabled = true; confBtn.style.display = 'none'; }
+    if (deferBtn) deferBtn.style.display = 'none';
+    if (conBtn)   conBtn.style.display   = 'none';
+    if (unaBtn)   unaBtn.style.display   = 'none';
+
+    document.getElementById('mm-dtype').textContent = 'N/A';
+    document.getElementById('mm-outcome').textContent = it.done ? '✓ Done' : '—';
+    document.getElementById('mm-outcome').style.color = it.done ? 'var(--grn)' : 'var(--g4)';
   }
 }
 
@@ -4184,17 +4228,20 @@ function renderCtr(it) {
     renderAttendancePanel(it);
     return;
   }
-  if(it.background||it.rationale) h+=mmSec('Background / Rationale',it.background||it.rationale,true);
-  if(it.financial)  h+=mmSec('Financial Implications',it.financial,false);
-  if(it.risks||it.compliance) h+=mmSec('Risks / Compliance',it.risks||it.compliance,false);
+
+  // Background / Financial / Risk — always render, collapsed by default (#11)
+  h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
+  h += mmSec('Financial Implications', it.financial||'', false);
+  h += mmSec('Risks / Compliance',     it.risks||it.compliance||'', false);
+
   // Special: date picker for "Set Next Meeting Date" item
-  var itemLower = (it.text||'').toLowerCase();
   if(itemLower.indexOf('next meeting')>=0 || itemLower.indexOf('set next')>=0){
     h+='<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Next Meeting Date</span><span class="mm-stog">▼</span></div>'
       +'<div class="mm-sbd"><label style="font-size:11px;color:var(--g4);margin-bottom:4px;display:block">Select the date for the next meeting:</label>'
       +'<input type="date" id="mm-next-date" value="'+(it.nextMeetingDate||'')+'" style="border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)">'
       +'</div></div>';
   }
+
   if(it.motion){
     var m=it.motion;
     h+='<div class="mm-motion"><div class="mm-mlbl">Motion ('+({MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[m.dt]||m.dt)+')</div>'
@@ -4202,10 +4249,24 @@ function renderCtr(it) {
       +'<textarea style="width:100%;margin-top:8px;border:1px solid var(--g3);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;resize:vertical" placeholder="Enter or edit motion text..." onblur="saveMotion(\''+it.id+'\',this.value)">'+m.text+'</textarea>'
       +'</div>';
   }
-  // Minutes Summary removed — editable in the minutes after adjournment
-  h+='<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">Manager Notes (Private)</span><span class="mm-stog">▼</span></div>'
-    +'<div class="mm-sbd"><div style="font-size:10px;color:var(--g4);margin-bottom:5px">🔒 Not included in minutes</div>'
+
+  // Minutes Summary — editable in MM (#16, #17)
+  var isSpecial = itemLower.match(/call to order|adjourn/);
+  if (!isSpecial) {
+    h += '<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Minutes Summary</span><span class="mm-stog">▼</span></div>'
+      + '<div class="mm-sbd">'
+      + '<textarea class="mm-notes" data-itemid="'+it.id+'" onblur="saveMinSummary(this.dataset.itemid,this.value)" '
+      + 'placeholder="Summary for meeting minutes — auto-generated or enter manually…" '
+      + 'style="white-space:pre-wrap;word-wrap:break-word">'
+      + escHtml(it.minutesSummary||it.aiSummary||'')
+      + '</textarea>'
+      + '</div></div>';
+  }
+
+  h+='<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">Manager Notes (Private)</span><span class="mm-stog">▶</span></div>'
+    +'<div class="mm-sbd" style="display:none"><div style="font-size:10px;color:var(--g4);margin-bottom:5px">🔒 Not included in minutes</div>'
     +'<textarea class="mm-notes" id="notes'+it.id+'" onblur="saveNote(\''+it.id+'\',this.value)" placeholder="Private notes for this item...">'+( it.notes||'')+'</textarea></div></div>';
+
   var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
 }
 
@@ -4275,22 +4336,47 @@ function renderAtts(it){
     var ext=(name||'').split('.').pop().toLowerCase();
     var ic=ext==='pdf'?'📄':['jpg','jpeg','png','gif'].indexOf(ext)>=0?'🖼':'📎';
     var href=typeof f==='object'&&f.data?f.data:null;
-    return '<div class="att-it">'
-      +'<span class="att-ic">'+ic+'</span>'
-      +'<span class="att-nm">'+(href?'<a href="'+href+'" download="'+escHtml(name)+'" style="color:var(--org);text-decoration:none">'+escHtml(name)+'</a>':escHtml(name))+'</span>'
-      +'</div>';
+    var isPdf=ext==='pdf';
+    var isImg=['jpg','jpeg','png','gif','webp'].indexOf(ext)>=0;
+    var action='';
+    if(href){
+      if(isPdf) action='<a href="'+href+'" target="_blank" style="color:var(--org);text-decoration:none">'+escHtml(name)+'</a>';
+      else if(isImg) action='<a href="'+href+'" onclick="mmPreviewImg(\''+href+'\',\''+escHtml(name)+'\');return false" style="color:var(--org);text-decoration:none;cursor:pointer">'+escHtml(name)+'</a>';
+      else action='<a href="'+href+'" download="'+escHtml(name)+'" style="color:var(--org);text-decoration:none">'+escHtml(name)+'</a>';
+    } else action=escHtml(name);
+    return '<div class="att-it"><span class="att-ic">'+ic+'</span><span class="att-nm">'+action+'</span></div>';
   }).join('')+'<button class="att-up" onclick="document.getElementById(\'mm-att-input\').click()">+ Add</button>';
+}
+function mmPreviewImg(src,name){
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  ov.innerHTML='<div style="position:relative;max-width:90vw;max-height:90vh">'
+    +'<img src="'+src+'" style="max-width:90vw;max-height:85vh;border-radius:8px;object-fit:contain">'
+    +'<div style="text-align:center;color:#fff;font-size:12px;margin-top:8px">'+escHtml(name)+' — click anywhere to close</div>'
+    +'</div>';
+  ov.onclick=function(){document.body.removeChild(ov);};
+  document.body.appendChild(ov);
 }
 function addAtt(){nPrompt('Document name:', function(n){if(!n)return;var it=MM.agenda.find(function(a){return a.id===curItem;});if(it){if(!it.atts)it.atts=[];it.atts.push(n);renderAtts(it);}}, '', 'Add Document');}
 function renderAI(it){
-  var el=document.getElementById('mm-aimsgs');if(!el)return;el.innerHTML='';
-  var ins=it.aiInsights||['No specific insights for this item. Ask me anything about BC strata law, previous decisions, or meeting procedure.'];
-  ins.forEach(function(i){el.innerHTML+='<div class="mm-aimsg pro fi">💡 '+i+'</div>';});
+  // Restore persistent SS conversation for this meeting — don't clear on item switch (#14)
+  var el=document.getElementById('mm-aimsgs');if(!el)return;
+  if(!MM.ssLog) MM.ssLog=[];
+  // Render all accumulated messages
+  el.innerHTML = MM.ssLog.map(function(m){
+    return '<div class="mm-aimsg '+m.role+' fi">'+escHtml(m.text)+'</div>';
+  }).join('');
+  if(!MM.ssLog.length){
+    el.innerHTML='<div class="mm-aimsg pro fi">💡 Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.</div>';
+  }
+  el.scrollTop=el.scrollHeight;
 }
 function mmAiSend(){
   var inp=document.getElementById('mm-aiin');var msg=inp.value.trim();if(!msg)return;inp.value='';
   var el=document.getElementById('mm-aimsgs');
-  el.innerHTML+='<div class="mm-aimsg usr">'+escHtml(msg)+'</div>';el.scrollTop=el.scrollHeight;
+  if(!MM.ssLog) MM.ssLog=[];
+  MM.ssLog.push({role:'usr',text:msg});
+  el.innerHTML+='<div class="mm-aimsg usr fi">'+escHtml(msg)+'</div>';el.scrollTop=el.scrollHeight;
   // Typing indicator
   var typingId='mm-typing-'+Date.now();
   el.innerHTML+='<div id="'+typingId+'" class="mm-aimsg ai" style="opacity:.5">…</div>';
@@ -4307,9 +4393,9 @@ function mmAiSend(){
   var systemPrompt = 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
     + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
     + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
-    + ' If the answer is in the SC bylaws or decision ledger, cite it specifically.'
-    + ' If you are uncertain, say so — do not guess.'
-    + ' Keep answers concise and actionable for an active meeting. Plain prose only — no markdown, no asterisks, no bullet dashes.\n\n'
+    + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
+    + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
+    + ' If uncertain, say so in one sentence.\n\n'
     + lssCtx;
 
   fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -4326,7 +4412,9 @@ function mmAiSend(){
   .then(function(d){
     var typing=document.getElementById(typingId);if(typing)typing.remove();
     var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    el.innerHTML+='<div class="mm-aimsg ai fi">'+(txt||'Unable to respond.')+'</div>';
+    var response = txt||'Unable to respond.';
+    MM.ssLog.push({role:'ai',text:response});
+    el.innerHTML+='<div class="mm-aimsg ai fi">'+escHtml(response)+'</div>';
     el.scrollTop=el.scrollHeight;
   })
   .catch(function(){
@@ -4416,6 +4504,19 @@ function _confirmDecisionProceed(it){
   if((it.text||'').toLowerCase().indexOf('adjourn')>=0){
     setTimeout(function(){ adjournMtg(); },400);
     return;
+  }
+  mmAdvance();
+}
+
+function mmNextItem() {
+  var it = MM.agenda.find(function(a){return a.id===curItem;});
+  if (!it) return;
+  if (!it.done) {
+    it.done = true;
+    if (!it.minutesSummary) {
+      it.minutesSummary = 'The council reviewed and discussed ' + (it.text||'this item') + '.';
+    }
+    renderCtr(it); renderMmNav(); mmSyncToMtg();
   }
   mmAdvance();
 }
@@ -4661,6 +4762,7 @@ function adjournMtg() {
 }
 function _adjournProceed() {
   clearInterval(MM.timerInt);
+  MM.ssLog = []; // flush SS conversation on adjournment (#14)
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId;});
   if (!sc_) return;
   var mtg = sc_.meetings && sc_.meetings.find(function(m){return m.id===MM.mtgId;});
@@ -4799,13 +4901,14 @@ function renderMinutesContent(mtg, sc_) {
     cat.items.forEach(function(it){
       html += '<div class="min-item">';
       html += '<div class="min-item-title">'+escHtml(it.text)+'</div>';
-      // Background/Discussion — always show in draft, editable
+      // Background/Discussion — always show, editable in draft
       var summary = it.minutesSummary || it.aiSummary || '';
-      var isSpecialItem = (it.text||'').toLowerCase().match(/call to order|adjourn/);
-      if (!isSpecialItem) {
+      var isAdjourn = (it.text||'').toLowerCase().indexOf('adjourn') >= 0;
+      var isCTO = isCallToOrderItem(it);
+      if (!isAdjourn) {
         html += '<div class="min-field-lbl">Discussion / Summary</div>';
         if (!isFinal) {
-          html += '<div class="min-editable" contenteditable="true" data-id="'+it.id+'" data-field="aiSummary"'
+          html += '<div class="min-editable" contenteditable="true" data-id="'+it.id+'" data-field="minutesSummary"'
             +' onblur="minSaveEdit(this)" data-itemid="'+it.id+'" style="min-height:28px">'
             +(summary ? escHtml(summary) : '<span style="color:var(--g4);font-style:italic">Add discussion notes…</span>')+' </div>';
         } else if (summary) {
@@ -4818,9 +4921,9 @@ function renderMinutesContent(mtg, sc_) {
           +'<div class="min-motion">Moved by '+(it.motion.mover||'—')+', seconded by '+(it.motion.sec||'—')+':<br>'
           +'"'+escHtml(it.motion.text)+'"</div>';
       }
-      // Vote result
+      // Vote result with tally
       if(it.motion&&it.done){
-        var outColor = it.motion.outcome==='CARRIED'?'var(--grn)':'var(--red)';
+        var outColor = it.motion.outcome==='CARRIED'?'var(--grn)':it.motion.outcome==='DEFEATED'?'var(--red)':'var(--amb)';
         html += '<div class="min-field-lbl">Vote</div>'
           +'<div class="min-vote" style="font-weight:700;color:'+outColor+'">'+(it.motion.outcome||'—')+'</div>';
         if(it.motion.for||it.motion.against||it.motion.abstain){
@@ -4842,6 +4945,7 @@ function minSaveEdit(el) {
   var id = el.dataset.itemid; var field = el.dataset.field || 'aiSummary'; var val = el.textContent;
   var sc_ = APP.sc.find(function(s){return s.id===APP.currentScId;}); if(!sc_) return;
   var mtg = sc_.meetings && sc_.meetings.find(function(m){return m.id===APP.currentMtgId;}); if(!mtg) return;
+  if (mtg.minutesState === 'FINAL') return; // locked — no edits allowed
   var it = mtg.agenda && mtg.agenda.find(function(a){return a.id===id;}); if(!it) return;
   it[field] = val;
   sv('sc_'+sc_.id, sc_);
@@ -4874,6 +4978,95 @@ function _finalizeProceed() {
   switchMtgTab('minutes', document.getElementById('mtgtab-minutes'));
 }
 
+
+function exportAgenda(scId, mtgId) {
+  var sc_  = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  var mtg  = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(mtgId);}); if(!mtg) return;
+  if (!mtg.agenda || !mtg.agenda.length) { nAlert('No agenda items to export. Add agenda items first.','','warn'); return; }
+
+  var plan      = sc_.plan.replace(/\s+/g,'');
+  var date      = mtg.date || '';
+  var typeMap   = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+  var typeLabel = typeMap[mtg.type] || mtg.type || 'Meeting';
+  var mgr       = APP.currentUser ? APP.currentUser.name : '—';
+  var fname     = plan+'_'+typeLabel.replace(/\s+/g,'_')+'_'+date+'_AGENDA';
+
+  // Group by category
+  var cats=[],catMap={};
+  mtg.agenda.forEach(function(it){
+    if(!catMap[it.catId]){catMap[it.catId]={name:it.cat,items:[]};cats.push(catMap[it.catId]);}
+    catMap[it.catId].items.push(it);
+  });
+
+  var logoUrl = APP.brokerage && APP.brokerage.logoUrl ? APP.brokerage.logoUrl : '';
+  function doExport(logoDataUrl) {
+    var r = [];
+    r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;}\\margl1440\\margr1440\\margt1584\\margb1584\\widowctrl}');
+    function esc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}').replace(/[^\x00-\x7F]/g,function(c){return '\\u'+c.charCodeAt(0)+'?';});}
+    var SL='\\sl276\\slmult1';
+    function heading(t){return '\\pard\\sb240\\sa40\\keepn\\b\\fs24\\cf1 '+SL+' '+esc(t.toUpperCase())+'\\b0\\cf0\\par'+'\\pard\\sb0\\sa60\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par';}
+    function body(t){return '\\pard\\sb0\\sa100\\fs22 '+SL+' '+esc(t)+'\\par';}
+    function bold(t){return '\\pard\\sb80\\sa40\\b\\fs22 '+SL+' '+esc(t)+'\\b0\\par';}
+    function meta(t){return '\\pard\\sb0\\sa30\\fs20\\cf2 '+SL+' '+esc(t)+'\\cf0\\par';}
+
+    // Logo/letterhead
+    if (logoDataUrl && logoDataUrl.indexOf('base64,')>0) {
+      var b64=logoDataUrl.split('base64,')[1]; var raw=atob(b64); var hex='';
+      for(var bi=0;bi<raw.length;bi++){var hx=raw.charCodeAt(bi).toString(16);hex+=(hx.length===1?'0':'')+hx;}
+      r.push('{\\pict\\pngblip\\picwgoal3600\\pichgoal1080\\picscalex50\\picscaley50 '+hex+'}');
+      r.push('\\pard\\sb0\\sa20\\par');
+    }
+    if (APP.brokerage && APP.brokerage.name) {
+      if (!logoDataUrl) r.push('\\pard\\qc\\sb0\\sa20\\b\\fs32 '+esc(APP.brokerage.name)+'\\b0\\par');
+      if (APP.brokerage.addr) r.push('\\pard\\qc\\sb0\\sa10\\fs18\\cf2 '+esc(APP.brokerage.addr)+'\\cf0\\par');
+      r.push('\\pard\\sb0\\sa80\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par');
+    }
+
+    // Title
+    r.push('\\pard\\qc\\sb80\\sa40\\b\\fs28\\cf1 '+esc('MEETING AGENDA')+'\\b0\\cf0\\fs22\\pard\\par');
+    r.push('\\pard\\qc\\sb0\\sa60\\b\\fs24 '+esc(typeLabel.toUpperCase())+'\\b0\\par');
+
+    // Header info
+    r.push(bold('Strata Plan '+esc(sc_.plan)+(sc_.name?' \u2014 '+esc(sc_.name):'')));
+    if (sc_.addr) r.push(meta(esc(sc_.addr)));
+    r.push(meta('Date: '+esc(date)+(mtg.time?' at '+esc(mtg.time):'')));
+    if (mtg.fmt) r.push(meta('Format: '+esc(mtg.fmt)+(mtg.loc?' \u2014 '+esc(mtg.loc):'')));
+    r.push(meta('Strata Manager: '+esc(mgr)));
+    r.push('\\pard\\sb60\\sa60\\brdrb\\brdrs\\brdrw6\\brdrcf2 \\par');
+
+    // Note
+    r.push('\\pard\\sb40\\sa80\\fs18\\cf2 Generated by Neurata \u2014 Meeting Agenda\\cf0\\par');
+
+    // Agenda items
+    var itemNum = 1;
+    cats.forEach(function(cat){
+      r.push(heading(cat.name));
+      cat.items.forEach(function(it){
+        var typeTag = it.type && it.type !== 'FOR_INFORMATION' ? ' ['+it.type.replace(/_/g,' ')+']' : '';
+        r.push(body(itemNum+'. '+esc(it.text)+esc(typeTag)));
+        if (it.background) r.push('\\pard\\li360\\sb0\\sa60\\fs20\\cf2 '+SL+' Background: '+esc(it.background)+'\\cf0\\par');
+        if (it.motion && it.motion.text) r.push('\\pard\\li360\\sb0\\sa60\\i\\fs20 '+SL+' Proposed Motion: '+esc(it.motion.text)+'\\i0\\par');
+        itemNum++;
+      });
+    });
+
+    // Signature block
+    r.push('\\pard\\sb400\\sa80\\b\\fs22 '+SL+' SIGNATURE\\b0\\par');
+    r.push('\\pard\\sb120\\sa40\\fs22 '+SL+' _________________________\\par');
+    r.push('\\pard\\sb0\\sa80\\fs20\\cf2 Strata Manager\\cf0\\par');
+
+    r.push('}');
+    var blob = new Blob([r.join('\n')], {type:'application/rtf'});
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = fname+'.rtf'; a.click();
+  }
+
+  if (logoUrl) {
+    fetch(logoUrl).then(function(r){return r.blob();}).then(function(blob){
+      var reader=new FileReader(); reader.onloadend=function(){doExport(reader.result);}; reader.readAsDataURL(blob);
+    }).catch(function(){doExport('');});
+  } else { doExport(''); }
+}
 
 function exportMin(fmt, scId, mtgId) {
   var sc_  = scId  ? APP.sc.find(function(s){return s.id===scId;})  : APP.sc.find(function(s){return s.id===APP.currentScId;});
@@ -5025,7 +5218,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
     return 'council';
   })();
   var isGeneral = (mtgType==='agm'||mtgType==='sgm');
-  var qRequired = isGeneral ? Math.ceil(sc_lots/3) : Math.ceil((sc_&&sc_.councilSLs?sc_.councilSLs.length:5)/2);
+  var councilCount = (sc_&&sc_.councilMembers) ? sc_.councilMembers.filter(function(m){return m.isCouncil;}).length : 5;
+  var qRequired = isGeneral ? Math.ceil(sc_lots/3) : Math.ceil(councilCount/2);
   r.push(meta('Quorum: '+present.length+' present. Required: '+qRequired+'. Quorum '+(present.length>=qRequired?'confirmed \u2713':'NOT MET \u2717')+'.'));
 
   // Chairperson / Secretary (from council members if available)
@@ -5051,11 +5245,11 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       // Background/Discussion summary
       var summary = it.minutesSummary || it.aiSummary || '';
       if (summary) r.push(body(summary));
-      // Motion — italic, 0.5" indent per style guide
+      // Motion — style guide: "Moved by SL___, seconded by SL___:" then italic indented motion
       if (it.motion && it.motion.text) {
-        var movedBy = it.motion.mover ? 'Moved by '+it.motion.mover+(it.motion.sec?', seconded by '+it.motion.sec:'')+': ' : '';
-        r.push(body(movedBy));
-        r.push(motion('THAT '+it.motion.text.replace(/^THAT\s+/i,'')));
+        var moverLine = 'Moved by '+(it.motion.mover||'—')+', seconded by '+(it.motion.sec||'—')+':';
+        r.push(body(moverLine));
+        r.push(motion(it.motion.text.replace(/^[""]?(THAT\s+)?/i, 'THAT ')));
       }
       // Vote result
       if (it.done && it.motion && it.motion.outcome) {
@@ -9023,14 +9217,18 @@ function renderMinutesList(sc, el) {
   }
   var html = '';
   adjourned.forEach(function(m) {
+    var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
+    var statusTag = isFinal ? '<span class="tag grn">Final</span>' : '<span class="tag amb">Draft</span>';
     html += '<div class="card fi" style="margin-bottom:10px">'
       +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-      +'<span class="tag '+((m.minutes&&m.minutes.status==='FINAL')?'grn':'amb')+'">'+((m.minutes&&m.minutes.status)||'Draft')+'</span></div>'
+      +statusTag+'</div>'
       +'<div class="cb"><div class="br">'
-      +'<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View & Edit</button>'
+      +(isFinal
+        ? '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">📄 View</button>'
+        : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">✏️ Edit Minutes</button>')
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
-      +((m.minutes&&m.minutes.status==='FINAL')?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
+      +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
       +'</div></div></div>';
   });
   el.innerHTML = html;
@@ -10283,6 +10481,7 @@ function renderMeetingsList(sc, el) {
         +'<div class="br">';
       if (m.status === 'DRAFT') {
         html += '<button class="btn sm" onclick="editMeeting(\''+sc.id+'\',\''+m.id+'\')">Edit Agenda</button>';
+        html += '<button class="btn sm" onclick="exportAgenda(\''+sc.id+'\',\''+m.id+'\')" title="Export agenda as RTF">Export Agenda</button>';
         if (!mmActive) {
           html += '<button class="btn sm" style="opacity:.5" onclick="mmRequestActivation(\''+sc.id+'\')" title="Meeting Mode required">▶ Launch (activation required)</button>';
         } else if (canLaunch) {
