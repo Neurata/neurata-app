@@ -1208,20 +1208,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <span class="mm-dlbl" data-motion="1" style="flex-shrink:0">Seconder</span>
       <select class="mm-sel" id="mm-secd" data-motion="1" style="flex-shrink:0"><option value="">Select...</option></select>
       <div class="mm-bdiv" data-motion="1" style="flex-shrink:0"></div>
-      <!-- Vote tallies — single flex row, no wrapping -->
-      <div id="mm-vote-row" data-motion="1" style="display:flex;flex-wrap:nowrap;align-items:center;gap:4px;flex-shrink:0">
+      <!-- Vote tallies — compact number inputs only -->
+      <div id="mm-vote-row" data-motion="1" style="display:flex;flex-wrap:nowrap;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:11px;font-weight:600;color:var(--grn);flex-shrink:0">For</span>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'for',-1)" style="flex-shrink:0">−</button>
-        <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn);flex-shrink:0" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'for',1)" style="flex-shrink:0">+</button>
-        <span style="font-size:11px;font-weight:600;color:var(--red);flex-shrink:0;margin-left:4px">Against</span>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'against',-1)" style="flex-shrink:0">−</button>
-        <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red);flex-shrink:0" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'against',1)" style="flex-shrink:0">+</button>
-        <span style="font-size:11px;font-weight:600;color:var(--g4);flex-shrink:0;margin-left:4px">Abstain</span>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',-1)" style="flex-shrink:0">−</button>
-        <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4);flex-shrink:0" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
-        <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',1)" style="flex-shrink:0">+</button>
+        <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn);flex-shrink:0;width:38px" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
+        <span style="font-size:11px;font-weight:600;color:var(--red);flex-shrink:0">Against</span>
+        <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red);flex-shrink:0;width:38px" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
+        <span style="font-size:11px;font-weight:600;color:var(--g4);flex-shrink:0">Abstain</span>
+        <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4);flex-shrink:0;width:38px" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
       </div>
       <div class="mm-bdiv" data-motion="1" style="flex-shrink:0"></div>
       <!-- Outcome -->
