@@ -1206,11 +1206,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <span class="mm-lbl" data-motion="1" style="margin-left:6px">Against</span><input id="mm-vagainst" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
       <span class="mm-lbl" data-motion="1" style="margin-left:6px">Abstain</span><input id="mm-vabstain" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
       <div class="mm-bdiv" data-motion="1"></div>
-      <span class="mm-lbl" data-motion="1">Decision Result</span><span id="mm-outcome" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--g4);white-space:nowrap">—</span>
-      <div class="mm-bdiv"></div>
-      <div id="mm-mover-row" style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
+      <div id="mm-mover-row" style="display:flex;align-items:center;gap:8px;flex-shrink:0" data-motion="1">
         <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
         <button class="btn sm" id="mm-defer-btn" onclick="deferItem()" style="display:none">Defer</button>
+      </div>
+      <div class="mm-bdiv" data-motion="1"></div>
+      <span class="mm-lbl" data-motion="1">Decision Result</span><span id="mm-outcome" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--g4);white-space:nowrap">—</span>
+      <div class="mm-bdiv"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
         <button class="btn sm" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Continue →</button>
         <button class="mm-conf" id="mm-confbtn" onclick="confirmDecision()" disabled style="display:none">Confirm Decision</button>
       </div>
@@ -4347,10 +4350,13 @@ function renderCtr(it) {
 
   if(it.motion){
     var m=it.motion;
-    h+='<div class="mm-motion"><div class="mm-mlbl">Motion ('+({MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[m.dt]||m.dt)+')</div>'
-      +'<div class="mm-mtxt">'+(m.text||'<em style="color:var(--g4)">Enter motion text below...</em>')+'</div>'
-      +'<textarea style="width:100%;margin-top:8px;border:1px solid var(--g3);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;resize:vertical" placeholder="Enter or edit motion text..." onblur="saveMotion(\''+it.id+'\',this.value)">'+m.text+'</textarea>'
-      +'</div>';
+    var motionLbl = 'Motion (' + ({MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[m.dt]||m.dt) + ')';
+    h += '<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">'+motionLbl+'</span><span class="mm-stog">▼</span></div>'
+      + '<div class="mm-sbd">'
+      + '<textarea style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;resize:vertical;min-height:60px" placeholder="Enter motion text…" onblur="saveMotion(\''+it.id+'\',this.value)">'
+      + escHtml(m.text||'')
+      + '</textarea>'
+      + '</div></div>';
   }
 
   // Minutes Summary — editable in MM (#16, #17)
