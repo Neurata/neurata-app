@@ -1207,16 +1207,16 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <select class="mm-sel" id="mm-secd" style="flex-shrink:0" data-motion="1"><option value="">Select...</option></select>
       <div class="mm-bdiv" data-motion="1"></div>
       <!-- Vote tallies -->
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0" id="mm-vote-row" data-motion="1">
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0" id="mm-vote-row" data-motion="1">
         <span style="font-size:11px;font-weight:600;color:var(--grn)">For</span>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'for',-1)">−</button>
         <input id="mm-vfor" type="number" min="0" value="0" class="mm-vinput" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'for',1)">+</button>
-        <span style="font-size:11px;font-weight:600;color:var(--red)">Against</span>
+        <span style="font-size:11px;font-weight:600;color:var(--red);margin-left:6px">Against</span>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'against',-1)">−</button>
         <input id="mm-vagainst" type="number" min="0" value="0" class="mm-vinput" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'against',1)">+</button>
-        <span style="font-size:11px;font-weight:600;color:var(--g4)">Abstain</span>
+        <span style="font-size:11px;font-weight:600;color:var(--g4);margin-left:6px">Abstain</span>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',-1)">−</button>
         <input id="mm-vabstain" type="number" min="0" value="0" class="mm-vinput" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
         <button class="mm-vbtn" onclick="adjustVote(curItem,'abstain',1)">+</button>
