@@ -2182,6 +2182,7 @@ var AG = {
   agenda:     [],   // live working copy
   mtgId:      null, // meeting being edited
   scId:       null,
+  _mtg:       null, // direct reference to the mtg object — avoids id-lookup race on new meetings
   _dragType:  null, // 'cat' or 'item'
   _dragId:    null,
   _dragOver:  null
@@ -2193,6 +2194,7 @@ function agOpen(scId, mtgId) {
   var sc_  = APP.sc.find(function(s){return s.id===scId;});
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(mtgId);});
   if (!mtg) return;
+  AG._mtg  = mtg; // store live reference — survives async UUID update
   AG.agenda = JSON.parse(JSON.stringify(mtg.agenda || []));
   // Modal header — SC plan + full meeting type
   var typeLabels = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
@@ -2226,22 +2228,15 @@ function agClose() {
 }
 
 function agSaveAndClose() {
+  var mtg = AG._mtg;
   var sc_ = APP.sc.find(function(s){return s.id===AG.scId;});
-  if (!sc_) { closeMo('mo-agenda'); return; }
-  // Match by id — handle both numeric and string ids
-  var mtg = sc_.meetings && sc_.meetings.find(function(m){
-    return String(m.id) === String(AG.mtgId);
-  });
-  if (mtg) {
-    mtg.agenda = JSON.parse(JSON.stringify(AG.agenda));
-    sv('sc_'+sc_.id, sc_);
-    // Persist agenda to Supabase
-    getSupabase().from('meetings').update({agenda: mtg.agenda})
-      .eq('id', mtg.id).then(function(r){ if(r.error) console.error('Agenda save error:', r.error); });
-    renderMeetings();
-  } else {
-    // Meeting not found in SC — close silently
-  }
+  if (!mtg || !sc_) { closeMo('mo-agenda'); return; }
+  mtg.agenda = JSON.parse(JSON.stringify(AG.agenda));
+  sv('sc_'+sc_.id, sc_);
+  // Persist agenda to Supabase — mtg.id is the UUID by now (or temp id if insert is still in flight, which is fine)
+  getSupabase().from('meetings').update({agenda: mtg.agenda})
+    .eq('id', mtg.id).then(function(r){ if(r.error) console.error('Agenda save error:', r.error); });
+  renderMeetings();
   closeMo('mo-agenda');
 }
 
