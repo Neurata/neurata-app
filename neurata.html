@@ -10390,19 +10390,11 @@ function docExtractText(btn) {
   if (!storagePath || !dbId) { nAlert('Missing storage path — try re-uploading the document.', 'Error', 'warn'); return; }
   btn.disabled = true;
 
-  // Animated feedback — spinner + cycling status messages + elapsed timer
-  var stages = [
-    'Fetching document…',
-    'Reading pages…',
-    'Extracting text…',
-    'Processing content…',
-    'Almost there…'
-  ];
-  var stageIdx = 0;
-  var elapsed = 0;
+  // Animated feedback
+  var stages = ['Fetching document…','Reading pages…','Extracting text…','Processing content…','Almost there…'];
+  var stageIdx = 0, elapsed = 0;
   function updateBtn() {
-    var mins = Math.floor(elapsed / 60);
-    var secs = elapsed % 60;
+    var mins = Math.floor(elapsed / 60), secs = elapsed % 60;
     var timeStr = mins > 0 ? mins+'m '+secs+'s' : secs+'s';
     btn.innerHTML = '<span class="spin spin-wh" style="margin-right:5px"></span>'
       + stages[Math.min(stageIdx, stages.length-1)]
@@ -10411,42 +10403,38 @@ function docExtractText(btn) {
   updateBtn();
   var ticker = setInterval(function(){
     elapsed++;
-    // Advance stage roughly every 15s
-    if (elapsed % 15 === 0 && stageIdx < stages.length - 1) stageIdx++;
+    if (elapsed % 15 === 0 && stageIdx < stages.length-1) stageIdx++;
     updateBtn();
   }, 1000);
 
-  fetch(WORKER_URL + '/extract-doc-text', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      storagePath: storagePath,
-      docId:       dbId,
-      brokerageId: APP.brokerage && APP.brokerage.lic || '',
-      scId:        scId || '',
-      userId:      APP.currentUser && APP.currentUser.id || ''
-    })
+  // Fetch PDF from Supabase storage client-side — avoids Cloudflare 100s worker timeout
+  var storageUrl = SUPABASE_URL + '/storage/v1/object/' + storagePath;
+  fetch(storageUrl, {
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
   })
   .then(function(r){
-    var ct = r.headers.get('content-type') || '';
-    if (!ct.includes('application/json')) {
-      return r.text().then(function(t){ throw new Error('Server error: ' + t.slice(0,100)); });
-    }
-    return r.json();
+    if (!r.ok) throw new Error('Could not fetch document from storage (' + r.status + ')');
+    return r.blob();
   })
-  .then(function(d){
+  .then(function(blob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onloadend = function(){ resolve(reader.result.split('base64,')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  })
+  .then(function(b64){
     clearInterval(ticker);
-    if (d.error) throw new Error(d.error);
-    var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
-    if (sc_ && sc_.docs) {
-      var doc = sc_.docs.find(function(x){ return x.dbId === dbId; });
-      if (doc) { doc.documentText = d.text; doc.docType = d.docType; }
-    }
-    btn.innerHTML = '✓ Indexed';
-    btn.disabled = true;
-    btn.style.color = 'var(--grn)';
-    btn.style.borderColor = 'var(--grn)';
-    var el2 = document.getElementById('mtg-body');
-    if (sc_ && el2 && currentMtgTab === 'docs') renderDocsList(sc_, el2);
+    // Re-start ticker for multi-pass phase
+    stageIdx = 1; elapsed = 0;
+    ticker = setInterval(function(){
+      elapsed++;
+      if (elapsed % 15 === 0 && stageIdx < stages.length-1) stageIdx++;
+      updateBtn();
+    }, 1000);
+    // Run client-side multi-pass extraction — each pass is a separate short AI call
+    _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1, btn, ticker);
   })
   .catch(function(e){
     clearInterval(ticker);
@@ -10457,17 +10445,17 @@ function docExtractText(btn) {
   });
 }
 
-function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn) {
+function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn, ticker) {
   if (pass > 5) {
+    if (ticker) clearInterval(ticker);
     if (accumulated) {
       _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
     } else {
-      btn.textContent = 'Failed — retry'; btn.disabled = false;
+      btn.innerHTML = 'Failed — retry'; btn.disabled = false;
     }
     return;
   }
   var isFirstPass = pass === 1;
-  if (pass > 1) btn.textContent = 'Indexing… (pass ' + pass + ')';
 
   var prompt = isFirstPass
     ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
@@ -10496,17 +10484,20 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass, btn) {
     if (!chunk) throw new Error('No text extracted');
     var fullText = accumulated ? accumulated + '\n' + chunk : chunk;
     if (d.stop_reason === 'max_tokens') {
-      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1, btn);
+      _extractDocTextMultiPassBtn(b64, dbId, scId, fullText, pass + 1, btn, ticker);
     } else {
+      if (ticker) clearInterval(ticker);
       _finaliseDocExtract(dbId, scId, fullText, b64, btn);
     }
   })
   .catch(function(e){
     console.error('docExtractText pass ' + pass + ' error:', e);
     if (accumulated) {
+      if (ticker) clearInterval(ticker);
       _finaliseDocExtract(dbId, scId, accumulated, b64, btn);
     } else {
-      btn.textContent = 'Failed — retry'; btn.disabled = false;
+      if (ticker) clearInterval(ticker);
+      btn.innerHTML = 'Failed — retry'; btn.disabled = false;
       nAlert('Could not index document: ' + (e.message||'unknown'), 'Index Failed', 'warn');
     }
   });
