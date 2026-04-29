@@ -6299,14 +6299,18 @@ function ssSelectConv(scId, convId) {
 
 function ssDeleteConv(scId, convId) {
   if (!SS.convs[scId]) return;
-  SS.convs[scId] = SS.convs[scId].filter(function(c){return c.id!==convId;});
-  if (SS.activeConv && SS.activeConv.convId === convId) {
-    SS.activeConv = SS.convs[scId].length ? {scId:scId, convId:SS.convs[scId][0].id} : null;
-  }
-  // Delete from Supabase
-  getSupabase().from('ss_conversations').delete().eq('id', convId).then(function(){});
-  ssRenderConvList();
-  ssRenderMessages();
+  var conv = SS.convs[scId].find(function(c){return c.id===convId;});
+  var title = conv ? escHtml(conv.title) : 'this conversation';
+  nConfirm('Delete "'+title+'"? This cannot be undone.', function(ok) {
+    if (!ok) return;
+    SS.convs[scId] = SS.convs[scId].filter(function(c){return c.id!==convId;});
+    if (SS.activeConv && SS.activeConv.convId === convId) {
+      SS.activeConv = SS.convs[scId].length ? {scId:scId, convId:SS.convs[scId][0].id} : null;
+    }
+    getSupabase().from('ss_conversations').delete().eq('id', convId).then(function(){});
+    ssRenderConvList();
+    ssRenderMessages();
+  }, 'Delete Conversation', 'danger');
 }
 
 function ssSend() {
