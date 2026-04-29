@@ -1866,6 +1866,35 @@ function scSsTier(s) {
 function scCanUseMM(s) {
   return scMmActive(s);
 }
+
+// ── Single source of truth for SC status labels ───────────────────────
+// size: 'sm' (sidebar/list, 9-10px) or 'md' (cards/billing, 11px)
+// style: 'tag' (filled pill for cards/tables) or 'bdg' (s-bdg for sidebar)
+function scStatusPill(s, size, style) {
+  var fs  = (size === 'md') ? '11px' : '9px';
+  var cls = (style === 'tag') ? 'tag' : 's-bdg';
+  var isAcssPending = APP.brokerage && APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
+  var isPaid = s.mmActive === true || s.mmStatus === 'ACTIVE';
+  var mmOn   = scMmActive(s);
+  var tier   = scSsTier(s);
+
+  var label, bg, color;
+  if (isAcssPending) {
+    label = 'Pending';     bg = 'var(--ambl)'; color = 'var(--amb)';
+  } else if (s.mmPendingCancel) {
+    label = 'Cancelling';  bg = 'var(--redl)'; color = 'var(--red)';
+  } else if (!mmOn) {
+    label = 'Inactive';    bg = 'var(--g2)';   color = 'var(--g4)';
+  } else if (tier === 'global') {
+    label = 'StrataSphere'; bg = 'var(--blul)'; color = 'var(--blu)';
+  } else if (isPaid) {
+    label = 'Meeting Mode'; bg = 'var(--grnl)'; color = 'var(--grn)';
+  } else {
+    label = 'Trial';       bg = 'var(--ambl)'; color = 'var(--amb)';
+  }
+  return '<span class="'+cls+'" style="background:'+bg+';color:'+color+';font-size:'+fs+'">'+label+'</span>';
+}
+
 function hasBillingInfo() {
   if (!APP.brokerage) return false;
   // billingSetup flag must be true
@@ -7090,35 +7119,9 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
       + '</tr></thead><tbody>';
 
     allSCs.forEach(function(s) {
-      var mmOn  = scMmActive(s);
-      var tier  = scSsTier(s);
       var lots  = parseInt(s.lots) || 0;
-
-      var statusLabel, statusClass;
-      if (s.mmPendingCancel) {
-        statusLabel = 'Cancels ' + (function(){
-          var a = s.mmActivatedAt ? new Date(s.mmActivatedAt) : new Date();
-          var ann = new Date(a);
-          var now = new Date();
-          while (ann <= now) ann.setFullYear(ann.getFullYear() + 1);
-          return ann.toLocaleDateString('en-CA');
-        })();
-        statusClass = 'tag red';
-      } else if (!mmOn) {
-        statusLabel = 'Inactive';
-        statusClass = 'tag gy';
-      } else if (tier === 'global') {
-        statusLabel = 'Global StrataSphere';
-        statusClass = 'tag blu';
-      } else if (s.mmStatus === 'ACTIVE' || s.mmActive) {
-        statusLabel = 'Meeting Mode';
-        statusClass = 'tag grn';
-      } else {
-        statusLabel = 'Trial';
-        statusClass = 'tag amb';
-      }
-
       var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive;
+      var tier  = scSsTier(s);
       var monthlyRate = 0;
       if (isPaidActive) {
         var lotRate = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
@@ -7131,7 +7134,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
         +   '<div style="font-size:11px;color:var(--g4)">'+escHtml(s.name||'')+'</div></td>'
         + '<td style="font-size:12px;color:var(--ch3)">'+escHtml(s.addr||'—')+'</td>'
         + '<td style="text-align:center;font-size:13px">'+lots+'</td>'
-        + '<td><span class="'+statusClass+'">'+statusLabel+'</span></td>'
+        + '<td>'+scStatusPill(s, 'md', 'tag')+'</td>'
         + '<td style="font-size:12px;color:var(--ch3);white-space:nowrap">'+(s.mmActivatedAt ? s.mmActivatedAt.slice(0,10) : '—')+'</td>'
         + '<td style="text-align:right;font-size:13px;font-weight:600;color:var(--ch)">'
         +   (isPaidActive ? 'CA$'+monthlyRate.toFixed(2)+'/mo' : '—')
@@ -8574,13 +8577,7 @@ function renderStrata() {
     html += '<th>Plan</th><th>Name</th><th>Address</th><th>Lots</th><th>Council</th><th>Meetings</th><th>Status</th>';
     html += '</tr></thead><tbody>';
     sc.forEach(function(s) {
-      var mmOn = scMmActive(s);
-      var ssTier = scSsTier(s);
-      var pill = mmOn
-        ? (ssTier === 'global'
-          ? '<span class="tag" style="background:#dbeafe;color:#1d4ed8;font-size:10px">StrataSphere</span>'
-          : '<span class="tag grn" style="font-size:10px">Meeting Mode</span>')
-        : '<span class="tag gy" style="font-size:10px">Inactive</span>';
+      var pill = scStatusPill(s, 'sm', 'tag');
       var cmCount = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
       var mtgCount = (s.meetings||[]).length;
       html += '<tr style="cursor:pointer" onclick="openSCDetail(this.dataset.id)" data-id="' + escHtml(s.id) + '" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'\'">';
@@ -8607,11 +8604,7 @@ function renderStrata() {
       });
       var mmOn  = scMmActive(s);
       var ssTier = scSsTier(s);
-      var statusTag = mmOn
-        ? (ssTier === 'global'
-          ? '<span class="tag" style="background:#dbeafe;color:#1d4ed8;font-size:11px">StrataSphere</span>'
-          : '<span class="tag grn" style="font-size:11px">Meeting Mode</span>')
-        : '<span class="tag gy" style="font-size:11px">Inactive</span>';
+      var statusTag = scStatusPill(s, 'md', 'tag');
 
       html += '<div class="card" style="cursor:pointer" onclick="openSCDetail(this.dataset.id)" data-id="' + escHtml(s.id) + '">';
       html += '<div class="ch_"><div><div style="font-size:14px;font-weight:700">' + escHtml(s.plan) + '</div>';
@@ -9391,7 +9384,7 @@ function renderSidebar(activePg) {
     var badge = '';
     if (t === 'billing' && isMB && !isSubscribed) {
       badge = adjCount < PRICING.trialMeetings
-        ? '<span class="s-bdg" style="background:var(--grnl);color:var(--grn)">Trial '+adjCount+'/'+PRICING.trialMeetings+'</span>'
+        ? '<span class="s-bdg" style="background:var(--ambl);color:var(--amb)">Trial '+adjCount+'/'+PRICING.trialMeetings+'</span>'
         : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial Ended</span>';
     }
     html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'      +'<span class="s-ic">'+(icons[t]||'')+'</span>'      +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'      + badge + '</div>';
@@ -9402,21 +9395,7 @@ function renderSidebar(activePg) {
     html += '<div class="s-sec"><div class="s-lbl">Management</div>';
     sc.forEach(function(s) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
-      var mmOn = scMmActive(s);
-      var ssTier = scSsTier(s);
-      var isAcssPending = APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
-      var pill;
-      if (isAcssPending) {
-        pill = '<span class="s-bdg" style="background:var(--ambl);color:var(--amb);font-size:9px">Pending</span>';
-      } else if (s.mmPendingCancel) {
-        pill = '<span class="s-bdg" style="background:var(--redl);color:var(--red);font-size:9px">Cancelling</span>';
-      } else if (mmOn) {
-        pill = ssTier === 'global'
-          ? '<span class="s-bdg" style="background:#dbeafe;color:#1d4ed8;font-size:9px">StrataSphere</span>'
-          : '<span class="s-bdg" style="background:#fde8e8;color:#c53030;font-size:9px">Meeting Mode</span>';
-      } else {
-        pill = '<span class="s-bdg" style="background:var(--g2);color:var(--g4);font-size:9px">Inactive</span>';
-      }
+      var pill = scStatusPill(s, 'sm', 'bdg');
       html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">';
       html += '<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(s.plan+(s.name?' — '+s.name:''))+'</span>';
       html += pill + '</div>';
