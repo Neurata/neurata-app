@@ -7395,13 +7395,14 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
     html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
     html += '<div class="fr fr2">';
+    html += '<div class="fg" style="grid-column:1/-1"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" placeholder="Receipts and billing notices will be sent here" id="bill-email" value="'+escHtml(APP.brokerage.email||APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
     html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
     html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
     html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
     html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
     html += '</div></div>';
-    var cardDisp = payMethod==='card' ? 'block' : 'none';
     html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
+    html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email" placeholder="Receipts and billing notices will be sent here" value="'+escHtml(APP.brokerage.email||APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
     html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
     html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
     html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
