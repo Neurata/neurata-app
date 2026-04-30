@@ -904,6 +904,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
     </div>
     <div class="mo-ft">
+      <button class="btn red" id="oi-clear-btn" onclick="clearOwnerInfo()" style="display:none">Clear Owner</button>
+      <div style="flex:1"></div>
       <button class="btn" onclick="closeMo('mo-owner-info')">Cancel</button>
       <button class="btn pri" onclick="saveOwnerInfo()">Save</button>
     </div>
@@ -9828,6 +9830,8 @@ function openOwnerInfo(scId, sl) {
   document.getElementById('oi-sl-label').textContent = sl;
   document.getElementById('oi-name').value  = existing ? existing.name  : '';
   document.getElementById('oi-email').value = existing ? existing.email : '';
+  var clearBtn = document.getElementById('oi-clear-btn');
+  if (clearBtn) clearBtn.style.display = existing ? '' : 'none';
   var ck = document.getElementById('oi-is-council');
   ck.checked = !!(existing && existing.isCouncil);
   var roleRow = document.getElementById('oi-council-role-row');
@@ -9836,6 +9840,29 @@ function openOwnerInfo(scId, sl) {
   roleSel.value = (existing && existing.role) || 'Member at Large';
   ck.onchange = function(){ roleRow.style.display = ck.checked ? '' : 'none'; };
   openMo('mo-owner-info');
+}
+
+function clearOwnerInfo() {
+  var s = APP.sc.find(function(x){return x.id===_oiScId;}); if(!s) return;
+  nConfirm(
+    'Remove owner record for ' + _oiSl + '? This will clear the name, email, and any council role. This cannot be undone.',
+    function(ok) {
+      if (!ok) return;
+      // Remove from local state
+      s.councilMembers = (s.councilMembers||[]).filter(function(m){ return m.sl !== _oiSl; });
+      s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
+      sv('sc_'+s.id, s);
+      // Remove from Supabase
+      getSupabase().from('council_members')
+        .delete()
+        .eq('sc_id', s.plan)
+        .eq('lot_number', _oiSl)
+        .then(function(r){ if(r.error) console.error('clearOwnerInfo error:', r.error); });
+      closeMo('mo-owner-info');
+      renderSCDetail(_oiScId);
+    },
+    'Clear Owner Record', 'danger'
+  );
 }
 
 function saveOwnerInfo() {
