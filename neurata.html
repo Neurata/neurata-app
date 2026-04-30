@@ -10098,6 +10098,7 @@ function updateMtgHeaderBtn(tab, hasContent) {
   if (!actions) return;
   var role = APP.currentUser && APP.currentUser.role || '';
   var canEdit = (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
+  var canUploadDocs = canEdit || role === 'Council Delegate';
   // Only show header button when content already exists (empty state has its own button)
   if (!hasContent) { actions.innerHTML = ''; return; }
   if (tab === 'meetings') {
@@ -10105,7 +10106,7 @@ function updateMtgHeaderBtn(tab, hasContent) {
   } else if (tab === 'minutes') {
     actions.innerHTML = canEdit ? '<button class="btn sm pri" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '';
   } else if (tab === 'docs') {
-    actions.innerHTML = canEdit && scId ? '<button class="btn sm pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
+    actions.innerHTML = canUploadDocs && scId ? '<button class="btn sm pri" onclick="scUploadDoc(\''+scId+'\')">+ Upload Document</button>' : '';
   } else if (tab === 'decisions') {
     actions.innerHTML = '';
   } else if (tab === 'stratasphere') {
@@ -10156,6 +10157,31 @@ function renderSidebar(activePg) {
   var sc = getVisibleSCs();
   var role = APP.currentUser.role || '';
   var isSuperAdmin = APP.currentUser.isSuperAdmin;
+  var isDel = role === 'Council Delegate';
+
+  // DEL with one SC — hide sidebar entirely, they only need the meetings page
+  if (isDel && sc.length <= 1) {
+    sb.innerHTML = '';
+    sb.classList.add('hide');
+    return;
+  }
+  sb.classList.remove('hide');
+
+  // DEL with multiple SCs — show only Management section
+  if (isDel) {
+    var html = '<div class="s-sec"><div class="s-lbl">Management</div>';
+    sc.forEach(function(s) {
+      var isActive = (s.id === APP.currentScId) ? ' on' : '';
+      var pill = scStatusPill(s, 'sm', 'bdg');
+      html += '<div class="s-it'+isActive+'" onclick="selectSC(\''+s.id+'\')">'
+        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">'+escHtml(s.plan)+'</span>'
+        + pill + '</div>';
+    });
+    html += '</div>';
+    sb.innerHTML = html;
+    return;
+  }
+
   var tabs;
   if (isSuperAdmin && !APP._adminContext) {
     tabs = ['dashboard'];
@@ -10165,7 +10191,6 @@ function renderSidebar(activePg) {
   var isMB = (role === 'Managing Broker' || role === 'Associate Broker');
   var isSubscribed = APP.brokerage && APP.brokerage.subscriptionStatus === 'active';
   var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
-  var trialLeft = Math.max(0, PRICING.trialMeetings - adjCount);
   var icons = {dashboard:'📊',strata:'🏙',meetings:'📅',brokerage:'🏢',billing:'💳'};
 
   var html = '<div class="s-sec"><div class="s-lbl">Navigation</div>';
@@ -10177,7 +10202,10 @@ function renderSidebar(activePg) {
         ? '<span class="s-bdg" style="background:var(--ambl);color:var(--amb)">Trial '+adjCount+'/'+PRICING.trialMeetings+'</span>'
         : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial Ended</span>';
     }
-    html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'      +'<span class="s-ic">'+(icons[t]||'')+'</span>'      +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'      + badge + '</div>';
+    html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'
+      +'<span class="s-ic">'+(icons[t]||'')+'</span>'
+      +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'
+      + badge + '</div>';
   });
   html += '</div>';
 
@@ -10188,8 +10216,7 @@ function renderSidebar(activePg) {
       var pill = scStatusPill(s, 'sm', 'bdg');
       html += '<div class="s-it'+isActive+'" onclick="selectSC(\''+s.id+'\')">'
         + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">'+escHtml(s.plan)+'</span>'
-        + pill
-        + '</div>';
+        + pill + '</div>';
     });
     html += '</div>';
   }
