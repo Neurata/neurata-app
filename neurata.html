@@ -7648,30 +7648,6 @@ function loadAccountStatements(el, range) {
     if (d.error) throw new Error(d.error);
     var html = '';
 
-    // Next charge preview — always shown, trusts Stripe's calculation completely
-    if (d.upcoming && d.upcoming.amount) {
-      var upAmt = 'CA$'+(d.upcoming.amount/100).toFixed(2);
-      var upDate = d.upcoming.date ? ' on '+escHtml(d.upcoming.date) : '';
-      html += '<div style="background:var(--orgp);border:1px solid var(--org);border-radius:6px;margin-bottom:14px;overflow:hidden">';
-      html += '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-        + '<span style="font-size:13px;font-weight:600">Next automatic charge'+upDate+'</span>'
-        + '<span style="font-size:15px;font-weight:700;color:var(--org)">'+upAmt+'</span>'
-        + '</div>';
-      // Line item breakdown if available
-      if (d.upcoming.lines && d.upcoming.lines.length) {
-        html += '<div style="border-top:1px solid var(--org);padding:8px 14px">';
-        d.upcoming.lines.forEach(function(l) {
-          if (!l.amount) return;
-          html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ch3);padding:2px 0">'
-            + '<span>'+escHtml(l.description)+'</span>'
-            + '<span>CA$'+(l.amount/100).toFixed(2)+'</span>'
-            + '</div>';
-        });
-        html += '</div>';
-      }
-      html += '</div>';
-    }
-
     // Paid payments — straight from Stripe
     if (!d.invoices || !d.invoices.length) {
       html += '<div style="color:var(--g4);font-size:13px">No statements found for the selected period.</div>';
@@ -9330,8 +9306,11 @@ function reactivateSCSubscription(scId) {
 }
 
 function renderSCSubscription(s) {
-  var mmOn      = scMmActive(s);
-  var ssTier    = scSsTier(s);
+  var isPaidSub  = !!(s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId); // actually paid, not just trial
+  var mmOn       = isPaidSub;
+  var ssTier     = scSsTier(s);
+  var trialActive = scMmActive(s) && !isPaidSub;
+  var currentPlan = isPaidSub ? (ssTier === 'global' ? 'global' : 'local') : 'trial';
   var role      = APP.currentUser && APP.currentUser.role || '';
   var isMB      = role === 'Managing Broker';
   var canSee    = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
@@ -9341,7 +9320,6 @@ function renderSCSubscription(s) {
   var scIdSafe  = escHtml(s.id);
   var trialUsed = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
   var trialDone = trialUsed >= PRICING.trialMeetings;
-  var currentPlan = mmOn ? (ssTier === 'global' ? 'global' : 'local') : 'trial';
 
   // Pre-build onclick strings
   var _act = needsApproval
