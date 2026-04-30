@@ -9957,11 +9957,16 @@ function _parseRosterCSV(csv, s) {
     if(!name){ skipped++; return; }
     var idx = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
+    // Detect if anything actually changed
+    var nameChanged  = !existing || existing.name  !== name;
+    var emailChanged = !existing || existing.email !== email;
+    if (!nameChanged && !emailChanged) { skipped++; return; }
     // Preserve isCouncil/role if already set; just update name/email
     var member = {
       sl:rawSl, name:name, email:email,
-      role:    existing ? existing.role    : '',
-      isCouncil: existing ? existing.isCouncil : false
+      role:      existing ? existing.role      : '',
+      isCouncil: existing ? existing.isCouncil : false,
+      _changed:  true
     };
     if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
     imported++;
@@ -9969,24 +9974,30 @@ function _parseRosterCSV(csv, s) {
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
 
-  // Persist all imported rows to Supabase
-  var upsertRows = s.councilMembers.map(function(m) {
-    return {
+  // Persist only changed rows to Supabase
+  var changedRows = [];
+  s.councilMembers.forEach(function(m) {
+    if (!m._changed) return;
+    delete m._changed;
+    changedRows.push({
       sc_id:        s.plan,
       lot_number:   m.sl,
       full_name:    m.name,
       email:        m.email || null,
       council_role: m.role  || null,
       is_council:   m.isCouncil || false
-    };
+    });
   });
-  if (upsertRows.length) {
+  if (changedRows.length) {
     getSupabase().from('council_members')
-      .upsert(upsertRows, {onConflict: 'sc_id,lot_number'})
+      .upsert(changedRows, {onConflict: 'sc_id,lot_number'})
       .then(function(r){ if(r.error) console.error('Roster upsert error:', r.error); });
   }
 
-  nAlert('Imported '+imported+' owners'+(skipped?' ('+skipped+' skipped)':'')+'. Check council roles manually.','Roster Imported','success');
+  var msg = changedRows.length
+    ? changedRows.length + ' record' + (changedRows.length!==1?'s':'') + ' updated.'
+    : 'No changes detected — roster is already up to date.';
+  nAlert(msg + (skipped ? ' ' + skipped + ' rows unchanged or skipped.' : ''), 'Roster Updated', 'success');
   renderSCDetail(s.id);
 }
 
