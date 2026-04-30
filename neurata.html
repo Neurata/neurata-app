@@ -10248,7 +10248,7 @@ function renderDocsList(sc, el) {
 
     html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
       + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:13px;font-weight:600">' + icon + ' ' + escHtml(doc.name) + '</div>'
+      + '<div style="font-size:13px;font-weight:600">' + escHtml(doc.name) + '</div>'
       + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'
       + escHtml(doc.sourceLabel || doc.source || 'Document')
       + (doc.date ? ' · ' + escHtml(doc.date) : '')
