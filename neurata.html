@@ -11490,7 +11490,9 @@ function mmAddAttachments(files) {
     // ── Step 1: Extract text immediately in browser (instant, no server needed) ──
     function storeTextOnAtt(text) {
       att.documentText = text || '';
-      // Also push to sc_.docs immediately so SS can find it
+      // Sync back to meeting agenda so SS can find it immediately
+      mmSyncToMtg();
+      // Also push to sc_.docs so buildLssContext finds it
       if (sc_ && text) {
         if (!sc_.docs) sc_.docs = [];
         var existing = sc_.docs.find(function(d){ return d.name === f.name && d.source === 'agenda-attachment'; });
