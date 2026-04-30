@@ -2772,14 +2772,21 @@ function eiToggleMotionFields(rt) {
 }
 
 function eiAddAttachments(files) {
-  var fileList = Array.from(files);
-  fileList.forEach(function(f) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      _eiAtts.push({name: f.name, data: e.target.result, mime: f.type});
+  var sc_ = APP.sc.find(function(s){return s.id===AG.scId;});
+  var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return m.id===AG.mtgId;});
+  var scPlan = sc_ ? sc_.plan.replace(/\s+/g,'-') : 'SC';
+  var mtgId  = mtg ? String(mtg.id) : 'draft';
+
+  Array.from(files).forEach(function(f) {
+    var path = scPlan + '/agenda-attachments/' + mtgId + '/' + Date.now() + '_' + f.name.replace(/\s+/g,'_');
+    getSupabase().storage.from('neurata-documents').upload(path, f, {upsert:true})
+    .then(function(ur) {
+      if (ur.error) { console.error('Attachment upload error:', ur.error); return; }
+      var publicUrl = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
+      _eiAtts.push({name: f.name, storagePath: path, url: publicUrl, mime: f.type});
       eiRenderAtts();
-    };
-    reader.readAsDataURL(f);
+    })
+    .catch(function(e){ console.error('Attachment upload error:', e); });
   });
 }
 
@@ -4701,7 +4708,7 @@ function renderAtts(it){
     var name=typeof f==='object'?f.name:f;
     var ext=(name||'').split('.').pop().toLowerCase();
     var ic=ext==='pdf'?'📄':['jpg','jpeg','png','gif'].indexOf(ext)>=0?'🖼':'📎';
-    var href=typeof f==='object'&&f.data?f.data:null;
+    var href=typeof f==='object'?(f.url||f.data||null):null;
     var isPdf=ext==='pdf';
     var isImg=['jpg','jpeg','png','gif','webp'].indexOf(ext)>=0;
     var action='';
@@ -10214,9 +10221,10 @@ function renderDocsList(sc, el) {
       + '<div style="display:flex;gap:6px;align-items:center">'
       + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
       + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath||'')+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" title="Re-index this document from scratch" style="color:var(--g4)">Index Again</button>' : '')
+      + (isIndexable && !hasText && !doc._indexing && !doc.storagePath && doc.data ? '<button class="btn sm" data-name="'+escHtml(doc.name||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractFromBase64(this)">Index Document</button>' : '')
       + '<button class="btn sm" onclick="downloadDoc(this)" '
       + 'data-name="' + escHtml(doc.name) + '" '
-      + 'data-href="' + escHtml(doc.data || doc.url || '') + '">Download</button>'
+      + 'data-href="' + escHtml(doc.url || doc.data || '') + '">Download</button>'
       + '</div>'
       + '</div></div>';
   });
@@ -11399,27 +11407,48 @@ function mmAddAttachments(files) {
   var it = MM.agenda.find(function(a){return a.id===curItem;});
   if (!it) return;
   if (!it.atts) it.atts = [];
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var mtg = sc_ && sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
+  var scPlan = sc_ ? sc_.plan.replace(/\s+/g,'-') : 'SC';
+  var mtgId  = mtg ? String(mtg.id) : 'unknown';
+
   Array.from(files).forEach(function(f) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var att = {name: f.name, data: e.target.result, mime: f.type};
+    var path = scPlan + '/agenda-attachments/' + mtgId + '/' + Date.now() + '_' + f.name.replace(/\s+/g,'_');
+    getSupabase().storage.from('neurata-documents').upload(path, f, {upsert:true})
+    .then(function(ur) {
+      if (ur.error) { console.error('Attachment upload error:', ur.error); return; }
+      var publicUrl = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
+      var att = {name: f.name, storagePath: path, url: publicUrl, mime: f.type};
       it.atts.push(att);
       renderAtts(it);
-      // Register to SC document store
-      var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+      mmSyncToMtg();
+      // Register to SC document store and index if applicable
       if (sc_) {
-        var mtg = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(MM.mtgId);});
-        scAddDoc(sc_.id, {
-          name: f.name, data: e.target.result, mime: f.type,
+        var docRec = {
+          name: f.name, url: publicUrl, storagePath: path, mime: f.type,
           source: 'agenda-attachment',
           sourceLabel: 'Agenda: ' + (it.text||'Item'),
-          date: mtg ? mtg.date : new Date().toLocaleDateString()
+          date: mtg ? mtg.date : new Date().toISOString().slice(0,10)
+        };
+        getSupabase().from('documents').insert({
+          sc_id: sc_.plan, name: f.name, source: 'agenda-attachment',
+          source_label: 'Agenda: '+(it.text||'Item'), mime_type: f.type,
+          storage_path: path, public_url: publicUrl,
+          uploaded_at: new Date().toISOString()
+        }).select('id').single().then(function(r) {
+          if (r.data) docRec.dbId = r.data.id;
+          if (!sc_.docs) sc_.docs = [];
+          sc_.docs.push(docRec);
+          // Auto-index if PDF/Word/txt
+          var ext = f.name.split('.').pop().toLowerCase();
+          if (['pdf','doc','docx','txt'].indexOf(ext) >= 0 && r.data) {
+            extractAndStoreDocText(f, r.data.id, sc_.plan);
+          }
         });
       }
-    };
-    reader.readAsDataURL(f);
+    })
+    .catch(function(e){ console.error('Attachment upload error:', e); });
   });
-  // Reset input
   setTimeout(function(){
     var inp = document.getElementById('mm-att-input');
     if(inp) inp.value = '';
@@ -11934,9 +11963,82 @@ function obInviteComplete(){
 }
 
 
-// ══════════════════════════════════════════
-// MODALS
-// ══════════════════════════════════════════
+// Index an agenda attachment that only has base64 data (no storage path)
+function docExtractFromBase64(btn) {
+  var name  = btn.dataset.name;
+  var scId  = btn.dataset.scid;
+  var ext   = (name||'').split('.').pop().toLowerCase();
+  if (['pdf','doc','docx','txt'].indexOf(ext) < 0) return;
+
+  // Find the doc in the SC's meetings agenda atts
+  var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
+  var attData = null;
+  if (sc_) {
+    (sc_.meetings||[]).forEach(function(mtg) {
+      (mtg.agenda||[]).forEach(function(item) {
+        (item.atts||[]).forEach(function(att) {
+          if ((typeof att==='object' ? att.name : att) === name && att.data) {
+            attData = att.data; // base64 data URI
+          }
+        });
+      });
+    });
+  }
+  if (!attData) { nAlert('Could not find attachment data.','','warn'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin spin-wh" style="margin-right:4px"></span>Indexing…';
+
+  // Extract base64 part
+  var b64 = attData.indexOf('base64,') >= 0 ? attData.split('base64,')[1] : attData;
+
+  if (typeof pdfjsLib === 'undefined') {
+    btn.innerHTML = 'Failed — retry'; btn.disabled = false;
+    nAlert('PDF.js not loaded. Please refresh the page.','','warn'); return;
+  }
+
+  var buf = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); }).buffer;
+  pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+    var pageNums = [];
+    for (var i = 1; i <= pdf.numPages; i++) pageNums.push(i);
+    return pageNums.reduce(function(chain, n) {
+      return chain.then(function(texts) {
+        return pdf.getPage(n).then(function(pg) {
+          return pg.getTextContent().then(function(c) {
+            texts.push(c.items.map(function(item){ return item.str; }).join(' '));
+            return texts;
+          });
+        });
+      });
+    }, Promise.resolve([]));
+  }).then(function(texts) {
+    var fullText = texts.join('\n\n').trim();
+    if (!fullText) throw new Error('No text found — document may be image-only.');
+    // Save extracted text to documents table so it gets a dbId
+    return getSupabase().from('documents').insert({
+      sc_id:         scId,
+      name:          name,
+      source:        'agenda-attachment',
+      source_label:  'Agenda Attachment',
+      mime_type:     'application/pdf',
+      document_text: fullText,
+      uploaded_at:   new Date().toISOString()
+    }).select('id').single().then(function(r) {
+      if (r.error) throw new Error(r.error.message);
+      // Update local sc_.docs
+      if (sc_) {
+        if (!sc_.docs) sc_.docs = [];
+        sc_.docs.push({ name:name, sourceLabel:'Agenda Attachment', source:'agenda-attachment',
+          mime:'application/pdf', date:new Date().toISOString().slice(0,10),
+          dbId:r.data.id, documentText:fullText, docType:'', storagePath:'' });
+      }
+      btn.innerHTML = '✓ Indexed'; btn.style.color = 'var(--grn)';
+    });
+  }).catch(function(e) {
+    btn.innerHTML = 'Failed — retry'; btn.disabled = false;
+    nAlert('Could not index: '+(e.message||'unknown error'),'','warn');
+  });
+}
 function openMo(id){document.getElementById(id)?.classList.add('open');if(id==='mo-edit-agenda')renderEditAgenda();}
 function closeMo(id){document.getElementById(id)?.classList.remove('open');}
 document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
