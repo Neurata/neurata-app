@@ -9627,22 +9627,41 @@ function openAddCouncilMember(scId, sl) {
   document.getElementById('cm-name').value  = existing ? existing.name  : '';
   document.getElementById('cm-email').value = existing ? existing.email : '';
 
-  // Build SL dropdown — grey out lots already assigned to other members
+  // Build SL dropdown — only disable SLs already assigned as council members
+  // Roster-only owners (isCouncil:false) are available and pre-populate name/email
   var takenSLs = s.councilMembers
-    .filter(function(m,i){return i!==_cmExistingIdx;})
+    .filter(function(m,i){ return i!==_cmExistingIdx && m.isCouncil; })
     .map(function(m){return m.sl;});
   var slSel = document.getElementById('cm-sl');
   slSel.innerHTML = '';
   for(var i=1;i<=lots;i++){
     var slVal = 'SL'+String(i).padStart(3,'0');
     var taken = takenSLs.indexOf(slVal)>=0;
+    var rosterEntry = s.councilMembers.find(function(m){return m.sl===slVal && !m.isCouncil;});
     var opt = document.createElement('option');
     opt.value = slVal;
-    opt.textContent = slVal + (taken?' (assigned)':'');
+    opt.textContent = slVal + (taken ? ' (council)' : rosterEntry ? ' — '+rosterEntry.name : '');
     opt.disabled = taken;
     if(existing && existing.sl===slVal) opt.selected=true;
     else if(!existing && sl===slVal) opt.selected=true;
     slSel.appendChild(opt);
+  }
+  // Pre-populate name/email from roster when selection changes
+  slSel.onchange = function() {
+    var selectedSl = slSel.value;
+    var rosterMatch = s.councilMembers.find(function(m){return m.sl===selectedSl;});
+    if(rosterMatch && !document.getElementById('cm-name').value) {
+      document.getElementById('cm-name').value  = rosterMatch.name  || '';
+      document.getElementById('cm-email').value = rosterMatch.email || '';
+    }
+  };
+  // Also fire immediately if a sl was passed in
+  if(!existing && sl) {
+    var rosterMatch = s.councilMembers.find(function(m){return m.sl===sl;});
+    if(rosterMatch) {
+      document.getElementById('cm-name').value  = rosterMatch.name  || '';
+      document.getElementById('cm-email').value = rosterMatch.email || '';
+    }
   }
 
   // Only officer roles are unique — MaL is unlimited
