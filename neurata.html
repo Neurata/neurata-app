@@ -4732,15 +4732,34 @@ function mmPreviewImg(src,name){
 }
 function addAtt(){nPrompt('Document name:', function(n){if(!n)return;var it=MM.agenda.find(function(a){return a.id===curItem;});if(it){if(!it.atts)it.atts=[];it.atts.push(n);renderAtts(it);}}, '', 'Add Document');}
 function renderAI(it){
-  // Restore persistent SS conversation for this meeting — don't clear on item switch (#14)
   var el=document.getElementById('mm-aimsgs');if(!el)return;
   if(!MM.ssLog) MM.ssLog=[];
-  // Render all accumulated messages
+
+  // Show attachment context indicator if this item has indexed attachments
+  var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
+  var subEl = document.querySelector('.mm-aisub');
+  if (subEl && it && it.atts && it.atts.length) {
+    var sourceLabel = 'Agenda: ' + (it.text||'Item');
+    var indexedAtts = (sc_ && sc_.docs||[]).filter(function(d) {
+      var matchByLabel = d.sourceLabel === sourceLabel || d.source === 'agenda-attachment';
+      var matchByName  = it.atts.some(function(a){ return (typeof a==='object'?a.name:a) === d.name; });
+      return (matchByLabel || matchByName) && d.documentText && d.documentText.trim();
+    });
+    subEl.innerHTML = indexedAtts.length
+      ? '📎 ' + indexedAtts.length + ' attachment'+(indexedAtts.length>1?'s':'')+' in context · PIPA-compliant'
+      : 'Context-aware · PIPA-compliant';
+  } else if (subEl) {
+    subEl.textContent = 'Context-aware · PIPA-compliant';
+  }
+
   el.innerHTML = MM.ssLog.map(function(m){
     return '<div class="mm-aimsg '+m.role+' fi">'+escHtml(m.text)+'</div>';
   }).join('');
   if(!MM.ssLog.length){
-    el.innerHTML='<div class="mm-aimsg pro fi">💡 Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.</div>';
+    var hint = (it && it.atts && it.atts.length)
+      ? '💡 I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
+      : '💡 Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
+    el.innerHTML='<div class="mm-aimsg pro fi">'+hint+'</div>';
   }
   el.scrollTop=el.scrollHeight;
 }
@@ -4763,8 +4782,36 @@ function mmAiSend(){
   // Build full LSS context so SS knows the SC's bylaws, decisions, etc.
   var lssCtx = sc ? buildLssContext(sc) : '';
 
-  var systemPrompt = 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
+  // ── Priority context: current agenda item's attachments ──────────
+  // Injected at the TOP of the system prompt so Claude sees them first
+  var itemCtx = '';
+  if (it && it.atts && it.atts.length && sc) {
+    var itemAttDocs = [];
+    // Match by source label — docs are stored as "Agenda: {item text}"
+    var sourceLabel = 'Agenda: ' + (it.text||'Item');
+    (sc.docs||[]).forEach(function(d) {
+      var matchByLabel = d.sourceLabel === sourceLabel || d.source === 'agenda-attachment';
+      var matchByName  = it.atts.some(function(a){ return (typeof a==='object'?a.name:a) === d.name; });
+      if ((matchByLabel || matchByName) && d.documentText && d.documentText.trim()) {
+        itemAttDocs.push(d);
+      }
+    });
+    if (itemAttDocs.length) {
+      itemCtx = '=== CURRENT AGENDA ITEM ATTACHMENTS (PRIORITY CONTEXT) ===\n'
+        + 'The following documents are attached to the current agenda item "'+(it.text||'')+'". '
+        + 'Answer questions about these documents directly using their content below.\n\n';
+      itemAttDocs.forEach(function(d) {
+        var txt = (d.documentText||'').trim();
+        if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n… [truncated]';
+        itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + txt + '\n[END ATTACHMENT: ' + (d.name||'') + ']\n\n';
+      });
+    }
+  }
+
+  var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
+    + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
     + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
+    + (it && it.atts && it.atts.length ? ' This item has ' + it.atts.length + ' attachment(s) — their content is provided above as PRIORITY CONTEXT.' : '')
     + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
     + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
     + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
