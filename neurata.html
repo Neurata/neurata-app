@@ -3527,18 +3527,44 @@ function renderSCReps(s) {
   rows.forEach(function(r) {
     var scopeBg    = scopeColors[r.scope]  || 'var(--g1)';
     var scopeLabel = scopeLabels[r.scope]  || r.scope;
+    var isSM = s.smLic && s.smLic === r.lic;
     html += '<tr>'
-      +'<td><div style="font-weight:600">'+escHtml(r.name||'—')+'</div>'+(r.email?'<div style="font-size:11px;color:var(--g4)">'+escHtml(r.email)+'</div>':'')+'</td>'
+      +'<td><div style="font-weight:600">'+escHtml(r.name||'—')+'</div>'
+      +(isSM?'<div style="font-size:10px;color:var(--org);font-weight:600">★ Strata Manager</div>':'')
+      +(r.email?'<div style="font-size:11px;color:var(--g4)">'+escHtml(r.email)+'</div>':'')+'</td>'
       +'<td style="color:var(--ch3)">'+escHtml(r.title||'—')+'</td>'
       +'<td style="color:var(--g4);font-size:11px">'+escHtml(r.scope==='Council'?'Council Portal':r.lic||'—')+'</td>'
       +'<td><span style="background:'+scopeBg+';padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">'+scopeLabel+'</span></td>'
       +'<td><span class="tag '+(r.status.toLowerCase().indexOf('active')>=0?'grn':'gy')+'" style="font-size:10px">'+escHtml(r.status)+'</span></td>'
-      +'<td>'+(canManage?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')+'</td>'
+      +'<td style="white-space:nowrap">'
+      +(canManage && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
+        ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Set as SM</button> '
+        : (isSM && canManage ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\'\')">Remove SM</button> ' : ''))
+      +(canManage?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')
+      +'</td>'
       +'</tr>';
   });
 
   html += '</tbody></table>';
   return html;
+}
+
+function assignSM(scId, lic) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  var repName = lic ? ((APP.reps||[]).find(function(r){return r.lic===lic;})||{}).name || lic : '';
+  var msg = lic
+    ? 'Set ' + repName + ' as the Strata Manager for ' + s.plan + '?'
+    : 'Remove the current Strata Manager designation from ' + s.plan + '?';
+  nConfirm(msg, function(ok) {
+    if (!ok) return;
+    s.smLic  = lic || '';
+    s.smName = repName;
+    getSupabase().from('strata_corps').update({ sm_lic: lic || null }).eq('plan_number', s.plan).then(function(r){
+      if (r.error) { console.error('assignSM error:', r.error); nAlert('Could not save. Please try again.','','warn'); return; }
+      renderSCDetail(scId);
+      renderStrata();
+    });
+  }, lic ? 'Set Strata Manager' : 'Remove Strata Manager', 'info');
 }
 
 function removeRepFromSC(scId, lic) {
@@ -8011,8 +8037,14 @@ function loadUserProfile(userId) {
           .then(function(r) {
             if (!r.error && r.data && r.data.length) {
               APP.reps = r.data.map(function(rep) {
-
                 return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status:'Active', scIds: rep.sc_ids||'[]' };
+              });
+              // Resolve smName for each SC
+              APP.sc.forEach(function(sc_) {
+                if (sc_.smLic) {
+                  var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
+                  if (smRep) sc_.smName = smRep.name;
+                }
               });
               var repLics = r.data.map(function(rep){ return rep.bcfsa_lic; }).filter(Boolean);
               if (repLics.length) {
@@ -8066,6 +8098,8 @@ function mapSCRow(sc) {
     brokerage_id:        sc.brokerage_id || '',
     mgr:                 '',
     mgrLic:              '',
+    smLic:               sc.sm_lic || '',   // designated Strata Manager licence
+    smName:              '',                 // resolved after reps load
     mmStatus:            (sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at) ? 'ACTIVE' : '',
     mmActivatedAt:       sc.mm_activated_at || null,
     mmPendingCancel:     sc.mm_pending_cancel || false,
@@ -8989,21 +9023,19 @@ function renderStrata() {
 
   if (_strataView === 'list') {
     html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>';
-    html += '<th>Plan</th><th>Name</th><th>Address</th><th>Lots</th><th>Council</th><th>Meetings</th><th>Status</th><th></th>';
+    html += '<th>Plan</th><th>Name</th><th>Address</th><th>Lots</th><th>Manager</th><th>Meetings</th><th>Status</th>';
     html += '</tr></thead><tbody>';
     sc.forEach(function(s) {
       var pill = scStatusPill(s, 'sm', 'tag');
-      var cmCount = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
       var mtgCount = (s.meetings||[]).length;
       html += '<tr style="cursor:pointer" onclick="openSCDetail(this.dataset.id)" data-id="' + escHtml(s.id) + '" onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'\'">';
       html += '<td style="font-weight:600;font-size:13px">' + escHtml(s.plan) + '</td>';
       html += '<td style="font-size:13px">' + escHtml(s.name||'') + '</td>';
       html += '<td style="font-size:12px;color:var(--g4)">' + escHtml(s.addr||'') + '</td>';
       html += '<td style="font-size:13px;text-align:center">' + s.lots + '</td>';
-      html += '<td style="font-size:13px;text-align:center">' + cmCount + '</td>';
+      html += '<td style="font-size:12px;color:var(--g4)">' + escHtml(s.smName||'—') + '</td>';
       html += '<td style="font-size:13px;text-align:center">' + mtgCount + '</td>';
       html += '<td>' + pill + '</td>';
-      html += '<td><button class="btn xs" onclick="event.stopPropagation();openEditSC(\'' + escHtml(s.id) + '\')">Edit</button></td>';
       html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -9022,18 +9054,17 @@ function renderStrata() {
       html += '<div style="font-size:12px;color:var(--ch3);margin-top:1px">' + escHtml(s.name||'') + '</div></div>' + statusTag + '</div>';
       html += '<div class="cb">';
       if (s.addr) {
-        html += '<div style="font-size:11px;color:var(--g4);margin-bottom:10px;display:flex;gap:5px;align-items:flex-start">';
+        html += '<div style="font-size:11px;color:var(--g4);margin-bottom:6px;display:flex;gap:5px;align-items:flex-start">';
         html += '<span>&#128205;</span><span>' + escHtml(s.addr) + '</span></div>';
       }
-      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;text-align:center">';
+      if (s.smName) {
+        html += '<div style="font-size:11px;color:var(--g4);margin-bottom:6px">&#128100; ' + escHtml(s.smName) + ' — Strata Manager</div>';
+      }
+      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center">';
       html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">' + s.lots + '</div><div style="font-size:10px;color:var(--g4)">Lots</div></div>';
       html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">' + cmCount + '</div><div style="font-size:10px;color:var(--g4)">Council</div></div>';
       html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">' + mtgCount + '</div><div style="font-size:10px;color:var(--g4)">Meetings</div></div>';
       html += '<div><div style="font-size:16px;font-weight:700;color:var(--ch)">' + minCount + '</div><div style="font-size:10px;color:var(--g4)">Minutes</div></div>';
-      html += '</div>';
-      // Edit button — bottom right, same pattern as SA "Manage Trial"
-      html += '<div style="display:flex;justify-content:flex-end">';
-      html += '<button class="btn xs" onclick="event.stopPropagation();openEditSC(\'' + escHtml(s.id) + '\')">Edit</button>';
       html += '</div>';
       html += '</div></div>';
     });
@@ -9068,6 +9099,7 @@ function renderSCDetail(scId) {
     +'<div style="flex:1"><div style="font-size:16px;font-weight:700">'+s.plan+' — '+s.name+'</div>'
     +(s.addr?'<div style="font-size:11px;color:var(--g4)">'+s.addr+'</div>':'')
     +'</div>'
+    +'<button class="btn sm" onclick="openEditSC(\''+s.id+'\')" style="margin-right:6px">Edit</button>'
     +'<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>'
     +'</div>';
 
