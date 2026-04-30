@@ -9739,6 +9739,7 @@ function renderLotsPlan(s) {
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
     + '<div style="display:flex;gap:6px;align-items:center">'
+    + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')">⬇ Template</button>'
     + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()">⬆ Upload Roster</button>'
     + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
     + '<button class="btn xs'+(isListView?'':' pri')+'" onclick="APP._lotsView=\'grid\';renderSCDetail(\''+s.id+'\')" title="Grid view">⊞</button>'
@@ -9866,6 +9867,20 @@ function saveOwnerInfo() {
   renderSCDetail(_oiScId);
 }
 
+function downloadRosterTemplate(scId) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  var lots = s.lots || 20;
+  var rows = ['Strata Lot,Owner Name,Email'];
+  for (var i = 1; i <= lots; i++) {
+    rows.push('SL'+String(i).padStart(3,'0')+',,');
+  }
+  var csv = rows.join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = s.plan.replace(/\s+/g,'-') + '-owner-roster-template.csv';
+  a.click();
+}
+
 function importOwnerRoster(input, scId) {
   var file = input.files[0]; if(!file) return;
   input.value = '';
@@ -9926,6 +9941,24 @@ function _parseRosterCSV(csv, s) {
   });
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
+
+  // Persist all imported rows to Supabase
+  var upsertRows = s.councilMembers.map(function(m) {
+    return {
+      sc_id:        s.plan,
+      lot_number:   m.sl,
+      full_name:    m.name,
+      email:        m.email || null,
+      council_role: m.role  || null,
+      is_council:   m.isCouncil || false
+    };
+  });
+  if (upsertRows.length) {
+    getSupabase().from('council_members')
+      .upsert(upsertRows, {onConflict: 'sc_id,lot_number'})
+      .then(function(r){ if(r.error) console.error('Roster upsert error:', r.error); });
+  }
+
   nAlert('Imported '+imported+' owners'+(skipped?' ('+skipped+' skipped)':'')+'. Check council roles manually.','Roster Imported','success');
   renderSCDetail(s.id);
 }
