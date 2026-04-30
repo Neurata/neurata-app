@@ -1933,91 +1933,109 @@ function hasBillingInfo() {
 }
 function activateSCMeetingMode(scId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
-  // Check if billing is set up
-  if (!APP.brokerage.stripeCustomerId) {
-    nAlert('Please set up billing before activating Meeting Mode.', 'Billing Required', 'warn');
-    showPg('billing');
-    return;
+  if (!APP.brokerage.stripeCustomerId || !hasBillingInfo()) {
+    nConfirm('You need to set up billing before activating Meeting Mode. Go to Billing now?', function(ok){ if (ok) showPg('billing'); }, 'Billing Required', 'warn'); return;
   }
-  if (!hasBillingInfo()) {
-    nConfirm('You need to set up billing before activating Meeting Mode. Go to Billing now?', function(ok){       if (ok) showPg('billing');     }, 'Billing Required', 'warn');
-    return;
-  }
+  var lots = parseInt(sc_.lots) || 0;
   var mmMonthly = PRICING.perBuilding;
-  var ssMonthly = (PRICING.perLotLocal * (sc_.lots||0)).toFixed(2);
-  var totalMonthly = (mmMonthly + PRICING.perLotLocal * (sc_.lots||0)).toFixed(2);
+  var ssMonthly = (PRICING.perLotLocal * lots).toFixed(2);
+  var total = (mmMonthly + PRICING.perLotLocal * lots).toFixed(2);
   nConfirm(
     'Activate Meeting Mode + Local StrataSphere for '+sc_.plan+'?\n\n'
     + '  Meeting Mode: CA$'+mmMonthly+'/month\n'
-    + '  Local StrataSphere: CA$'+PRICING.perLotLocal+'/lot × '+sc_.lots+' lots = CA$'+ssMonthly+'/month\n'
-    + '  Total: CA$'+totalMonthly+'/month',
+    + '  Local StrataSphere: CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+ssMonthly+'/month\n'
+    + '  Total: CA$'+total+'/month\n\n'
+    + 'A prorated charge for the remainder of this month will be collected immediately, then CA$'+total+'/month on the 1st of each month.',
     function(ok) {
       if (!ok) return;
-      sc_.mmActive = true;
-      sc_.mmStatus = 'ACTIVE';
-      sc_.mmActivatedAt = new Date().toISOString();
-      sc_.ssTier = 'local';
-      sc_.ssActivatedAt = sc_.mmActivatedAt;
-      getSupabase().from('strata_corps').update({
-        is_subscribed: true,
-        mm_activated_at: sc_.mmActivatedAt,
-        ss_tier: 'local',
-        ss_activated_at: sc_.ssActivatedAt
-      }).eq('plan_number', sc_.plan).then(function(r){
-        if (r.error) console.error('Could not activate SC:', r.error);
+      _callActivateSC(sc_, 'local', function(subId) {
+        sc_.mmActive = true; sc_.mmStatus = 'ACTIVE';
+        sc_.mmActivatedAt = new Date().toISOString();
+        sc_.ssTier = 'local'; sc_.ssActivatedAt = sc_.mmActivatedAt;
+        sc_.stripeSubscriptionId = subId;
+        getSupabase().from('strata_corps').update({
+          is_subscribed: true, mm_activated_at: sc_.mmActivatedAt,
+          ss_tier: 'local', ss_activated_at: sc_.ssActivatedAt,
+          stripe_subscription_id: subId
+        }).eq('plan_number', sc_.plan).then(function(){});
+        sv('sc_'+sc_.id, sc_);
+        renderSidebar(APP.activePg); renderSCDetail(scId);
+        nAlert('Meeting Mode + Local StrataSphere activated for '+sc_.plan+'.', 'Activated ✓', 'success');
       });
-      sv('sc_'+sc_.id, sc_);
-      renderSidebar(APP.activePg);
-      renderSCDetail(scId);
-      nAlert('Meeting Mode + Local StrataSphere activated for '+sc_.plan+'.', 'Activated ✓', 'success');
     }, 'Activate Meeting Mode', 'info');
 }
+
 function activateSCStrataSphere(scId, tier) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
   if (!hasBillingInfo()) {
-    nConfirm('You need to set up billing before activating StrataSphere. Go to Billing now?', function(ok){       if (ok) showPg('billing');     }, 'Billing Required', 'warn');
-    return;
+    nConfirm('You need to set up billing before activating StrataSphere. Go to Billing now?', function(ok){ if (ok) showPg('billing'); }, 'Billing Required', 'warn'); return;
   }
   var price = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
-  var label = tier === 'global' ? 'Local + Global StrataSphere' : 'Local StrataSphere';
-  var monthly = (price * (sc_.lots||0)).toFixed(2);
-  nConfirm('Activate '+label+' for '+sc_.plan+'?  CA$'+price+'/lot/month × '+sc_.lots+' lots = CA$'+monthly+'/month, billed annually.', function(ok){
-    if (!ok) return;
-    sc_.ssTier = tier;
-    sc_.ssActivatedAt = new Date().toISOString();
-    sc_.mmStatus = 'ACTIVE';
-    getSupabase().from('strata_corps').update({
-      ss_tier: tier, ss_activated_at: sc_.ssActivatedAt, is_subscribed: true
-    }).eq('plan_number', sc_.plan).then(function(r){
-      if (r.error) console.error('Could not activate StrataSphere:', r.error);
-    });
-    sv('sc_'+sc_.id, sc_);
-    renderSCDetail(scId);
-    if(APP.currentScId===scId) renderMeetings();
-    nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');
-  }, 'Activate StrataSphere', 'info');
+  var label = tier === 'global' ? 'Global StrataSphere' : 'Local StrataSphere';
+  var lots = parseInt(sc_.lots) || 0;
+  var total = (PRICING.perBuilding + price * lots).toFixed(2);
+  nConfirm('Activate Meeting Mode + '+label+' for '+sc_.plan+'?\n\nCA$'+PRICING.perBuilding+' (MM) + CA$'+price+'/lot × '+lots+' lots = CA$'+total+'/month.\n\nA prorated charge for the remainder of this month will be collected immediately, then CA$'+total+'/month on the 1st.',
+    function(ok) {
+      if (!ok) return;
+      _callActivateSC(sc_, tier, function(subId) {
+        sc_.ssTier = tier; sc_.ssActivatedAt = new Date().toISOString();
+        sc_.mmStatus = 'ACTIVE'; sc_.stripeSubscriptionId = subId;
+        getSupabase().from('strata_corps').update({
+          ss_tier: tier, ss_activated_at: sc_.ssActivatedAt,
+          is_subscribed: true, stripe_subscription_id: subId
+        }).eq('plan_number', sc_.plan).then(function(){});
+        sv('sc_'+sc_.id, sc_);
+        renderSCDetail(scId); if(APP.currentScId===scId) renderMeetings();
+        nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');
+      });
+    }, 'Activate '+label, 'info');
 }
+
 function upgradeSCStrataSphere(scId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
   var lots = parseInt(sc_.lots) || 0;
-  var monthly = (PRICING.perLotGlobal * lots).toFixed(2);
-  var diff = ((PRICING.perLotGlobal - PRICING.perLotLocal) * lots).toFixed(2);
+  var total = (PRICING.perBuilding + PRICING.perLotGlobal * lots).toFixed(2);
   nConfirm(
-    'Upgrade '+sc_.plan+' to Global StrataSphere? CA$'+PRICING.perLotGlobal+'/lot x '+lots+' lots = CA$'+monthly+'/month (+CA$'+diff+'/month). Annual commitment, billed monthly.',
+    'Upgrade '+sc_.plan+' to Global StrataSphere?\n\nCA$'+PRICING.perBuilding+' (MM) + CA$'+PRICING.perLotGlobal+'/lot × '+lots+' lots = CA$'+total+'/month.\n\nA prorated charge for the remainder of this month will be collected immediately.',
     function(ok) {
       if (!ok) return;
-      sc_.ssTier = 'global';
-      sc_.ssGlobalActivatedAt = new Date().toISOString();
-      sc_.mmStatus = 'ACTIVE';
-      getSupabase().from('strata_corps').update({
-        ss_tier: 'global',
-        ss_global_activated_at: sc_.ssGlobalActivatedAt,
-        is_subscribed: true
-      }).eq('plan_number', sc_.plan).then(function(r){
-        if (r.error) { console.error('Could not upgrade SS:', r.error); nAlert('Error saving. Please try again.','Error','warn'); }
-        else { renderBilling(); renderSCDetail(scId); nAlert('Global StrataSphere activated for '+sc_.plan+'.','Upgraded','success'); }
+      _callActivateSC(sc_, 'global', function(subId) {
+        sc_.ssTier = 'global'; sc_.ssGlobalActivatedAt = new Date().toISOString();
+        sc_.mmStatus = 'ACTIVE'; sc_.stripeSubscriptionId = subId;
+        getSupabase().from('strata_corps').update({
+          ss_tier: 'global', ss_global_activated_at: sc_.ssGlobalActivatedAt,
+          is_subscribed: true, stripe_subscription_id: subId
+        }).eq('plan_number', sc_.plan).then(function(){});
+        sv('sc_'+sc_.id, sc_);
+        renderBilling(); renderSCDetail(scId);
+        nAlert('Global StrataSphere activated for '+sc_.plan+'.', 'Upgraded ✓', 'success');
       });
-    }, 'Upgrade to Global SS', 'info');
+    }, 'Upgrade to Global StrataSphere', 'info');
+}
+
+// Shared Stripe activation helper — calls worker to create subscription + prorated invoice
+function _callActivateSC(sc_, tier, onSuccess) {
+  var loadingAlert = nAlert('Processing payment…', 'One moment', 'info');
+  fetch(WORKER_URL + '/stripe/activate-sc', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      customerId:      APP.brokerage.stripeCustomerId,
+      brkLic:          APP.brokerage.lic,
+      scPlan:          sc_.plan,
+      lots:            parseInt(sc_.lots) || 1,
+      ssTier:          tier,
+      paymentMethodId: APP.brokerage.paymentMethodId || ''
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) { nAlert('Activation failed: ' + d.error, 'Error', 'warn'); return; }
+    onSuccess(d.subscriptionId || '');
+  })
+  .catch(function(e){
+    nAlert('Could not reach billing server. Please try again.', 'Error', 'warn');
+    console.error('activate-sc error:', e);
+  });
 }
 
 
@@ -7920,7 +7938,8 @@ function billingSubmit() {
     return getSupabase().from('brokerages').update({
       billing_setup: true,
       stripe_customer_id: APP.brokerage.stripeCustomerId,
-      pay_method: APP.brokerage.payMethod
+      pay_method: APP.brokerage.payMethod,
+      payment_method_id: APP.brokerage.paymentMethodId
     }).eq('bcfsa_lic', APP.brokerage.lic);
   })
   .then(function() {
@@ -8108,6 +8127,7 @@ function loadUserProfile(userId) {
           trialMeetingsUsed:  b.trial_meetings_used || 0,
           billingSetup:       b.billing_setup || false,
           stripeCustomerId:   b.stripe_customer_id || null,
+          paymentMethodId:    b.payment_method_id || null,
           payMethod:          b.pay_method || 'acss'
         };
         if (b.name) APP.currentUser.brkName = b.name;
