@@ -3679,10 +3679,11 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
     if (!s.repIds) s.repIds=[];
     if (s.repIds.indexOf(lic)<0) s.repIds.push(lic);
     sv('sc_'+s.id, s);
-    // Persist rep-SC connection — fire and forget, don't block email send
+    // Persist rep-SC connection to both reps and sc_users tables
     (function() {
       var brkLic = APP.brokerage.lic;
       var scPlan = s.plan;
+      // 1. Update reps.sc_ids
       getSupabase().from('reps')
         .select('sc_ids')
         .eq('brokerage_id', brkLic)
@@ -3698,6 +3699,7 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
             brokerage_id: brkLic,
             bcfsa_lic:    lic,
             name:         name || '',
+            role:         'Representative',
             sc_ids:       JSON.stringify(scIds)
           }, {onConflict: 'brokerage_id,bcfsa_lic'});
         })
@@ -3705,6 +3707,15 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
           if (r && r.error) console.error('Could not save rep-SC connection:', r.error);
         })
         .catch(function(e) { console.error('Rep SC save error:', e); });
+      // 2. Write to sc_users if the rep already has an account
+      getSupabase().from('users').select('id').eq('bcfsa_lic', lic).eq('brokerage_id', brkLic).maybeSingle()
+        .then(function(u) {
+          if (u && u.data && u.data.id) {
+            getSupabase().from('sc_users').upsert({
+              sc_id: scPlan, user_id: u.data.id, access_type: 'rep'
+            }, {onConflict: 'sc_id,user_id'}).then(function(){});
+          }
+        }).catch(function(){});
     })();
   }
 
