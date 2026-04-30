@@ -4239,16 +4239,15 @@ function buildGssContext() {
       lines.push('Meetings: ' + summary);
     }
 
-    // GSS-safe documents (bylaws, strata-plan, policy only) — PII stripped
-    var safeDocs = (s.docs || []).filter(function(d) {
-      return GSS_SAFE_DOC_TYPES.indexOf(d.docType || '') >= 0 && d.documentText && d.documentText.trim();
+    // All indexed documents — PII stripped before sharing across SC boundaries
+    var indexedDocs = (s.docs || []).filter(function(d) {
+      return d.documentText && d.documentText.trim();
     });
-    if (safeDocs.length) {
-      safeDocs.forEach(function(d) {
+    if (indexedDocs.length) {
+      indexedDocs.forEach(function(d) {
         var stripped = stripDocTextPII(d.documentText);
-        // Cap at 6000 chars per doc to manage token usage
         if (stripped.length > 6000) stripped = stripped.slice(0, 6000) + '\n… [truncated]';
-        lines.push('[' + (d.docType || 'document').toUpperCase() + ': ' + escHtml(d.name) + ']');
+        lines.push('[' + (d.docType || d.source || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
         lines.push(stripped);
       });
     }
@@ -10232,7 +10231,6 @@ function renderDocsList(sc, el) {
     var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼' : ext === 'doc' || ext === 'docx' ? '📝' : ext === 'txt' ? '📃' : '📎';
     var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
     var hasText = doc.documentText && doc.documentText.trim().length > 0;
-    var isGssSafe = hasText && doc.docType && GSS_SAFE_DOC_TYPES.indexOf(doc.docType) >= 0;
 
     var statusPill = '';
     if (doc._indexing) {
@@ -10241,10 +10239,8 @@ function renderDocsList(sc, el) {
       statusPill = '';
     } else if (!hasText) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
-    } else if (isGssSafe) {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--blul);color:var(--blu);padding:2px 7px;border-radius:10px">Global</span>';
     } else {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--redl);color:var(--red);padding:2px 7px;border-radius:10px">Local Only</span>';
+      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
     }
 
     var downloadHref = doc.url || doc.storagePath || '';
