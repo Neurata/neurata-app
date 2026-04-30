@@ -667,7 +667,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <!-- Step 2 -->
       <div class="ob-step" id="ob-s2">
         <div class="ob-h">Licence Verified</div>
-        <div class="al ok" style="margin-bottom:14px">✓ BCFSA licence confirmed</div>
+        <div class="al ok" style="margin-bottom:14px"> BCFSA licence confirmed</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Your Profile</div>
         <div class="parse-box" style="margin-bottom:12px">
           <div class="parse-row"><span class="parse-lbl">Name</span><span class="parse-val" id="ob-rep-name">—</span></div>
@@ -787,7 +787,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <div class="ob-wrap">
     <div class="ob-card" style="width:440px;text-align:center">
       <div class="ob-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" height="48" style="display:block;margin:0 auto"><defs><linearGradient id="nlg4" x1="28" y1="56" x2="28" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".31" stop-color="#f7941d"/></linearGradient></defs><path fill="url(#nlg4)" d="M31.14,8.46L39.6,0h16.4v16.4l-8.46,8.46V8.46h-16.4ZM8.46,47.54v-16.4L0,39.6v16.4h16.4l8.46-8.46H8.46ZM39.6,56h16.4v-16.4l-8.46-8.46v16.4h-3.33l-16.4-16.4h-13.07L39.6,56ZM16.4,0H0v16.4l8.46,8.46V8.46h3.33l16.4,16.4h13.07L16.4,0Z"/></svg></div>
-      <div style="font-size:48px;margin:16px 0">📧</div>
+      <div style="font-size:48px;margin:16px 0"></div>
       <div class="ob-h">Check your email</div>
       <div class="ob-s" style="margin-bottom:8px">We sent a confirmation link to</div>
       <div style="font-weight:700;font-size:15px;color:var(--ch);margin-bottom:16px" id="check-email-address">your email address</div>
@@ -959,7 +959,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
       <div style="padding:24px 32px">
         <div id="ob-upz" onclick="document.getElementById('ob-pdf-input').click()" style="border:2px dashed var(--g2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:14px" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
-          <div style="font-size:28px;margin-bottom:8px">📄</div>
+          <div style="font-size:28px;margin-bottom:8px"></div>
           <div style="font-size:14px;font-weight:700;color:var(--ch);margin-bottom:4px">Upload Strata Plan PDF</div>
           <div style="font-size:12px;color:var(--g4)">Neurata will extract the plan number, name, and strata lot count automatically</div>
           <input type="file" id="ob-pdf-input" accept=".pdf" style="display:none" onchange="obHandleFile(this.files[0])"/>
@@ -979,7 +979,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           </div>
         </div>
         <div id="ob-parsed-result" style="display:none;background:var(--g1);border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px">
-          <div style="font-weight:700;color:var(--ch);margin-bottom:6px">✓ Strata Plan parsed</div>
+          <div style="font-weight:700;color:var(--ch);margin-bottom:6px"> Strata Plan parsed</div>
           <div id="ob-parsed-text" style="color:var(--g4)"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1087,7 +1087,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="um-name" id="menu-name"></div>
     <div class="um-role" id="menu-lic"></div>
   </div>
-  <div class="um-it" onclick="showPg('profile');toggleUserMenu(false);">👤 My Profile</div>
+  <div class="um-it" onclick="showPg('profile');toggleUserMenu(false);"> My Profile</div>
   <div class="um-it danger" onclick="signOut()">↩ Sign Out</div>
 </div>
 
@@ -1100,7 +1100,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <button onclick="toggleSupportBot()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;padding:0">×</button>
   </div>
   <div id="support-msgs" style="height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div class="mm-aimsg pro fi" style="font-size:12px">👋 Hi! I'm here to help with anything on the Neurata platform — billing, meetings, documents, StrataSphere, or account questions. What can I help you with?</div>
+    <div style="font-size:12px;color:var(--ch3);background:var(--g1);border-radius:8px;padding:10px 12px;line-height:1.6">Hi! I can help with anything on the Neurata platform — billing, meetings, documents, StrataSphere, or account questions.</div>
   </div>
   <div style="padding:10px;border-top:1px solid var(--g2);display:flex;gap:6px">
     <input id="support-input" type="text" placeholder="Ask anything…" style="flex:1;border:1px solid var(--g2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter')sendSupportMsg()"/>
@@ -1203,7 +1203,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="mm-su" id="mm-sub" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:10px;color:rgba(255,255,255,0.45);">—</div>
       </div>
       <div class="mm-tmr" id="mm-tmr">00:00:00</div>
-      <button class="btn sm" onclick="openAttendance()" id="mm-att-btn" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);margin-right:6px">👥 Attendance</button>
+      <button class="btn sm" onclick="openAttendance()" id="mm-att-btn" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);margin-right:6px"> Attendance</button>
     </div>
     <div class="mm-overlay" id="mm-overlay" onclick="closeMMPanels()"></div>
     <div class="mm-body">
@@ -1294,7 +1294,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           ondragover="event.preventDefault();this.style.borderColor='var(--org)'"
           ondragleave="this.style.borderColor=''"
           ondrop="event.preventDefault();this.style.borderColor='';scHandleFile(event.dataTransfer.files[0])">
-          <div class="upz-ic">📄</div>
+          <div class="upz-ic"></div>
           <div class="upz-t">Upload LTSA Strata Plan PDF</div>
           <div class="upz-s">Drag and drop or click to browse · Neurata AI extracts all fields automatically</div>
         </div>
@@ -1387,18 +1387,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px;">
           <div class="ag-choice-card" onclick="agUploadClick()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--g2);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
-            <div style="font-size:28px;margin-bottom:10px;">📎</div>
+            <div style="font-size:28px;margin-bottom:10px;"></div>
             <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Upload Agenda</div>
             <div style="font-size:11px;color:var(--g4);line-height:1.5;">Import from an existing PDF, Word doc, or text file. AI will parse the categories and items automatically.</div>
           </div>
           <div class="ag-choice-card" onclick="agStartTemplate()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--org);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;position:relative;" onmouseover="this.style.background='var(--orgp)'" onmouseout="this.style.background='var(--wh)'">
             <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--org);color:#fff;font-size:9px;font-weight:700;padding:2px 10px;border-radius:10px;letter-spacing:.05em;">RECOMMENDED</div>
-            <div style="font-size:28px;margin-bottom:10px;">📋</div>
+            <div style="font-size:28px;margin-bottom:10px;"></div>
             <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Use Standard Template</div>
             <div style="font-size:11px;color:var(--g4);line-height:1.5;">Start with the standard BC strata agenda structure. Includes all required categories and common items.</div>
           </div>
           <div class="ag-choice-card" onclick="agStartEmpty()" style="cursor:pointer;background:var(--wh);border:1.5px solid var(--g2);border-radius:10px;padding:20px 16px;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--g2)'">
-            <div style="font-size:28px;margin-bottom:10px;">✏️</div>
+            <div style="font-size:28px;margin-bottom:10px;">️</div>
             <div style="font-size:13px;font-weight:700;color:var(--ch);margin-bottom:6px;">Start from Scratch</div>
             <div style="font-size:11px;color:var(--g4);line-height:1.5;">Build your own agenda from the ground up. Add categories and items manually.</div>
           </div>
@@ -1481,7 +1481,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         ondragover="event.preventDefault();this.style.borderColor='var(--org)'"
         ondragleave="this.style.borderColor=''"
         ondrop="event.preventDefault();this.style.borderColor='';hmHandleFile(event.dataTransfer.files[0])">
-        <div class="upz-ic">📄</div>
+        <div class="upz-ic"></div>
         <div class="upz-t">Upload Minutes Document</div>
         <div class="upz-s">PDF, DOCX, or TXT · Drag and drop or click to browse</div>
       </div>
@@ -2544,7 +2544,7 @@ function agRender() {
       banner.id = 'ag-locked-banner';
       banner.className = 'al warn';
       banner.style.marginBottom = '12px';
-      banner.textContent = '🔒 Agenda locked — the Approve Agenda motion has been carried. No further changes are permitted.';
+      banner.textContent = ' Agenda locked — the Approve Agenda motion has been carried. No further changes are permitted.';
       area.parentNode.insertBefore(banner, area);
     }
   } else {
@@ -3659,7 +3659,7 @@ function renderSCReps(s) {
     +'</div>';
 
   if (!rows.length) {
-    return html + '<div class="empty-state"><div class="empty-ic">👤</div>'
+    return html + '<div class="empty-state"><div class="empty-ic"></div>'
       +'<div class="empty-h">No representatives connected</div>'
       +'<div class="empty-s">Invite a representative from your brokerage or sync from BCFSA on the Brokerage page.</div></div>';
   }
@@ -3677,7 +3677,7 @@ function renderSCReps(s) {
     var isSM = s.smLic && s.smLic === r.lic;
     html += '<tr>'
       +'<td><div style="font-weight:600">'+escHtml(r.name||'—')+'</div>'
-      +(isSM?'<div style="font-size:10px;color:var(--org);font-weight:600">★ Strata Manager</div>':'')
+      +(isSM?'<div style="font-size:10px;color:var(--org);font-weight:600"> Strata Manager</div>':'')
       +(r.email?'<div style="font-size:11px;color:var(--g4)">'+escHtml(r.email)+'</div>':'')+'</td>'
       +'<td style="color:var(--ch3)">'+escHtml(r.title||'—')+'</td>'
       +'<td style="color:var(--g4);font-size:11px">'+escHtml(r.scope==='Council'?'Council Portal':r.lic||'—')+'</td>'
@@ -4775,7 +4775,7 @@ function renderCtr(it) {
   }
 
   h+='<div class="mm-sec"><div class="mm-shd" onclick="togSec(this)"><span class="mm-slbl">Manager Notes (Private)</span><span class="mm-stog">▶</span></div>'
-    +'<div class="mm-sbd" style="display:none"><div style="font-size:10px;color:var(--g4);margin-bottom:5px">🔒 Not included in minutes</div>'
+    +'<div class="mm-sbd" style="display:none"><div style="font-size:10px;color:var(--g4);margin-bottom:5px"> Not included in minutes</div>'
     +'<textarea class="mm-notes" id="notes'+it.id+'" onblur="saveNote(\''+it.id+'\',this.value)" placeholder="Private notes for this item...">'+( it.notes||'')+'</textarea></div></div>';
 
   var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
@@ -4846,7 +4846,7 @@ function renderAtts(it){
   el.innerHTML=atts.map(function(a){
     var name = typeof a==='object' ? a.name : a;
     var ext=(name||'').split('.').pop().toLowerCase();
-    var ic=ext==='pdf'?'📄':['jpg','jpeg','png','gif'].indexOf(ext)>=0?'🖼':'📎';
+    var ic=ext==='pdf'?'':['jpg','jpeg','png','gif'].indexOf(ext)>=0?'':'';
     // Look up doc entry for download URL
     var docEntry = sc_ && sc_.docs && sc_.docs.find(function(d){ return d.name===name; });
     var href = docEntry ? (docEntry.url||'') : '';
@@ -4881,7 +4881,7 @@ function renderAI(it){
       return (d.agendaItemId === it.id || attNames2[d.name]) && d.documentText && d.documentText.trim();
     });
     subEl.innerHTML = indexedAtts.length
-      ? '📎 ' + indexedAtts.length + ' attachment'+(indexedAtts.length>1?'s':'')+' in context · PIPA-compliant'
+      ? ' ' + indexedAtts.length + ' attachment'+(indexedAtts.length>1?'s':'')+' in context · PIPA-compliant'
       : 'Context-aware · PIPA-compliant';
   } else if (subEl) {
     subEl.textContent = 'Context-aware · PIPA-compliant';
@@ -4892,8 +4892,8 @@ function renderAI(it){
   }).join('');
   if(!MM.ssLog.length){
     var hint = (it && it.atts && it.atts.length)
-      ? '💡 I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
-      : '💡 Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
+      ? ' I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
+      : ' Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
     el.innerHTML='<div class="mm-aimsg pro fi">'+hint+'</div>';
   }
   el.scrollTop=el.scrollHeight;
@@ -6982,7 +6982,7 @@ function renderBrokerage() {
 
   // Left: Brokerage Info + Branding
   html+='<div>';
-  html+='<div class="card"><div class="ch_"><div class="ct">🏢 Brokerage</div><span class="tag gy">Immutable</span></div><div class="cb">'
+  html+='<div class="card"><div class="ch_"><div class="ct"> Brokerage</div><span class="tag gy">Immutable</span></div><div class="cb">'
     +'<div style="display:flex;flex-direction:column;gap:5px">'
     +'<div><span style="font-size:11px;color:var(--g4)">Name</span><div style="font-weight:600">'+(APP.brokerage.name||u.brkName||'—')+'</div></div>'
     +'<div><span style="font-size:11px;color:var(--g4)">BCFSA Licence</span><div>'+(APP.brokerage.lic||u.brkLic||'—')+'</div></div>'
@@ -7323,7 +7323,7 @@ function syncBrokerageReps() {
 
 
 function renderRepList(){
-  return '<div class="card"><div class="ch_"><div class="ct">👤 Representatives</div><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div>'
+  return '<div class="card"><div class="ch_"><div class="ct"> Representatives</div><button class="btn xs" onclick="openMo(\'mo-invite-rep\')">+ Invite</button></div>'
     +'<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Licence</th><th>Licensed For</th></tr></thead>'
     +'<tbody><tr><td><strong>'+APP.currentUser.name+'</strong></td><td><span class="tag gy">'+APP.currentUser.role+'</span></td><td style="font-size:11px">'+APP.currentUser.lic+'</td><td style="font-size:11px">'+APP.currentUser.licFor+'</td></tr></tbody>'
     +'</table></div>';
@@ -7615,7 +7615,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
   if (isSetup) {
     // Show saved method summary — don't show blank form again
-    var methodLabel = payMethod === 'card' ? '💳 Credit Card' : '🏦 Pre-Authorized Debit (ACSS)';
+    var methodLabel = payMethod === 'card' ? ' Credit Card' : '🏦 Pre-Authorized Debit (ACSS)';
     var methodDesc  = payMethod === 'card'
       ? 'Credit card on file. Charges processed automatically each month.'
       : 'Canadian bank account on file. Pre-authorized debit processed on the 1st of each month.';
@@ -7629,7 +7629,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     // Update form — tabs + fields hidden by default
     html += '<div style="display:flex;gap:0;border:1px solid var(--g2);border-radius:6px;overflow:hidden;margin-bottom:16px">';
     html += '<button id="pay-tab-acss" onclick="billingSelectMethod(\'acss\')" style="flex:1;padding:9px 12px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='acss'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='acss'?'#fff':'var(--ch3)')+'">🏦 Pre-Authorized Debit</button>';
-    html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'">💳 Credit Card</button>';
+    html += '<button id="pay-tab-card" onclick="billingSelectMethod(\'card\')" style="flex:1;padding:9px 12px;border:none;border-left:1px solid var(--g2);font-size:12px;font-weight:600;cursor:pointer;background:'+(payMethod==='card'?'var(--ch)':'var(--wh)')+';color:'+(payMethod==='card'?'#fff':'var(--ch3)')+'"> Credit Card</button>';
     html += '</div>';
     html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
     html += '<div class="fr fr2">';
@@ -8097,7 +8097,7 @@ function showErrorToast(msg) {
   t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;'
     + 'background:#231f20;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;'
     + 'display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:420px;';
-  t.innerHTML = '<span>⚠️ ' + msg + '</span>'
+  t.innerHTML = '<span> ' + msg + '</span>'
     + '<button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:16px;padding:0;line-height:1">×</button>';
   document.body.appendChild(t);
   setTimeout(function(){ if(t.parentNode) t.remove(); }, 6000);
@@ -8869,11 +8869,11 @@ function renderMeetings() {
   if (!el) return;
   if (!sc) {
     el.innerHTML = APP.sc.length === 0
-      ? '<div class="empty-state"><div class="empty-ic">⚠️</div>'
+      ? '<div class="empty-state"><div class="empty-ic"></div>'
         + '<div class="empty-h">Could not load strata data</div>'
         + '<div class="empty-s">There was a problem loading your strata corporations. Please refresh the page or contact <a href="mailto:support@neurata.ai">support@neurata.ai</a> if this persists.</div>'
         + '<button class="btn pri" onclick="window.location.reload()">Refresh Page</button></div>'
-      : '<div class="empty-state"><div class="empty-ic">📅</div>'
+      : '<div class="empty-state"><div class="empty-ic"></div>'
         + '<div class="empty-h">No strata corporation selected</div>'
         + '<div class="empty-s">Add a strata corporation first, then create meetings for it.</div>'
         + '<button class="btn pri" onclick="showPg(\'strata\')">Go to Strata Corps →</button></div>';
@@ -9183,7 +9183,7 @@ function renderDash() {
   if (!el) return;
   var sc = getVisibleSCs();
   if (!sc||sc.length===0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">🏙</div><div class="empty-h">Add your first Strata Corporation</div><div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div><button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button></div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div><div class="empty-h">Add your first Strata Corporation</div><div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div><button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button></div>';
     return;
   }
 
@@ -9282,7 +9282,7 @@ function renderDash() {
     html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">📁 Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
     brkDocs.forEach(function(d) {
       html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--g2)">'
-        +'<span>📄</span><span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'
+        +'<span></span><span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'
         +'<a href="'+escHtml(d.url)+'" target="_blank" class="btn xs">Download</a>'
         +'</div>';
     });
@@ -9701,7 +9701,7 @@ function renderSCOverview(s) {
   html += '</div>';
 
   // Address
-  if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span>📍</span><span>'+escHtml(s.addr)+'</span></div>';
+  if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span></span><span>'+escHtml(s.addr)+'</span></div>';
   // Manager — derive from assigned reps
   var mgrNames = (s.repIds||[]).map(function(lic){
     // users.full_name = Known As name (set during BCFSA onboarding)
@@ -9761,8 +9761,8 @@ function renderLotsPlan(s) {
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
     + '<div style="display:flex;gap:6px;align-items:center">'
-    + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')">⬇ Template</button>'
-    + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()">⬆ Upload Roster</button>'
+    + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')"> Template</button>'
+    + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()"> Upload Roster</button>'
     + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
     + '<button class="btn xs'+(isListView?'':' pri')+'" onclick="APP._lotsView=\'grid\';renderSCDetail(\''+s.id+'\')" title="Grid view">⊞</button>'
     + '<button class="btn xs'+(isListView?' pri':'')+'" onclick="APP._lotsView=\'list\';renderSCDetail(\''+s.id+'\')" title="List view">☰</button>'
@@ -10334,7 +10334,7 @@ function updateMtgHeaderBtn(tab, hasContent) {
 function renderMinutesList(sc, el) {
   var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
   if (!adjourned.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📄</div>'
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
       + '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
@@ -10405,7 +10405,7 @@ function renderSidebar(activePg) {
   var isMB = (role === 'Managing Broker' || role === 'Associate Broker');
   var isSubscribed = APP.brokerage && APP.brokerage.subscriptionStatus === 'active';
   var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
-  var icons = {dashboard:'📊',strata:'🏙',meetings:'📅',brokerage:'🏢',billing:'💳'};
+  var icons = {dashboard:'',strata:'',meetings:'',brokerage:'',billing:''};
 
   var html = '<div class="s-sec"><div class="s-lbl">Navigation</div>';
   tabs.forEach(function(t) {
@@ -10417,7 +10417,6 @@ function renderSidebar(activePg) {
         : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial Ended</span>';
     }
     html += '<div class="s-it'+isc+'" onclick="showPg(\''+t+'\')">'
-      +'<span class="s-ic">'+(icons[t]||'')+'</span>'
       +'<span style="flex:1">'+TAB_LABELS[t]+'</span>'
       + badge + '</div>';
   });
@@ -10501,10 +10500,10 @@ function renderDocsList(sc, el) {
   var scIdForDoc = sc.id;
 
   if (!docs.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📎</div>'
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No documents yet</div>'
       + '<div class="empty-s">Upload documents here, add attachments to agenda items, or upload historic minutes — all appear in this library and feed StrataSphere.</div>'
-      + '<div style="font-size:11px;color:var(--g4);margin-bottom:14px;background:var(--g1);padding:8px 12px;border-radius:6px;text-align:left">📋 <strong>Indexing note:</strong> Only PDF, Word (.doc/.docx), and text (.txt) files can be indexed for StrataSphere. Images and other files are stored for reference only.</div>'
+      + '<div style="font-size:11px;color:var(--g4);margin-bottom:14px;background:var(--g1);padding:8px 12px;border-radius:6px;text-align:left"> <strong>Indexing note:</strong> Only PDF, Word (.doc/.docx), and text (.txt) files can be indexed for StrataSphere. Images and other files are stored for reference only.</div>'
       + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
       + '</div>';
     return;
@@ -10517,7 +10516,7 @@ function renderDocsList(sc, el) {
   var html = '';
   docs.forEach(function(doc) {
     var ext  = (doc.name || '').split('.').pop().toLowerCase();
-    var icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼' : ext === 'doc' || ext === 'docx' ? '📝' : ext === 'txt' ? '📃' : '📎';
+    var icon = ext === 'pdf' ? '' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? '' : ext === 'doc' || ext === 'docx' ? '' : ext === 'txt' ? '' : '';
     var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
     var hasText = doc.documentText && doc.documentText.trim().length > 0;
 
@@ -10583,7 +10582,7 @@ function renderDecisionLedger(sc, el) {
   decisions.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
 
   if (!decisions.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📋</div>'
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No decisions recorded yet</div>'
       + '<div class="empty-s">Decisions made during Meeting Mode and decisions extracted from uploaded historic minutes will appear here.</div>'
       + '</div>';
@@ -10629,7 +10628,7 @@ function renderDecisionLedgerTable(decisions) {
     if (d.votes && (d.votes.for || d.votes.against || d.votes.abstain)) {
       voteStr = d.votes.for+'F / '+d.votes.against+'A / '+d.votes.abstain+'Ab';
     }
-    var sourceLabel = (d.source === 'historic-minutes' || d.source === 'historic') ? '📎 Historic'
+    var sourceLabel = (d.source === 'historic-minutes' || d.source === 'historic') ? ' Historic'
       : d.source === 'meeting-mode' ? '🔴 Live'
       : d.source === 'imported' ? '📥 Imported' : '—';
     var motionText = d.motion && d.motion.trim() ? d.motion : '';
@@ -11765,7 +11764,7 @@ var currentMtgTab = 'meetings';
 function renderMeetingsList(sc, el) {
   var mtgs = sc.meetings || [];
   if (mtgs.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📅</div>'
+    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       +'<div class="empty-h">No meetings yet for '+sc.plan+'</div>'
       +'<div class="empty-s">Create a meeting, build the agenda, attach documents, then launch Meeting Mode when council is ready.</div>'
       +'<button class="btn pri" style="margin-top:16px" onclick="openMo(\'mo-new-mtg\')">+ Create First Meeting</button></div>';
@@ -11777,7 +11776,7 @@ function renderMeetingsList(sc, el) {
   ['LIVE','DRAFT','ADJOURNED'].forEach(function(status) {
     var group = mtgs.filter(function(m){return m.status===status;});
     if (!group.length) return;
-    var label = {LIVE:'🔴 Live',DRAFT:'📝 Upcoming / Draft',ADJOURNED:'✓ Past'}[status];
+    var label = {LIVE:'🔴 Live',DRAFT:' Upcoming / Draft',ADJOURNED:'✓ Past'}[status];
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px;margin-top:4px">'+label+'</div>';
     group.forEach(function(m) {
       var mmActive  = scMmActive(sc);
