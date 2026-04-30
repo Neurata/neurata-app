@@ -9697,14 +9697,18 @@ function saveCouncilMember() {
     var alreadyHas = s.councilMembers.find(function(m){ return m.role === role; });
     if(alreadyHas) { nAlert('This council already has a '+role+'. Remove them first before assigning a new one.','Role Taken','warn'); return; }
   }
-  // Each SL can only have one council member
+  // Each SL can only have one council member — roster-only owners can be promoted
   if(_cmExistingIdx < 0) {
-    var slTaken = s.councilMembers.find(function(m){ return m.sl === slVal; });
-    if(slTaken) { nAlert('SL '+slVal+' is already assigned to '+slTaken.name+'.','SL Taken','warn'); return; }
+    var slTaken = s.councilMembers.find(function(m){ return m.sl === slVal && m.isCouncil; });
+    if(slTaken) { nAlert('SL '+slVal+' is already a council member ('+slTaken.name+').','SL Taken','warn'); return; }
   }
   var member = {sl:slVal, name:name, email:email, role:role, isCouncil:true};
-  if(_cmExistingIdx>=0){
-    s.councilMembers[_cmExistingIdx]=member;
+  // Update existing roster entry if present, otherwise push new
+  var existingRosterIdx = s.councilMembers.findIndex(function(m){ return m.sl === slVal; });
+  if(_cmExistingIdx >= 0) {
+    s.councilMembers[_cmExistingIdx] = member;
+  } else if(existingRosterIdx >= 0) {
+    s.councilMembers[existingRosterIdx] = member; // promote roster entry to council
   } else {
     s.councilMembers.push(member);
   }
