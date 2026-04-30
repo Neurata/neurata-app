@@ -9078,6 +9078,7 @@ function renderSCDetail(scId) {
     +'<div style="flex:1"><div style="font-size:16px;font-weight:700">'+s.plan+' — '+s.name+'</div>'
     +(s.addr?'<div style="font-size:11px;color:var(--g4)">'+s.addr+'</div>':'')
     +'</div>'
+    +'<button class="btn sm" onclick="openEditSC(\''+s.id+'\')" style="margin-right:6px">Edit</button>'
     +'<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>'
     +'</div>';
 
@@ -9501,7 +9502,36 @@ function renderLotsPlan(s) {
   return html;
 }
 
-var _oiScId = '', _oiSl = '';
+var _editScId = '';
+function openEditSC(scId) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  _editScId = scId;
+  document.getElementById('edit-sc-plan').value  = s.plan || '';
+  document.getElementById('edit-sc-lots').value  = s.lots || '';
+  document.getElementById('edit-sc-name').value  = s.name || '';
+  document.getElementById('edit-sc-addr').value  = s.addr || '';
+  document.getElementById('edit-sc-plan-label').textContent = s.plan + (s.lots ? ' · ' + s.lots + ' strata lots' : '');
+  openMo('mo-edit-sc');
+}
+function saveEditSC() {
+  var s = APP.sc.find(function(x){return x.id===_editScId;}); if(!s) return;
+  var name = document.getElementById('edit-sc-name').value.trim();
+  var addr = document.getElementById('edit-sc-addr').value.trim();
+  if (!name) { nAlert('Please enter a corporation name.','','warn'); return; }
+  s.name = name;
+  s.addr = addr;
+  // Persist to Supabase
+  getSupabase().from('strata_corps').update({
+    name: name,
+    address: addr
+  }).eq('plan_number', s.plan).then(function(r){
+    if (r.error) console.error('saveEditSC error:', r.error);
+  });
+  closeMo('mo-edit-sc');
+  renderSCDetail(_editScId);
+  // Update sidebar and header too
+  renderSidebar(APP.activePg);
+}
 
 function openOwnerInfo(scId, sl) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
@@ -11979,6 +12009,30 @@ init();
       <input id="cdlg-input" type="text"/>
     </div>
     <div id="cdlg-ft"></div>
+  </div>
+</div>
+<!-- Edit SC modal — name and address only, plan/lots locked -->
+<div class="mo" id="mo-edit-sc">
+  <div class="mo-box" style="max-width:440px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t">Edit Strata Corporation</div>
+        <div style="font-size:11px;color:var(--g4)" id="edit-sc-plan-label"></div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-edit-sc')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div class="fr">
+        <div class="fg"><label>Plan Number</label><input type="text" id="edit-sc-plan" disabled style="background:var(--g1);color:var(--g4)"/></div>
+        <div class="fg"><label>Strata Lots</label><input type="text" id="edit-sc-lots" disabled style="background:var(--g1);color:var(--g4)"/></div>
+      </div>
+      <div class="fg"><label>Corporation Name</label><input type="text" id="edit-sc-name" placeholder="e.g. The Selkirks"/></div>
+      <div class="fg"><label>Civic Address</label><input type="text" id="edit-sc-addr" placeholder="e.g. 123 Main St, Vancouver, BC"/></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-edit-sc')">Cancel</button>
+      <button class="btn pri" onclick="saveEditSC()">Save</button>
+    </div>
   </div>
 </div>
 <!-- PDF.js for client-side text extraction -->
