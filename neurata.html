@@ -7401,6 +7401,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
     html += '<div class="fg"><label>Account Number</label><input type="text" placeholder="e.g. 1234567" id="acss-acct"/></div>';
     html += '</div></div>';
+    var cardDisp = payMethod==='card' ? 'block' : 'none';
     html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
     html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email" placeholder="Receipts and billing notices will be sent here" value="'+escHtml(APP.brokerage.email||APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
     html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
