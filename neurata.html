@@ -10068,7 +10068,7 @@ function switchMtgTab(tab, el) {
     var hasContent = false;
     if (tab === 'meetings') hasContent = (sc.meetings||[]).length > 0;
     else if (tab === 'minutes') hasContent = (sc.meetings||[]).some(function(m){return m.minutes;}) || (sc.docs||[]).some(function(d){return d.source==='historic-minutes';});
-    else if (tab === 'docs') hasContent = (sc.docs||[]).length > 0;
+    else if (tab === 'docs') hasContent = true; // always show upload button
     else if (tab === 'decisions') hasContent = (sc.decisions||[]).length > 0;
     else if (tab === 'stratasphere') hasContent = true; // always show New Conversation button
     updateMtgHeaderBtn(tab, hasContent);
