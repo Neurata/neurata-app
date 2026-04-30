@@ -5670,25 +5670,23 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // RTF header — style guide: Helvetica/Arial, 11pt body, 12pt headings
   // Margins: 1" sides (1440 twips), 1.1" top/bottom (1584 twips)
   // Line spacing: 1.15 (276 twips = 1.15 * 240)
-  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Helvetica;}{\\f1\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1584\\margr1584\\margt1584\\margb1584\\widowctrl\\ftnbj}');
+  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}{\\f1\\fswiss\\fcharset0 Helvetica;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1584\\margr1584\\margt1584\\margb1584\\widowctrl\\ftnbj\\f0}');
 
   function esc(s) {
     return String(s||'')
       .replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}')
       .replace(/[^\x00-\x7F]/g,function(c){return '\\u'+c.charCodeAt(0)+'?';});
   }
-  // Heading: bold blue text + thin blue bottom border on a SEPARATE paragraph
-  // Style guide: headings 12pt Bold ALL CAPS, body 11pt, 1.15 line spacing
   var SL = '\\sl276\\slmult1'; // 1.15 line spacing
   function heading(text) {
-    return '\\pard\\sb240\\sa40\\keepn\\b\\fs24\\cf1 '+SL+' '+esc(text.toUpperCase())+'\\b0\\cf0\\par'
+    return '\\pard\\sb240\\sa40\\keepn\\f0\\b\\fs24\\cf1 '+SL+' '+esc(text.toUpperCase())+'\\b0\\cf0\\par'
       + '\\pard\\sb0\\sa60\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par';
   }
-  function body(text)   { return '\\pard\\sb0\\sa100\\fs22 '+SL+' '+esc(text)+'\\par'; }
-  function bold(text)   { return '\\pard\\sb80\\sa40\\b\\fs22 '+SL+' '+esc(text)+'\\b0\\par'; }
-  function meta(text)   { return '\\pard\\sb0\\sa30\\fs20\\cf2 '+SL+' '+esc(text)+'\\cf0\\par'; }
-  function motion(text) { return '\\pard\\li720\\sb40\\sa100\\i\\fs22 '+SL+' \\u8220\'\u201c?'+esc(text)+'\\u8221\'\u201d?\\i0\\par'; }
-  function result(text, carried) { return '\\pard\\sb0\\sa100\\b\\fs22\\cf'+(carried?'3':'4')+' '+SL+' '+esc(text)+'\\b0\\cf0\\par'; }
+  function body(text)   { return '\\pard\\sb0\\sa100\\f0\\fs22 '+SL+' '+esc(text)+'\\par'; }
+  function bold(text)   { return '\\pard\\sb80\\sa40\\f0\\b\\fs22 '+SL+' '+esc(text)+'\\b0\\par'; }
+  function meta(text)   { return '\\pard\\sb0\\sa30\\f0\\fs20\\cf2 '+SL+' '+esc(text)+'\\cf0\\par'; }
+  function motion(text) { return '\\pard\\li720\\sb40\\sa100\\f0\\i\\fs22 '+SL+' \\u8220\'\u201c?'+esc(text)+'\\u8221\'\u201d?\\i0\\par'; }
+  function result(text, carried) { return '\\pard\\sb0\\sa100\\f0\\b\\fs22\\cf'+(carried?'3':'4')+' '+SL+' '+esc(text)+'\\b0\\cf0\\par'; }
 
   // ── BROKERAGE LETTERHEAD ───────────────────────────────────────────
   if (logoDataUrl && logoDataUrl.indexOf('base64,') > 0) {
@@ -10114,6 +10112,7 @@ function renderMinutesList(sc, el) {
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:13px;font-weight:600">'+escHtml(typeLabel)+' &mdash; '+escHtml(m.date)+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(sc.plan)+'</div>'
+      +(!isFinal ? '<div style="font-size:11px;color:var(--amb);margin-top:4px">Export and share with council for edits. Only the minutes summaries are editable. Paste any changes back into the draft before finalizing.</div>' : '')
       +'</div>'
       +statusTag
       +'<div class="br" style="flex-shrink:0">'
