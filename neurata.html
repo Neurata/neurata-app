@@ -1072,6 +1072,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <div class="t-nav" id="t-nav"><!-- rendered by role --></div>
   <div id="super-admin-bar" style="display:none;align-items:center;gap:4px;margin-right:8px"></div>
   <div class="t-right">
+    <button onclick="toggleSupportBot()" title="Help & Support" style="background:none;border:none;cursor:pointer;padding:6px;margin-right:4px;color:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='rgba(255,255,255,.6)'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
     <div class="u-pill" onclick="toggleUserMenu()">
       <div class="u-av" id="u-av">?</div>
       <span class="u-nm" id="u-nm">—</span>
@@ -1086,6 +1089,23 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
   <div class="um-it" onclick="showPg('profile');toggleUserMenu(false);">👤 My Profile</div>
   <div class="um-it danger" onclick="signOut()">↩ Sign Out</div>
+</div>
+
+<div id="support-bot" style="display:none;position:fixed;bottom:40px;right:20px;z-index:1000;width:340px;background:var(--wh);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;display:none;flex-direction:column">
+  <div style="background:var(--ch);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--org)"></div>
+      <span style="color:#fff;font-size:13px;font-weight:600">Neurata Support</span>
+    </div>
+    <button onclick="toggleSupportBot()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;padding:0">×</button>
+  </div>
+  <div id="support-msgs" style="height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div class="mm-aimsg pro fi" style="font-size:12px">👋 Hi! I'm here to help with anything on the Neurata platform — billing, meetings, documents, StrataSphere, or account questions. What can I help you with?</div>
+  </div>
+  <div style="padding:10px;border-top:1px solid var(--g2);display:flex;gap:6px">
+    <input id="support-input" type="text" placeholder="Ask anything…" style="flex:1;border:1px solid var(--g2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter')sendSupportMsg()"/>
+    <button onclick="sendSupportMsg()" style="background:var(--org);color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">→</button>
+  </div>
 </div>
 
 <div id="shell">
@@ -10865,6 +10885,69 @@ function _saveDocText(docId, scId, text, docType) {
       console.warn('_saveDocText: could not find doc with id', docId, 'in sc_.docs — text saved to DB but not cached in memory');
     }
   }
+}
+
+// ── Support Bot ───────────────────────────────────────────────────────────────
+var _supportLog = [];
+function toggleSupportBot() {
+  var el = document.getElementById('support-bot');
+  if (!el) return;
+  var isOpen = el.style.display === 'flex';
+  el.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) setTimeout(function(){ var inp = document.getElementById('support-input'); if(inp) inp.focus(); }, 50);
+}
+
+function sendSupportMsg() {
+  var inp = document.getElementById('support-input');
+  var msgs = document.getElementById('support-msgs');
+  var msg = inp ? inp.value.trim() : ''; if (!msg) return;
+  inp.value = '';
+  var userDiv = document.createElement('div');
+  userDiv.className = 'mm-aimsg usr fi';
+  userDiv.style.fontSize = '12px';
+  userDiv.textContent = msg;
+  msgs.appendChild(userDiv);
+  var typingDiv = document.createElement('div');
+  typingDiv.className = 'mm-aimsg ai';
+  typingDiv.style.cssText = 'font-size:12px;opacity:.5';
+  typingDiv.textContent = '…';
+  msgs.appendChild(typingDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+  _supportLog.push({role:'user', content: msg});
+  fetch(WORKER_URL + '/ai', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 500,
+      system: 'You are the Neurata platform support assistant. Neurata is a BC strata management platform for licensed brokerages. '
+        + 'Help with: account setup, adding strata corporations via Strata Plan upload, Meeting Mode (agendas, minutes, decisions), '
+        + 'StrataSphere AI (document indexing, bylaws, past decisions), billing (Meeting Mode CA$39/month + StrataSphere CA$1.49-2.49/lot/month), '
+        + 'inviting Representatives and Assistants, council delegates, and BC strata governance. '
+        + 'Be concise — 2-3 sentences max. Friendly and direct. If unsure, suggest emailing support@neurata.ai.',
+      messages: _supportLog
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    typingDiv.remove();
+    var text = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('').trim()
+      || 'Sorry, I couldn\'t get a response. Try emailing support@neurata.ai.';
+    _supportLog.push({role:'assistant', content: text});
+    var aiDiv = document.createElement('div');
+    aiDiv.className = 'mm-aimsg ai fi';
+    aiDiv.style.fontSize = '12px';
+    aiDiv.textContent = text;
+    msgs.appendChild(aiDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+  })
+  .catch(function() {
+    typingDiv.remove();
+    var errDiv = document.createElement('div');
+    errDiv.className = 'mm-aimsg ai fi';
+    errDiv.style.fontSize = '12px';
+    errDiv.textContent = 'Network error. Please try again or email support@neurata.ai.';
+    msgs.appendChild(errDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+  });
 }
 
 // ── Shared document upload — single flow for all uploads ─────────────────────
