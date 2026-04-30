@@ -4757,11 +4757,10 @@ function renderAI(it){
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   var subEl = document.querySelector('.mm-aisub');
   if (subEl && it && it.atts && it.atts.length) {
-    var sourceLabel = 'Agenda: ' + (it.text||'Item');
+    var attNames2 = {};
+    (it.atts||[]).forEach(function(a){ attNames2[typeof a==='object'?a.name:a] = true; });
     var indexedAtts = (sc_ && sc_.docs||[]).filter(function(d) {
-      var matchByLabel = d.sourceLabel === sourceLabel || d.source === 'agenda-attachment';
-      var matchByName  = it.atts.some(function(a){ return (typeof a==='object'?a.name:a) === d.name; });
-      return (matchByLabel || matchByName) && d.documentText && d.documentText.trim();
+      return (attNames2[d.name] || d.source === 'agenda-attachment') && d.documentText && d.documentText.trim();
     });
     subEl.innerHTML = indexedAtts.length
       ? '📎 ' + indexedAtts.length + ' attachment'+(indexedAtts.length>1?'s':'')+' in context · PIPA-compliant'
@@ -4805,13 +4804,25 @@ function mmAiSend(){
   var itemCtx = '';
   if (it && it.atts && it.atts.length && sc) {
     var itemAttDocs = [];
-    // Match by source label — docs are stored as "Agenda: {item text}"
-    var sourceLabel = 'Agenda: ' + (it.text||'Item');
+    // Build set of attachment names for this item
+    var attNames = {};
+    (it.atts||[]).forEach(function(a) {
+      attNames[typeof a==='object' ? a.name : a] = true;
+    });
+    // Match docs by name (most reliable), source label, or source type
     (sc.docs||[]).forEach(function(d) {
-      var matchByLabel = d.sourceLabel === sourceLabel || d.source === 'agenda-attachment';
-      var matchByName  = it.atts.some(function(a){ return (typeof a==='object'?a.name:a) === d.name; });
-      if ((matchByLabel || matchByName) && d.documentText && d.documentText.trim()) {
+      var matchByName  = attNames[d.name];
+      var matchBySource = d.source === 'agenda-attachment';
+      if ((matchByName || matchBySource) && d.documentText && d.documentText.trim()) {
         itemAttDocs.push(d);
+      }
+    });
+    // Also check if any atts have inline documentText (pre-indexed before push to sc.docs)
+    (it.atts||[]).forEach(function(a) {
+      if (typeof a === 'object' && a.documentText && a.documentText.trim()) {
+        if (!itemAttDocs.find(function(d){ return d.name === a.name; })) {
+          itemAttDocs.push(a);
+        }
       }
     });
     if (itemAttDocs.length) {
@@ -10598,11 +10609,16 @@ function _saveDocText(docId, scId, text, docType) {
     .update(update)
     .eq('id', docId)
     .then(function(r){ if (r.error) console.error('Doc text save error:', r.error); });
-  // Cache on local sc.docs
+  // Cache on local sc.docs — match by dbId, id, or storagePath
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
-    var doc = sc_.docs.find(function(d){ return d.id === docId || d.dbId === docId; });
-    if (doc) { doc.documentText = text; if (docType) doc.docType = docType; }
+    var doc = sc_.docs.find(function(d){ return d.dbId === docId || d.id === docId; });
+    if (doc) {
+      doc.documentText = text;
+      if (docType) doc.docType = docType;
+    } else {
+      console.warn('_saveDocText: could not find doc with id', docId, 'in sc_.docs — text saved to DB but not cached in memory');
+    }
   }
 }
 
