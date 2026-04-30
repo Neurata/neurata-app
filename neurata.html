@@ -2607,6 +2607,7 @@ function agUploadPdf(file, statusEl, areaEl) {
     body._userId = APP.currentUser&&APP.currentUser.id||'';
 
     fetch(WORKER_URL+'/ai', {
+      method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
     })
