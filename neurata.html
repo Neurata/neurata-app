@@ -8438,18 +8438,21 @@ function obHandleFile(file) {
   var reader = new FileReader();
   reader.onload = function(e) {
     var b64 = e.target.result.split(',')[1];
-    scParsePlan(b64, file.name);
-    setTimeout(function() {
-      var plan = (document.getElementById('sc-plan') && document.getElementById('sc-plan').value) || '';
-      var name = (document.getElementById('sc-name') && document.getElementById('sc-name').value) || '';
-      var lots = (document.getElementById('sc-lots') && document.getElementById('sc-lots').value) || '';
+    scParsePlan(b64, file.name, function(p) {
       document.getElementById('ob-parse-status').style.display = 'none';
-      if (!plan) { nAlert('Could not parse the PDF. Please enter details manually.','','warn'); obShowManual(); return; }
-      _obParsedSC = { plan: plan, name: name, lots: parseInt(lots)||1 };
+      if (!p || !p.planNumber) {
+        nAlert('Could not parse the PDF. Please enter details manually.','','warn');
+        obShowManual();
+        return;
+      }
+      var plan = (p.planNumber||'').toUpperCase().replace(/\s+/g,' ').trim();
+      var name = p.name||'';
+      var lots = parseInt(p.lots)||1;
+      _obParsedSC = { plan: plan, name: name, lots: lots };
       document.getElementById('ob-parsed-result').style.display = '';
       document.getElementById('ob-parsed-text').textContent = plan + (name?' · '+name:'') + (lots?' · '+lots+' strata lots':'');
       document.getElementById('ob-sc-next').style.display = '';
-    }, 4000);
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -11032,7 +11035,7 @@ function scHandleFile(file){
   reader.readAsDataURL(file);
 }
 
-function scParsePlan(b64, filename){
+function scParsePlan(b64, filename, callback){
   fetch(WORKER_URL+'/ai', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -11071,17 +11074,21 @@ function scParsePlan(b64, filename){
     if(!p.lots)  missing.push('lot count');
     if(!p.address) missing.push('civic address');
     var res=document.getElementById('sc-parse-result');
-    res.style.display='';
-    if(missing.length){res.className='al warn';res.innerHTML='⚠ Parsed from <strong>'+filename+'</strong> — please fill in: '+missing.join(', ')+'.';}
-    else{res.className='al ok';res.innerHTML='✓ Parsed from <strong>'+filename+'</strong>. Review and confirm below.';}
+    if(res){
+      res.style.display='';
+      if(missing.length){res.className='al warn';res.innerHTML='⚠ Parsed from <strong>'+filename+'</strong> — please fill in: '+missing.join(', ')+'.';}
+      else{res.className='al ok';res.innerHTML='✓ Parsed from <strong>'+filename+'</strong>. Review and confirm below.';}
+    }
     scShowFields(p);
+    if(callback) callback(p);
   })
   .catch(function(err){
     document.getElementById('sc-parse-status').style.display='none';
-    document.getElementById('sc-upz').style.display='';
-    var w=document.getElementById('sc-warn'); w.style.display=''; w.textContent='Could not parse automatically. Enter details manually.';
+    if(document.getElementById('sc-upz')) document.getElementById('sc-upz').style.display='';
+    var w=document.getElementById('sc-warn'); if(w){ w.style.display=''; w.textContent='Could not parse automatically. Enter details manually.'; }
     scShowFields();
-      });
+    if(callback) callback(null);
+  });
 }
 
 function hmHandleFile(file) {
