@@ -8046,6 +8046,18 @@ function loadUserProfile(userId) {
                   if (smRep) sc_.smName = smRep.name;
                 }
               });
+              // Override rep.name with Known As (full_name) from users table
+              var repLics2 = r.data.map(function(rep){ return rep.bcfsa_lic; }).filter(Boolean);
+              if (repLics2.length) {
+                getSupabase().from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', repLics2)
+                .then(function(ur2) {
+                  (ur2.data||[]).forEach(function(u) {
+                    if (!u.full_name) return;
+                    var rep = APP.reps.find(function(r){ return r.lic === u.bcfsa_lic; });
+                    if (rep) rep.name = u.full_name; // Known As overrides legal name
+                  });
+                }).catch(function(){});
+              }
               var repLics = r.data.map(function(rep){ return rep.bcfsa_lic; }).filter(Boolean);
               if (repLics.length) {
                 getSupabase().from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', repLics)
@@ -8412,10 +8424,12 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
-  // Show onboarding for first-time users with no SCs
+  // Show onboarding for first-time MB/AB/REP with no SCs
+  // BUT skip if this is an invited rep — they're joining existing SC(s), not creating new ones
   var role = u.role || '';
   var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
-  if (canCreate && APP.sc.length === 0) {
+  var isInvitedRep = !!(u.brkLic && (role === 'Representative' || role === 'Assistant'));
+  if (canCreate && !isInvitedRep && APP.sc.length === 0) {
     setTimeout(function(){ obShowOverlay(); }, 500);
   }
 }
@@ -11880,8 +11894,8 @@ function obInviteComplete(){
         phone:rep.brkPhone||rep.businessPhone||''
       };
       window._inviteContext = null;
-      // Load full profile from Supabase — no stub SC
-      setTimeout(function(){ loadUserProfile(userId); }, 1000);
+      // Wait for DB writes to propagate before loading profile
+      setTimeout(function(){ loadUserProfile(userId); }, 2500);
     });
   })
   .catch(function(e){
