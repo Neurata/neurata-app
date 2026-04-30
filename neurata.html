@@ -1124,7 +1124,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
         <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
         <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
-        <button class="mtg-tab" id="mtgtab-decisions" onclick="switchMtgTab('decisions',this)">Decision Ledger</button>
       </div>
       <div id="mtg-header-actions" style="padding-bottom:6px"></div>
     </div>
@@ -3372,7 +3371,7 @@ function openInviteDelegate(scId) {
           var safeR = escHtml(m.role||'');
           return '<button class="btn xs'+(isDel?' gy':' pri')+'" '
             + (isDel ? 'disabled'
-              : 'data-n="'+safeN+'" data-e="'+safeE+'" data-r="'+safeR+'" onclick="prefillDelegateForm(this.dataset.n,this.dataset.e,this.dataset.r)"')
+              : 'data-n="'+safeN+'" data-e="'+safeE+'" data-r="'+safeR+'" data-sl="'+escHtml(m.sl||'')+'" onclick="prefillDelegateForm(this.dataset.n,this.dataset.e,this.dataset.r,this.dataset.sl)"')
             + '>'+escHtml(m.sl+' — '+m.name+(isDel?' ✓':''))+'</button>';
         }).join('')
       + '</div>'
@@ -3409,14 +3408,15 @@ function openInviteDelegate(scId) {
   openMo('mo-invite-delegate');
 }
 
-function prefillDelegateForm(name, email, role) {
+function prefillDelegateForm(name, email, role, sl) {
   var nameEl  = document.getElementById('del-name');
   var emailEl = document.getElementById('del-email');
   var roleEl  = document.getElementById('del-role');
+  var slEl    = document.getElementById('del-sl');
   if (nameEl)  nameEl.value  = name  || '';
   if (emailEl) emailEl.value = email || '';
+  if (slEl && sl) slEl.value = sl;
   if (roleEl && role) {
-    // Try to match role to an option
     Array.from(roleEl.options).forEach(function(o){
       if (o.value.toLowerCase() === role.toLowerCase()) roleEl.value = o.value;
     });
@@ -8549,9 +8549,23 @@ function launchPlatform(){
   if(nm)nm.textContent=u.name||'—';
   var mn=document.getElementById('menu-name');var ml=document.getElementById('menu-lic');
   if(mn)mn.textContent=u.name||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
+  // Council Delegate — go straight to their SC's meetings page
+  var isDelegate = (u.role === 'Council Delegate');
+  if (isDelegate && APP.sc.length) {
+    APP.currentScId = APP.sc[0].id;
+  }
+
   renderNav();
   showScr('scr-platform');
-  showPg('dashboard');
+  if (isDelegate) {
+    showPg('strata');
+    // Auto-navigate to meetings page for the delegate's SC
+    setTimeout(function() {
+      selectSC(APP.sc[0] && APP.sc[0].id);
+    }, 100);
+  } else {
+    showPg('dashboard');
+  }
 }
 
 
@@ -9228,13 +9242,14 @@ function renderSCDetail(scId) {
   var tabs = isAsst ? ['overview','council','lots','reps'] : ['overview','subscription','council','lots','reps'];
   var tabLabels = {overview:'Overview', subscription:'Subscription', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
 
+  var isDel_ = APP.currentUser && APP.currentUser.role === 'Council Delegate';
   var html = '<div class="sc-detail-hd">'
     +'<span class="sc-detail-back" onclick="renderStrata()">← All Corporations</span>'
     +'<div style="flex:1"><div style="font-size:16px;font-weight:700">'+s.plan+' — '+s.name+'</div>'
     +(s.addr?'<div style="font-size:11px;color:var(--g4)">'+s.addr+'</div>':'')
     +'</div>'
-    +'<button class="btn sm" onclick="openEditSC(\''+s.id+'\')" style="margin-right:6px">Edit</button>'
-    +'<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>'
+    +(!isDel_ ? '<button class="btn sm" onclick="openEditSC(\''+s.id+'\')" style="margin-right:6px">Edit</button>' : '')
+    +(!isDel_ ? '<button class="btn pri" onclick="selectSCMeeting(\''+s.id+'\')" >+ New Meeting</button>' : '')
     +'</div>';
 
   // Tabs
@@ -11463,6 +11478,7 @@ function renderMeetingsList(sc, el) {
     group.forEach(function(m) {
       var mmActive  = scMmActive(sc);
       var canLaunch = m.status === 'DRAFT' && m.agenda && m.agenda.length > 0;
+      var isDel     = APP.currentUser && APP.currentUser.role === 'Council Delegate';
       var typeMap   = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
       var typeLabel = typeMap[m.type] || m.type || 'Meeting';
       var statusTag = '<span class="tag '+(m.status==='LIVE'?'red':m.status==='ADJOURNED'?'grn':'gy')+'" style="white-space:nowrap">'+m.status+'</span>';
@@ -11477,7 +11493,7 @@ function renderMeetingsList(sc, el) {
         +'</div>'
         +statusTag
         +'<div class="br" style="flex-shrink:0">';
-      if (m.status === 'DRAFT') {
+      if (!isDel && m.status === 'DRAFT') {
         html += '<button class="btn sm" onclick="editMeeting(\''+sc.id+'\',\''+m.id+'\')">Edit Agenda</button>';
         html += '<button class="btn sm" onclick="exportAgenda(\''+sc.id+'\',\''+m.id+'\')" title="Export agenda as RTF">Export</button>';
         if (!mmActive) {
@@ -11488,7 +11504,7 @@ function renderMeetingsList(sc, el) {
           html += '<button class="btn sm" disabled title="Add agenda items first">▶ Launch</button>';
         }
       }
-      if (m.status === 'LIVE') {
+      if (!isDel && m.status === 'LIVE') {
         html += '<button class="btn sm red" onclick="resumeMM(\''+sc.id+'\',\''+m.id+'\')">▶ Resume</button>';
       }
       if (m.status === 'ADJOURNED') {
