@@ -4796,79 +4796,111 @@ function mmAiSend(){
   var mmBrkId = APP.brokerage && APP.brokerage.lic || '';
   var sc = APP.sc.find(function(s){return s.id===mmScId;});
 
-  // Build full LSS context so SS knows the SC's bylaws, decisions, etc.
-  var lssCtx = sc ? buildLssContext(sc) : '';
-
-  // ── Priority context: current agenda item's attachments ──────────
-  // Injected at the TOP of the system prompt so Claude sees them first
-  var itemCtx = '';
-  if (it && it.atts && it.atts.length && sc) {
-    var itemAttDocs = [];
-    // Build set of attachment names for this item
-    var attNames = {};
-    (it.atts||[]).forEach(function(a) {
-      attNames[typeof a==='object' ? a.name : a] = true;
-    });
-    // First: grab text directly from att objects (fastest — set at upload time)
-    (it.atts||[]).forEach(function(a) {
-      if (typeof a === 'object' && a.documentText && a.documentText.trim()) {
-        itemAttDocs.push(a);
-      }
-    });
-    // Also check sc.docs for any that have text (e.g. loaded from Supabase on login)
-    (sc.docs||[]).forEach(function(d) {
-      var matchByName = attNames[d.name];
-      var alreadyAdded = itemAttDocs.find(function(x){ return x.name === d.name; });
-      if (matchByName && !alreadyAdded && d.documentText && d.documentText.trim()) {
-        itemAttDocs.push(d);
-      }
-    });
-    if (itemAttDocs.length) {
-      itemCtx = '=== CURRENT AGENDA ITEM ATTACHMENTS (PRIORITY CONTEXT) ===\n'
-        + 'The following documents are attached to the current agenda item "'+(it.text||'')+'". '
-        + 'Answer questions about these documents directly using their content below.\n\n';
-      itemAttDocs.forEach(function(d) {
-        var txt = (d.documentText||'').trim();
-        if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n… [truncated]';
-        itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + txt + '\n[END ATTACHMENT: ' + (d.name||'') + ']\n\n';
-      });
-    }
-  }
-
-  var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
-    + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
-    + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
-    + (it && it.atts && it.atts.length ? ' This item has ' + it.atts.length + ' attachment(s) — their content is provided above as PRIORITY CONTEXT.' : '')
-    + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
-    + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
-    + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
-    + ' If uncertain, say so in one sentence.\n\n'
-    + lssCtx;
-
-  fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      model:'claude-sonnet-4-6',
-      max_tokens:1000,
-      _usageType:'mm_ai',_brokerageId:mmBrkId,_scId:mmScId,_userId:APP.currentUser&&APP.currentUser.id||'',
-      tools:[{type:'web_search_20250305',name:'web_search'}],
-      system: systemPrompt,
-      messages:[{role:'user',content:msg}]
-    })
-  })
-  .then(function(r){return r.json();})
-  .then(function(d){
-    var typing=document.getElementById(typingId);if(typing)typing.remove();
-    var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    var response = txt||'Unable to respond.';
-    MM.ssLog.push({role:'ai',text:response});
-    el.innerHTML+='<div class="mm-aimsg ai fi">'+escHtml(response)+'</div>';
-    el.scrollTop=el.scrollHeight;
-  })
-  .catch(function(){
-    var typing=document.getElementById(typingId);if(typing)typing.remove();
-    el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';
-    el.scrollTop=el.scrollHeight;
+  // If this item has attachments but none have documentText yet, try fetching from Supabase
+  var attNeedsFetch = it && it.atts && it.atts.length && it.atts.every(function(a){
+    return !a.documentText || !a.documentText.trim();
   });
+
+  function buildAndSend() {
+    // Build full LSS context
+    var lssCtx = sc ? buildLssContext(sc) : '';
+
+    // ── Priority context: current agenda item's attachments ──────────
+    var itemCtx = '';
+    if (it && it.atts && it.atts.length && sc) {
+      var itemAttDocs = [];
+      var attNames = {};
+      (it.atts||[]).forEach(function(a){ attNames[typeof a==='object'?a.name:a] = true; });
+      // Check att objects directly first
+      (it.atts||[]).forEach(function(a){
+        if (typeof a === 'object' && a.documentText && a.documentText.trim()) itemAttDocs.push(a);
+      });
+      // Also check sc.docs
+      (sc.docs||[]).forEach(function(d){
+        var matchByName = attNames[d.name];
+        var alreadyAdded = itemAttDocs.find(function(x){ return x.name === d.name; });
+        if (matchByName && !alreadyAdded && d.documentText && d.documentText.trim()) itemAttDocs.push(d);
+      });
+      if (itemAttDocs.length) {
+        itemCtx = '=== CURRENT AGENDA ITEM ATTACHMENTS (PRIORITY CONTEXT) ===\n'
+          + 'The following documents are attached to the current agenda item "'+(it.text||'')+'". '
+          + 'Answer questions about these documents directly using their content below.\n\n';
+        itemAttDocs.forEach(function(d){
+          var txt = (d.documentText||'').trim();
+          if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n… [truncated]';
+          itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + txt + '\n[END ATTACHMENT: ' + (d.name||'') + ']\n\n';
+        });
+      }
+    }
+
+    var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
+      + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
+      + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
+      + (it && it.atts && it.atts.length
+        ? (itemCtx
+          ? ' This item has ' + it.atts.length + ' attachment(s) — their full content is provided above as PRIORITY CONTEXT. Answer questions about them directly.'
+          : ' This item has ' + it.atts.length + ' attachment(s) but their content could not be extracted (document may be image-only or still loading).')
+        : '')
+      + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
+      + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
+      + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
+      + ' If uncertain, say so in one sentence.\n\n'
+      + lssCtx;
+
+    fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        _usageType:'mm_ai',_brokerageId:mmBrkId,_scId:mmScId,_userId:APP.currentUser&&APP.currentUser.id||'',
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system: systemPrompt,
+        messages:[{role:'user',content:msg}]
+      })
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var typing=document.getElementById(typingId);if(typing)typing.remove();
+      var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+      var response = txt||'Unable to respond.';
+      MM.ssLog.push({role:'ai',text:response});
+      el.innerHTML+='<div class="mm-aimsg ai fi">'+escHtml(response)+'</div>';
+      el.scrollTop=el.scrollHeight;
+    })
+    .catch(function(){
+      var typing=document.getElementById(typingId);if(typing)typing.remove();
+      el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';
+      el.scrollTop=el.scrollHeight;
+    });
+  } // end buildAndSend
+
+  // If attachments exist but text isn't in memory yet, fetch from Supabase first
+  if (attNeedsFetch && sc) {
+    var attFileNames = (it.atts||[]).map(function(a){ return typeof a==='object'?a.name:a; });
+    getSupabase().from('documents')
+      .select('name,document_text')
+      .eq('sc_id', sc.plan)
+      .eq('source', 'agenda-attachment')
+      .in('name', attFileNames)
+      .then(function(r) {
+        if (r.data && r.data.length) {
+          r.data.forEach(function(dbDoc) {
+            if (!dbDoc.document_text) return;
+            // Update att object in MM.agenda
+            var att = (it.atts||[]).find(function(a){ return (typeof a==='object'?a.name:a) === dbDoc.name; });
+            if (att && typeof att === 'object') att.documentText = dbDoc.document_text;
+            // Update sc.docs
+            if (sc.docs) {
+              var doc = sc.docs.find(function(d){ return d.name === dbDoc.name; });
+              if (doc) doc.documentText = dbDoc.document_text;
+            }
+          });
+        }
+        buildAndSend();
+      })
+      .catch(function(){ buildAndSend(); });
+  } else {
+    buildAndSend();
+  }
 }
 
 function confirmDecision(){
