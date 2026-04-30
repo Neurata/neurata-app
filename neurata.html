@@ -1231,7 +1231,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="mm-bdiv" data-motion="1"></div>
       <span class="mm-lbl" data-motion="1">Decision Type</span><span id="mm-dtype" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--ch);white-space:nowrap">—</span>
       <div class="mm-bdiv" data-motion="1"></div>
-      <span class="mm-lbl" data-motion="1">Mover</span><select class="mm-sel" id="mm-mover" data-motion="1"><option value="">Select...</option></select>
+      <span class="mm-lbl" data-motion="1">Mover</span><select class="mm-sel" id="mm-mover" data-motion="1" onchange="mmMoverChanged()"><option value="">Select...</option></select>
       <span class="mm-lbl" data-motion="1" style="margin-left:6px">Seconder</span><select class="mm-sel" id="mm-secd" data-motion="1"><option value="">Select...</option></select>
       <div class="mm-bdiv" data-motion="1"></div>
       <span class="mm-lbl" data-motion="1">For</span><input id="mm-vfor" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--grn)" onchange="setVote(curItem,'for',this.value)" oninput="setVote(curItem,'for',this.value)"/>
@@ -4860,6 +4860,18 @@ function mmAiSend(){
   } // end buildAndSend
 
   buildAndSend();
+}
+
+function mmMoverChanged() {
+  var moverEl = document.getElementById('mm-mover');
+  var secdEl  = document.getElementById('mm-secd');
+  if (!moverEl || !secdEl) return;
+  var moverVal = moverEl.value;
+  Array.from(secdEl.options).forEach(function(opt) {
+    opt.disabled = (opt.value && opt.value === moverVal);
+    // If seconder was same as mover, reset it
+    if (opt.selected && opt.disabled) secdEl.value = '';
+  });
 }
 
 function confirmDecision(){
@@ -10071,16 +10083,20 @@ function renderMinutesList(sc, el) {
   var html = '';
   adjourned.forEach(function(m) {
     var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
-    var statusTag = isFinal ? '<span class="tag grn">Final</span>' : '<span class="tag amb">Draft</span>';
-    html += '<div class="card fi" style="margin-bottom:10px">'
-      +'<div class="ch_"><div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+'</div>'
-      +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+sc.plan+'</div></div>'
-      +statusTag+'</div>'
-      +'<div class="cb"><div class="br">'
+    var typeMap  = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+    var typeLabel = typeMap[m.type] || m.type || 'Meeting';
+    var statusTag = isFinal ? '<span class="tag grn" style="white-space:nowrap">Final</span>' : '<span class="tag amb" style="white-space:nowrap">Draft</span>';
+    html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600">'+escHtml(typeLabel)+' &mdash; '+escHtml(m.date)+'</div>'
+      +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(sc.plan)+'</div>'
+      +'</div>'
+      +statusTag
+      +'<div class="br" style="flex-shrink:0">'
       +(isFinal
-        ? '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">📄 View</button>'
-        : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">✏️ Edit Minutes</button>')
-      +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">DOCX</button>'
+        ? '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View</button>'
+        : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Edit Minutes</button>')
+      +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>'
       +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
       +'</div></div></div>';
   });
@@ -11418,37 +11434,37 @@ function renderMeetingsList(sc, el) {
     group.forEach(function(m) {
       var mmActive  = scMmActive(sc);
       var canLaunch = m.status === 'DRAFT' && m.agenda && m.agenda.length > 0;
-      var canView   = m.status === 'ADJOURNED';
-      html += '<div class="card fi" style="margin-bottom:10px">'
-        +'<div class="ch_">'
-        +'<div><div style="font-size:14px;font-weight:600">'+m.type+' — '+m.date+(m.time?' at '+m.time:'')+'</div>'
-        +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+m.fmt+(m.loc?' · '+m.loc:'')+'</div></div>'
-        +'<span class="tag '+(m.status==='LIVE'?'red':m.status==='ADJOURNED'?'grn':'gy')+'">'+m.status+'</span>'
+      var typeMap   = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+      var typeLabel = typeMap[m.type] || m.type || 'Meeting';
+      var statusTag = '<span class="tag '+(m.status==='LIVE'?'red':m.status==='ADJOURNED'?'grn':'gy')+'" style="white-space:nowrap">'+m.status+'</span>';
+      var meta = (m.agenda?m.agenda.length:0)+' agenda items'
+        +(m.attendees&&m.attendees.length?' · '+m.attendees.length+' attendees':'')
+        +(m.decisions&&m.decisions.length?' · '+m.decisions.length+' decisions':'');
+
+      html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:600">'+escHtml(typeLabel)+' &mdash; '+escHtml(m.date)+(m.time?' <span style="font-weight:400;color:var(--g4)">at '+escHtml(m.time)+'</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(meta)+'</div>'
         +'</div>'
-        +'<div class="cb" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
-        +'<div style="font-size:12px;color:var(--ch3)">'
-        +'Agenda: <strong>'+(m.agenda?m.agenda.length:0)+' items</strong>'
-        +(m.attendees&&m.attendees.length?' · Attendees: <strong>'+m.attendees.length+'</strong>':'')
-        +(m.decisions&&m.decisions.length?' · Decisions: <strong>'+m.decisions.length+'</strong>':'')
-        +'</div>'
-        +'<div class="br">';
+        +statusTag
+        +'<div class="br" style="flex-shrink:0">';
       if (m.status === 'DRAFT') {
         html += '<button class="btn sm" onclick="editMeeting(\''+sc.id+'\',\''+m.id+'\')">Edit Agenda</button>';
-        html += '<button class="btn sm" onclick="exportAgenda(\''+sc.id+'\',\''+m.id+'\')" title="Export agenda as RTF">Export Agenda</button>';
+        html += '<button class="btn sm" onclick="exportAgenda(\''+sc.id+'\',\''+m.id+'\')" title="Export agenda as RTF">Export</button>';
         if (!mmActive) {
-          html += '<button class="btn sm" style="opacity:.5" onclick="mmRequestActivation(\''+sc.id+'\')" title="Meeting Mode required">▶ Launch (activation required)</button>';
+          html += '<button class="btn sm" style="opacity:.5" onclick="mmRequestActivation(\''+sc.id+'\')" title="Meeting Mode required">▶ Launch</button>';
         } else if (canLaunch) {
-          html += '<button class="btn sm red" onclick="showLaunchConfirm(\''+sc.id+'\',\''+m.id+'\')">▶ Launch Meeting Mode</button>';
+          html += '<button class="btn sm red" onclick="showLaunchConfirm(\''+sc.id+'\',\''+m.id+'\')">▶ Launch</button>';
         } else {
-          html += '<button class="btn sm" disabled title="Add agenda items first">▶ Launch (add agenda items)</button>';
+          html += '<button class="btn sm" disabled title="Add agenda items first">▶ Launch</button>';
         }
       }
       if (m.status === 'LIVE') {
-        html += '<button class="btn sm red" onclick="resumeMM(\''+sc.id+'\',\''+m.id+'\')">▶ Resume Meeting</button>';
+        html += '<button class="btn sm red" onclick="resumeMM(\''+sc.id+'\',\''+m.id+'\')">▶ Resume</button>';
       }
       if (m.status === 'ADJOURNED') {
-        html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">📄 View Minutes</button>';
-        html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export Word (.rtf)</button>';
+        html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Minutes</button>';
+        html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>';
       }
       html += '</div></div></div>';
     });
