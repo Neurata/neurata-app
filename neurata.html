@@ -10070,9 +10070,10 @@ function renderSidebar(activePg) {
     html += '<div class="s-sec"><div class="s-lbl">Management</div>';
     sc.forEach(function(s) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
+      var pill = scStatusPill(s, 'sm', 'bdg');
       html += '<div class="s-it'+isActive+'" onclick="selectSC(\''+s.id+'\')">'
-        + '<span class="s-ic">🏠</span>'
-        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(s.plan)+'</span>'
+        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">'+escHtml(s.plan)+'</span>'
+        + pill
         + '</div>';
     });
     html += '</div>';
