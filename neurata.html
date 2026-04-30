@@ -8513,14 +8513,6 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
   showPg('dashboard');
-  // Show onboarding for first-time MB/AB/REP with no SCs
-  // BUT skip if this is an invited rep — they're joining existing SC(s), not creating new ones
-  var role = u.role || '';
-  var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
-  var isInvitedRep = !!(u.brkLic && (role === 'Representative' || role === 'Assistant'));
-  if (canCreate && !isInvitedRep && APP.sc.length === 0) {
-    setTimeout(function(){ obShowOverlay(); }, 500);
-  }
 }
 
 
