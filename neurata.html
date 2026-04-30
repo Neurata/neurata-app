@@ -2030,6 +2030,24 @@ function _callActivateSC(sc_, tier, onSuccess) {
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.error) { nAlert('Activation failed: ' + d.error, 'Error', 'warn'); return; }
+    // Send activation confirmed email to current user
+    if (APP.currentUser && APP.currentUser.email) {
+      fetch(WORKER_URL + '/send-activation-confirmed', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          to:             APP.currentUser.email,
+          name:           APP.currentUser.name,
+          scPlan:         sc_.plan,
+          scName:         sc_.name,
+          ssTier:         tier,
+          lots:           parseInt(sc_.lots)||1,
+          proratedAmount: d.proratedAmount,
+          monthlyAmount:  d.monthlyAmount,
+          nextChargeDate: new Date(new Date().getFullYear(), new Date().getMonth()+1, 1)
+            .toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'})
+        })
+      }).catch(function(){});
+    }
     onSuccess(d.subscriptionId || '');
   })
   .catch(function(e){
@@ -5250,7 +5268,21 @@ function _adjournProceed() {
   getSupabase().from('brokerages').update({
     trial_meetings_used: APP.brokerage.trialMeetingsUsed
   }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
-  if (scTrialExhausted()) sc_.mmStatus = 'TRIAL_COMPLETE';
+  if (scTrialExhausted()) {
+    sc_.mmStatus = 'TRIAL_COMPLETE';
+    // Send trial exhausted email
+    if (APP.currentUser && APP.currentUser.email) {
+      fetch(WORKER_URL + '/send-trial-exhausted', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          to:     APP.currentUser.email,
+          name:   APP.currentUser.name,
+          scPlan: sc_.plan,
+          scName: sc_.name
+        })
+      }).catch(function(){});
+    }
+  }
   sv('sc_'+sc_.id, sc_);
   showPg('meetings');
   // Generate minutes immediately
@@ -11874,6 +11906,16 @@ function obComplete(){
         APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
         // Refresh session so JWT picks up brokerage_id/role from trigger before loading platform
         getSupabase().auth.refreshSession().then(function() {
+          // Send welcome email
+          fetch(WORKER_URL + '/send-welcome', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              to:        email,
+              name:      OB.repName,
+              role:      OB.repRole,
+              brokerage: OB.brkName
+            })
+          }).catch(function(){});
           setTimeout(function(){ loadUserProfile(userId); }, 2500);
         }).catch(function() {
           setTimeout(function(){ loadUserProfile(userId); }, 2500);
@@ -12009,6 +12051,15 @@ function obInviteComplete(){
       window._inviteContext = null;
       // Refresh session so JWT picks up new brokerage_id/role from trigger
       getSupabase().auth.refreshSession().then(function() {
+        fetch(WORKER_URL + '/send-welcome', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            to:        email,
+            name:      rep.knownAs || rep.name || '',
+            role:      rep.role || 'Representative',
+            brokerage: rep.brkName || ''
+          })
+        }).catch(function(){});
         setTimeout(function(){ loadUserProfile(userId); }, 2500);
       }).catch(function() {
         setTimeout(function(){ loadUserProfile(userId); }, 2500);
