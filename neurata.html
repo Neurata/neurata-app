@@ -7098,7 +7098,7 @@ function renderAdminBrokerages() {
   var el = document.getElementById('admin-brokerages-body');
   if (!el) return;
   el.innerHTML = '<div style="color:var(--g4);font-size:13px">Loading brokerages...</div>';
-  getSupabase().from('brokerages').select('*').order('name')
+  getSupabase().from('brokerages').select('*').neq('bcfsa_lic','ADMIN').order('name')
   .then(function(r) {
     if (r.error || !r.data || !r.data.length) {
       el.innerHTML = '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages found.</div></div>';
@@ -8297,7 +8297,7 @@ function loadSuperAdminData(userId, u) {
       return mapSCRow(sc);
     });
     // Load all brokerages for switcher
-    getSupabase().from('brokerages').select('*')
+    getSupabase().from('brokerages').select('*').neq('bcfsa_lic','ADMIN')
     .then(function(br) {
       APP._allBrokerages = br.data || [];
       launchPlatform();
@@ -8704,7 +8704,7 @@ function renderSuperAdminDashboard(el) {
   var now = new Date();
   var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   Promise.all([
-    db.from('brokerages').select('*'),
+    db.from('brokerages').select('*').neq('bcfsa_lic','ADMIN'),
     db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier'),
     db.from('ai_usage').select('brokerage_id,usage_type').gte('created_at', monthStart)
   ]).then(function(results) {
