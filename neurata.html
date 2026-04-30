@@ -7747,7 +7747,14 @@ function billingSubmit() {
 
   fetch(WORKER_URL + '/stripe/create-customer', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ brkLic: APP.brokerage.lic, name: name, email: email })
+    body: JSON.stringify({
+      brkLic: APP.brokerage.lic,
+      name:   name,
+      email:  email,
+      phone:  APP.brokerage.phone || '',
+      address: APP.brokerage.addr || '',
+      country: 'CA'
+    })
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
@@ -7761,8 +7768,17 @@ function billingSubmit() {
   .then(function(si) {
     if (si.error) throw new Error(si.error);
     return getStripe().then(function(s) {
+      var billingDetails = {
+        name: name,
+        email: email,
+        phone: APP.brokerage.phone || '',
+        address: {
+          line1:   APP.brokerage.addr || '',
+          country: 'CA'
+        }
+      };
       var confirmParams = {
-        payment_method: { billing_details: { name: name, email: email } },
+        payment_method: { billing_details: billingDetails },
         return_url: 'https://app.neurata.ai/?billing_setup=complete'
       };
       if (payMethod === 'acss') {
@@ -7785,7 +7801,7 @@ function billingSubmit() {
         if (!window._stripeCardElement) throw new Error('Card element not initialized.');
         var cardName = (document.getElementById('card-name') && document.getElementById('card-name').value.trim()) || name;
         return s.confirmCardSetup(si.clientSecret, {
-          payment_method: { card: window._stripeCardElement, billing_details: { name: cardName, email: email } }
+          payment_method: { card: window._stripeCardElement, billing_details: billingDetails }
         });
       }
     });
