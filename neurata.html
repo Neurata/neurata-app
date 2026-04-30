@@ -1674,34 +1674,43 @@ function submitActivationRequest(scId, requestType) {
   var typeLabel = requestType==='ss_global' ? 'Global StrataSphere'
     : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
 
-  // Write to Supabase
-  getSupabase().from('activation_requests').insert({
-    brokerage_id:   brkLic,
-    sc_id:          sc_.plan,
-    requested_by:   user.id,
-    requester_name: user.name,
-    request_type:   requestType,
-    status:         'pending'
-  }).then(function(r) {
-    if (r.error) console.error('Could not save request:', r.error);
-  });
+  nPrompt(
+    'Enter your Managing Broker\'s email address to send them an activation request for ' + sc_.plan + ':',
+    function(mbEmail) {
+      if (!mbEmail || mbEmail.indexOf('@') < 0) { nAlert('Please enter a valid email address.','','warn'); return; }
 
-  // Email the MB
-  fetch(WORKER_URL+'/send-invite', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      type:       'activation_request',
-      to:         APP.brokerage.email || 'info@neurata.ai',
-      toName:     'Managing Broker',
-      fromName:   user.name,
-      brokerage:  APP.brokerage.name || '',
-      scPlan:     sc_.plan,
-      scName:     sc_.name || '',
-      requestType: typeLabel
-    })
-  }).catch(function(){});
+      // Write to Supabase
+      getSupabase().from('activation_requests').insert({
+        brokerage_id:   brkLic,
+        sc_id:          sc_.plan,
+        requested_by:   user.id,
+        requester_name: user.name,
+        request_type:   requestType,
+        status:         'pending'
+      }).then(function(r) {
+        if (r.error) console.error('Could not save request:', r.error);
+      });
 
-  nAlert(typeLabel+' activation requested for '+sc_.plan+'. Your Managing Broker has been notified.', 'Request Sent', 'success');
+      // Email the MB
+      fetch(WORKER_URL+'/send-invite', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type:        'activation_request',
+          to:          mbEmail,
+          toName:      'Managing Broker',
+          fromName:    user.name,
+          brokerage:   APP.brokerage.name || '',
+          scPlan:      sc_.plan,
+          scName:      sc_.name || '',
+          requestType: typeLabel
+        })
+      }).catch(function(){});
+
+      nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. Your Managing Broker has been notified at ' + mbEmail + '.', 'Request Sent', 'success');
+    },
+    APP.brokerage.email || '',
+    'Notify Managing Broker'
+  );
 }
 
 function loadActivationRequests(cb) {
