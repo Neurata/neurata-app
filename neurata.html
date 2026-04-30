@@ -4809,20 +4809,18 @@ function mmAiSend(){
     (it.atts||[]).forEach(function(a) {
       attNames[typeof a==='object' ? a.name : a] = true;
     });
-    // Match docs by name (most reliable), source label, or source type
-    (sc.docs||[]).forEach(function(d) {
-      var matchByName  = attNames[d.name];
-      var matchBySource = d.source === 'agenda-attachment';
-      if ((matchByName || matchBySource) && d.documentText && d.documentText.trim()) {
-        itemAttDocs.push(d);
-      }
-    });
-    // Also check if any atts have inline documentText (pre-indexed before push to sc.docs)
+    // First: grab text directly from att objects (fastest — set at upload time)
     (it.atts||[]).forEach(function(a) {
       if (typeof a === 'object' && a.documentText && a.documentText.trim()) {
-        if (!itemAttDocs.find(function(d){ return d.name === a.name; })) {
-          itemAttDocs.push(a);
-        }
+        itemAttDocs.push(a);
+      }
+    });
+    // Also check sc.docs for any that have text (e.g. loaded from Supabase on login)
+    (sc.docs||[]).forEach(function(d) {
+      var matchByName = attNames[d.name];
+      var alreadyAdded = itemAttDocs.find(function(x){ return x.name === d.name; });
+      if (matchByName && !alreadyAdded && d.documentText && d.documentText.trim()) {
+        itemAttDocs.push(d);
       }
     });
     if (itemAttDocs.length) {
@@ -11483,39 +11481,87 @@ function mmAddAttachments(files) {
   var mtgId  = mtg ? String(mtg.id) : 'unknown';
 
   Array.from(files).forEach(function(f) {
+    var ext = f.name.split('.').pop().toLowerCase();
+    var att = {name: f.name, mime: f.type, storagePath: '', url: '', documentText: ''};
+    it.atts.push(att);
+    renderAtts(it);
+    mmSyncToMtg();
+
+    // ── Step 1: Extract text immediately in browser (instant, no server needed) ──
+    function storeTextOnAtt(text) {
+      att.documentText = text || '';
+      // Also push to sc_.docs immediately so SS can find it
+      if (sc_ && text) {
+        if (!sc_.docs) sc_.docs = [];
+        var existing = sc_.docs.find(function(d){ return d.name === f.name && d.source === 'agenda-attachment'; });
+        if (existing) { existing.documentText = text; }
+        else {
+          sc_.docs.push({
+            name: f.name, source: 'agenda-attachment',
+            sourceLabel: 'Agenda: '+(it.text||'Item'),
+            mime: f.type, documentText: text, dbId: null, storagePath: '', url: ''
+          });
+        }
+      }
+    }
+
+    if (['pdf','doc','docx','txt'].indexOf(ext) >= 0) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var buf = e.target.result;
+        if (ext === 'txt') {
+          storeTextOnAtt(new TextDecoder().decode(buf));
+        } else if (ext === 'doc' || ext === 'docx') {
+          if (typeof mammoth !== 'undefined') {
+            mammoth.extractRawText({arrayBuffer: buf}).then(function(r){ storeTextOnAtt(r.value); }).catch(function(){});
+          }
+        } else if (ext === 'pdf' && typeof pdfjsLib !== 'undefined') {
+          pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+            var pages = [];
+            for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+            return pages.reduce(function(chain, n) {
+              return chain.then(function(texts) {
+                return pdf.getPage(n).then(function(pg) {
+                  return pg.getTextContent().then(function(c) {
+                    texts.push(c.items.map(function(item){ return item.str; }).join(' '));
+                    return texts;
+                  });
+                });
+              });
+            }, Promise.resolve([]));
+          }).then(function(texts) {
+            storeTextOnAtt(texts.join('\n\n').trim());
+          }).catch(function(){});
+        }
+      };
+      reader.readAsArrayBuffer(f);
+    }
+
+    // ── Step 2: Upload to storage + register in DB (background, non-blocking) ──
     var path = scPlan + '/agenda-attachments/' + mtgId + '/' + Date.now() + '_' + f.name.replace(/\s+/g,'_');
     getSupabase().storage.from('neurata-documents').upload(path, f, {upsert:true})
     .then(function(ur) {
       if (ur.error) { console.error('Attachment upload error:', ur.error); return; }
       var publicUrl = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
-      var att = {name: f.name, storagePath: path, url: publicUrl, mime: f.type};
-      it.atts.push(att);
-      renderAtts(it);
+      att.storagePath = path;
+      att.url = publicUrl;
       mmSyncToMtg();
-      // Register to SC document store and index if applicable
-      if (sc_) {
-        var docRec = {
-          name: f.name, url: publicUrl, storagePath: path, mime: f.type,
-          source: 'agenda-attachment',
-          sourceLabel: 'Agenda: ' + (it.text||'Item'),
-          date: mtg ? mtg.date : new Date().toISOString().slice(0,10)
-        };
-        getSupabase().from('documents').insert({
-          sc_id: sc_.plan, name: f.name, source: 'agenda-attachment',
-          source_label: 'Agenda: '+(it.text||'Item'), mime_type: f.type,
-          storage_path: path, public_url: publicUrl,
-          uploaded_at: new Date().toISOString()
-        }).select('id').single().then(function(r) {
-          if (r.data) docRec.dbId = r.data.id;
-          if (!sc_.docs) sc_.docs = [];
-          sc_.docs.push(docRec);
-          // Auto-index if PDF/Word/txt
-          var ext = f.name.split('.').pop().toLowerCase();
-          if (['pdf','doc','docx','txt'].indexOf(ext) >= 0 && r.data) {
-            extractAndStoreDocText(f, r.data.id, sc_.plan);
-          }
-        });
-      }
+      // Register in documents table
+      getSupabase().from('documents').insert({
+        sc_id: sc_ ? sc_.plan : scPlan, name: f.name,
+        source: 'agenda-attachment', source_label: 'Agenda: '+(it.text||'Item'),
+        mime_type: f.type, storage_path: path, public_url: publicUrl,
+        document_text: att.documentText || null,
+        uploaded_at: new Date().toISOString()
+      }).select('id').single().then(function(r) {
+        if (!r.data) return;
+        att.dbId = r.data.id;
+        // Update the sc_.docs entry with dbId and storagePath
+        if (sc_ && sc_.docs) {
+          var doc = sc_.docs.find(function(d){ return d.name === f.name && d.source === 'agenda-attachment' && !d.dbId; });
+          if (doc) { doc.dbId = r.data.id; doc.storagePath = path; doc.url = publicUrl; }
+        }
+      });
     })
     .catch(function(e){ console.error('Attachment upload error:', e); });
   });
