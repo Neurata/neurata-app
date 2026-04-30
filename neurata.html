@@ -3455,6 +3455,7 @@ function removeDelegate(scId, uid) {
 function renderSCReps(s) {
   var role = APP.currentUser && APP.currentUser.role || '';
   var canManage = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
+  var canSetSM  = role === 'Managing Broker' || role === 'Associate Broker';
   // Collect all users connected to this SC across all role types
   var allReps = APP.reps || [];
   var rows = [];
@@ -3537,9 +3538,9 @@ function renderSCReps(s) {
       +'<td><span style="background:'+scopeBg+';padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">'+scopeLabel+'</span></td>'
       +'<td><span class="tag '+(r.status.toLowerCase().indexOf('active')>=0?'grn':'gy')+'" style="font-size:10px">'+escHtml(r.status)+'</span></td>'
       +'<td style="white-space:nowrap">'
-      +(canManage && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
+      +(canSetSM && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
         ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Set as SM</button> '
-        : (isSM && canManage ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\'\')">Remove SM</button> ' : ''))
+        : (isSM && canSetSM ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\'\')">Remove SM</button> ' : ''))
       +(canManage?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')
       +'</td>'
       +'</tr>';
@@ -6029,6 +6030,11 @@ function ssLoadConversations(cb) {
     .in('sc_id', planNumbers)
     .order('updated_at', {ascending: false})
     .then(function(r) {
+      // Always initialize convs for all plan numbers so we don't re-query endlessly
+      planNumbers.forEach(function(plan) {
+        var sc_ = APP.sc.find(function(s){return s.plan === plan;});
+        if (sc_ && !SS.convs[sc_.id]) SS.convs[sc_.id] = [];
+      });
       if (r.error || !r.data || !r.data.length) { if(cb) cb(); return; }
       r.data.forEach(function(row) {
         var sc_ = APP.sc.find(function(s){return s.plan === row.sc_id;});
@@ -7847,6 +7853,16 @@ function billingSubmit() {
     if (result.error) throw new Error(result.error.message);
     APP.brokerage.billingSetup = true;
     APP.brokerage.paymentMethodId = result.setupIntent.payment_method;
+    // Set as default payment method on the Stripe customer
+    if (APP.brokerage.stripeCustomerId && APP.brokerage.paymentMethodId) {
+      fetch(WORKER_URL + '/stripe/set-default-payment', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          customerId: APP.brokerage.stripeCustomerId,
+          paymentMethodId: APP.brokerage.paymentMethodId
+        })
+      }).catch(function(){});
+    }
     return getSupabase().from('brokerages').update({
       billing_setup: true,
       stripe_customer_id: APP.brokerage.stripeCustomerId,
@@ -10054,10 +10070,10 @@ function renderSidebar(activePg) {
     html += '<div class="s-sec"><div class="s-lbl">Management</div>';
     sc.forEach(function(s) {
       var isActive = (s.id === APP.currentScId) ? ' on' : '';
-      var pill = scStatusPill(s, 'sm', 'bdg');
-      html += '<div class="s-sc-item'+isActive+'" onclick="selectSC(\''+s.id+'\')">';
-      html += '<span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+escHtml(s.plan+(s.name?' — '+s.name:''))+'</span>';
-      html += pill + '</div>';
+      html += '<div class="s-it'+isActive+'" onclick="selectSC(\''+s.id+'\')">'
+        + '<span class="s-ic">🏠</span>'
+        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(s.plan)+'</span>'
+        + '</div>';
     });
     html += '</div>';
   }
