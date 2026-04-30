@@ -10914,7 +10914,16 @@ function createSC() {
   }).then(function(r){
     if(r.error){
       APP.sc = APP.sc.filter(function(s){return s.id!==plan;});
-      nAlert('Could not save strata corporation. Please check your connection and try again.','Save Error','warn');
+      // 23505 = unique_violation — plan number already exists on the platform
+      if (r.error.code === '23505' || (r.error.message && r.error.message.indexOf('duplicate')>=0) || (r.error.message && r.error.message.indexOf('unique')>=0)) {
+        nAlert(
+          plan+' is already registered on the Neurata platform under another brokerage.\n\nIf you believe this strata corporation should be managed by your brokerage, please contact the current strata council to initiate a management transfer.',
+          'Strata Corporation Already Registered',
+          'warn'
+        );
+      } else {
+        nAlert('Could not save strata corporation. Please check your connection and try again.','Save Error','warn');
+      }
     } else {
       // Add sc_users row so this SC appears in future queries
       getSupabase().from('sc_users').insert({
