@@ -90,7 +90,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ph{padding:16px 22px 13px;background:var(--wh);border-bottom:1px solid var(--g2);flex-shrink:0}
 .ph-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .pt{font-size:19px;font-weight:700}.ps{font-size:12px;color:var(--g4);margin-top:3px}
-.pb{padding:18px 22px;flex:1;overflow-y:auto}
+.pb{padding:18px 22px 42px;flex:1;overflow-y:auto}
 
 /* ── COMPONENTS ── */
 .card{background:var(--wh);border:1px solid var(--g2);border-radius:10px;overflow:hidden;margin-bottom:14px}
@@ -1253,6 +1253,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 </div>
 
 </div></div><!-- /main /shell -->
+<div style="position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--bg);border-top:1px solid var(--g1);padding:6px 16px;display:flex;align-items:center;justify-content:flex-end;gap:16px;font-size:11px;color:var(--g4)">
+  <span>Neurata.ai · BC Strata Intelligence</span>
+  <a href="mailto:support@neurata.ai" style="color:var(--g4);text-decoration:none" onmouseover="this.style.color='var(--org)'" onmouseout="this.style.color='var(--g4)'">support@neurata.ai</a>
+</div>
 </div><!-- /scr-platform -->
 
 <!-- ═══════ MODALS ═══════ -->
@@ -8059,8 +8063,45 @@ function billingSubmitContact() {
 
 
 // ══════════════════════════════════════════
-// AUTH & SESSION
+// GLOBAL ERROR HANDLING
 // ══════════════════════════════════════════
+
+// Toast for non-critical errors
+function showErrorToast(msg) {
+  var existing = document.getElementById('err-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.id = 'err-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;'
+    + 'background:#231f20;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;'
+    + 'display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:420px;';
+  t.innerHTML = '<span>⚠️ ' + msg + '</span>'
+    + '<button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:16px;padding:0;line-height:1">×</button>';
+  document.body.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.remove(); }, 6000);
+}
+
+// Catch unhandled JS errors
+window.onerror = function(msg, src, line, col, err) {
+  // Ignore common third-party noise
+  if (src && (src.indexOf('supabase') >= 0 || src.indexOf('stripe') >= 0)) return false;
+  console.error('Global error:', msg, src, line);
+  showErrorToast('Something went wrong. If this persists, contact <a href="mailto:support@neurata.ai" style="color:var(--org)">support@neurata.ai</a>');
+  return false;
+};
+
+// Catch unhandled promise rejections
+window.addEventListener('unhandledrejection', function(e) {
+  var msg = e.reason && (e.reason.message || String(e.reason)) || 'Unknown error';
+  // Only surface meaningful errors
+  if (msg.indexOf('NetworkError') >= 0 || msg.indexOf('Failed to fetch') >= 0) {
+    showErrorToast('Network error — please check your connection and try again.');
+  } else if (msg.indexOf('JWT') >= 0 || msg.indexOf('auth') >= 0 || msg.indexOf('401') >= 0) {
+    showErrorToast('Session expired — please sign in again.');
+    setTimeout(function(){ getSupabase().auth.signOut().then(function(){ showScr('scr-login'); }); }, 2000);
+  }
+  // Swallow others silently (many are innocuous)
+});
 function doLogin(){
   var email = (document.getElementById('li-email')||{}).value||'';
   var pw    = (document.getElementById('li-pw')||{}).value||'';
@@ -8176,7 +8217,16 @@ function loadUserProfile(userId) {
           return;
         }
         loadUserProfile._retryCount = 0;
-        nAlert('Account setup incomplete. Please contact support@neurata.ai', 'Setup Error', 'warn');
+        // Show a proper error screen instead of just an alert
+        showScr('scr-login');
+        var errEl = document.getElementById('li-err');
+        if (errEl) {
+          errEl.style.display = '';
+          errEl.style.background = 'var(--redl)';
+          errEl.style.color = 'var(--red)';
+          errEl.style.border = '1px solid var(--red)';
+          errEl.innerHTML = 'Could not load your account. Please sign out and try again, or contact <a href="mailto:support@neurata.ai" style="color:var(--red)">support@neurata.ai</a>.';
+        }
         getSupabase().auth.signOut();
         return;
       }
@@ -8796,10 +8846,15 @@ function renderMeetings() {
   var el = document.getElementById('mtg-body');
   if (!el) return;
   if (!sc) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic">📅</div>'
-      +'<div class="empty-h">No strata corporation selected</div>'
-      +'<div class="empty-s">Add a strata corporation first, then create meetings for it.</div>'
-      +'<button class="btn pri" onclick="showPg(\'strata\')">Go to Strata Corps →</button></div>';
+    el.innerHTML = APP.sc.length === 0
+      ? '<div class="empty-state"><div class="empty-ic">⚠️</div>'
+        + '<div class="empty-h">Could not load strata data</div>'
+        + '<div class="empty-s">There was a problem loading your strata corporations. Please refresh the page or contact <a href="mailto:support@neurata.ai">support@neurata.ai</a> if this persists.</div>'
+        + '<button class="btn pri" onclick="window.location.reload()">Refresh Page</button></div>'
+      : '<div class="empty-state"><div class="empty-ic">📅</div>'
+        + '<div class="empty-h">No strata corporation selected</div>'
+        + '<div class="empty-s">Add a strata corporation first, then create meetings for it.</div>'
+        + '<button class="btn pri" onclick="showPg(\'strata\')">Go to Strata Corps →</button></div>';
     return;
   }
   if (currentMtgTab === 'meetings') renderMeetingsList(sc, el);
