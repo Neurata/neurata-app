@@ -10246,16 +10246,16 @@ function renderDocsList(sc, el) {
 
     var downloadHref = doc.url || doc.storagePath || '';
 
-    html += '<div class="card fi" style="margin-bottom:8px">'
-      + '<div class="ch_">'
-      + '<div>' + icon + ' <strong>' + escHtml(doc.name) + '</strong>'
-      + '<div style="font-size:11px;color:var(--g4);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600">' + icon + ' ' + escHtml(doc.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'
       + escHtml(doc.sourceLabel || doc.source || 'Document')
       + (doc.date ? ' · ' + escHtml(doc.date) : '')
-      + (statusPill ? ' · ' + statusPill : '')
       + '</div></div>'
-      + '<div style="display:flex;gap:6px;align-items:center">'
-      + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index Document</button>' : '')
+      + (statusPill || '')
+      + '<div class="br" style="flex-shrink:0">'
+      + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index</button>' : '')
       + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" style="color:var(--g4)" title="Re-index">Index Again</button>' : '')
       + (downloadHref ? '<button class="btn sm" onclick="downloadDoc(this)" data-name="'+escHtml(doc.name)+'" data-href="'+escHtml(downloadHref)+'">Download</button>' : '')
       + '</div>'
