@@ -11872,7 +11872,12 @@ function obComplete(){
           brkLic:OB.brkLic, brkName:OB.brkName
         };
         APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
-        loadUserProfile(userId);
+        // Refresh session so JWT picks up brokerage_id/role from trigger before loading platform
+        getSupabase().auth.refreshSession().then(function() {
+          setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        }).catch(function() {
+          setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        });
       });
     })
     .catch(function(err) {
@@ -12002,8 +12007,12 @@ function obInviteComplete(){
         phone:rep.brkPhone||rep.businessPhone||''
       };
       window._inviteContext = null;
-      // Wait for DB writes to propagate before loading profile
-      setTimeout(function(){ loadUserProfile(userId); }, 2500);
+      // Refresh session so JWT picks up new brokerage_id/role from trigger
+      getSupabase().auth.refreshSession().then(function() {
+        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+      }).catch(function() {
+        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+      });
     });
   })
   .catch(function(e){
