@@ -1131,7 +1131,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 <!-- DASHBOARD -->
 <div class="pg" id="pg-dashboard">
-  <div class="ph"><div class="ph-row"><div><div class="pt">Dashboard</div><div class="ps" id="dash-sub">—</div></div></div></div>
+  <div class="ph"><div class="ph-row"><div><div class="pt">Dashboard</div><div class="ps" id="dash-sub">—</div></div>
+  <div id="dash-hdr-actions"></div>
+  </div></div>
   <div class="pb" id="dash-body"></div>
 </div>
 
@@ -9466,10 +9468,15 @@ function renderDash() {
   // Super admin outside brokerage — show platform overview
   if (APP.currentUser.isSuperAdmin && !APP._adminContext) {
     if (sub) sub.textContent = 'Platform Overview';
+    var hdrActions = document.getElementById('dash-hdr-actions');
+    if (hdrActions) hdrActions.innerHTML = '<button class="btn pri" onclick="openCreateBrokerage()">+ Add Brokerage</button>';
     if (!el) return;
     renderSuperAdminDashboard(el);
     return;
   }
+  // Clear SA button for non-SA users
+  var hdrActions = document.getElementById('dash-hdr-actions');
+  if (hdrActions) hdrActions.innerHTML = '';
 
   if (sub) sub.textContent = (APP.brokerage.name||APP.currentUser.brkName||'—') + (APP.brokerage.lic?' · BCFSA '+APP.brokerage.lic:'');
   if (!el) return;
@@ -10484,7 +10491,7 @@ function showPg(pg) {
 
 
 var ROLE_TABS = {
-  'Super Admin':      ['dashboard','admin-brokerages','admin-kb'],
+  'Super Admin':      ['dashboard','admin-kb'],
   'Managing Broker':  ['dashboard','strata','brokerage','billing'],
   'Associate Broker': ['dashboard','strata','brokerage'],
   'Representative':   ['dashboard','strata'],
@@ -12909,21 +12916,21 @@ init();
 </script>
 <!-- Create Brokerage (SA) -->
 <div class="mo" id="mo-create-brk">
-  <div class="mo-box" style="max-width:480px">
+  <div class="mo-box" style="max-width:460px">
     <div class="mo-hd">
-      <div class="mo-t">Create Brokerage</div>
+      <div class="mo-t">Add Brokerage</div>
       <button class="mo-x" onclick="closeMo('mo-create-brk')">×</button>
     </div>
     <div class="mo-bd">
       <div class="fg">
         <label>BCFSA Brokerage Licence Number</label>
         <div style="display:flex;gap:8px">
-          <input type="text" id="crk-lic" placeholder="e.g. X012345" style="flex:1" oninput="this.value=this.value.toUpperCase()"/>
-          <button class="btn sm" onclick="crkLookup()">Look Up</button>
+          <input type="text" id="crk-lic" placeholder="e.g. X012345" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+          <button class="btn sm pri" onclick="crkLookup()">Look Up</button>
         </div>
       </div>
-      <div id="crk-result" style="display:none;margin-top:12px">
-        <div class="al info" id="crk-preview" style="margin-bottom:12px;font-size:13px;line-height:1.6"></div>
+      <div id="crk-result" style="display:none;margin-top:14px">
+        <div id="crk-preview" style="background:var(--g1);border-radius:6px;padding:12px 14px;font-size:13px;line-height:1.7;margin-bottom:14px;color:var(--ch)"></div>
         <div class="fg"><label>Managing Broker Email</label><input type="email" id="crk-email" placeholder="MB's email address"/></div>
         <div class="fg"><label>Temporary Password</label><input type="text" id="crk-pw" value="Neurata2025!" placeholder="Temporary password"/></div>
       </div>
