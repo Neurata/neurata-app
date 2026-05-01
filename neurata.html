@@ -1278,6 +1278,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <span class="mm-lbl" data-motion="1" style="margin-left:6px">Against</span><input id="mm-vagainst" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--red)" onchange="setVote(curItem,'against',this.value)" oninput="setVote(curItem,'against',this.value)"/>
       <span class="mm-lbl" data-motion="1" style="margin-left:6px">Abstain</span><input id="mm-vabstain" type="number" min="0" value="0" class="mm-ninput" data-motion="1" style="color:var(--g4)" onchange="setVote(curItem,'abstain',this.value)" oninput="setVote(curItem,'abstain',this.value)"/>
       <div class="mm-bdiv" data-motion="1"></div>
+      <span id="mm-threshold" data-motion="1" style="flex-shrink:0;font-size:11px;color:var(--g4);white-space:nowrap">Need —</span>
+      <div class="mm-bdiv" data-motion="1"></div>
       <div id="mm-mover-row" style="display:flex;align-items:center;gap:8px;flex-shrink:0" data-motion="1">
         <button class="btn sm" id="mm-unanimous-btn" onclick="unanimousVote()" style="display:none">Unanimous</button>
         <button class="btn sm" id="mm-defer-btn" onclick="deferItem()" style="display:none">Defer</button>
@@ -4867,12 +4869,55 @@ function addVote(id, t) { adjustVote(id, t, 1); }
 function saveNote(id,v){var it=MM.agenda.find(function(a){return a.id===id;});if(it)it.notes=v;}
 function saveMotion(id,v){var it=MM.agenda.find(function(a){return a.id===id;});if(it&&it.motion)it.motion.text=v;}
 function updOutcome(it){
-  var m=it.motion,tot=m.for+m.against+m.abstain,fp=tot?Math.round(m.for/tot*100):0;
-  var thr={MAJORITY:50,THREE_QUARTER:75,EIGHTY_PERCENT:80,UNANIMOUS:100}[m.dt]||50;
-  var el=document.getElementById('mm-outcome');if(!el)return;
-  if(m.outcome){el.textContent=m.outcome;el.style.color=m.outcome==='CARRIED'?'var(--grn)':'var(--red)';}
-  else if(tot>0){el.textContent=fp>=thr?'↑ Passing':'↓ Failing';el.style.color=fp>=thr?'var(--grn)':'var(--red)';}
-  else{el.textContent='Pending';el.style.color='var(--g4)';}
+  var m = it.motion;
+  var forVotes     = parseInt(m.for)     || 0;
+  var againstVotes = parseInt(m.against) || 0;
+  var abstainVotes = parseInt(m.abstain) || 0;
+  // Per SPA: threshold calculated on votes CAST (for + against), NOT including abstentions
+  var cast = forVotes + againstVotes;
+  var totalPresent = cast + abstainVotes;
+  var dtLabels = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80% Resolution',UNANIMOUS:'Unanimous Resolution'};
+  // Threshold = fraction of votes CAST (excluding abstentions)
+  var thresholdPct = {MAJORITY:50, THREE_QUARTER:75, EIGHTY_PERCENT:80, UNANIMOUS:100}[m.dt] || 50;
+  // Minimum votes needed (ceiling for majority, 3/4 etc.)
+  var needed = cast > 0 ? Math.ceil(cast * thresholdPct / 100) : '—';
+  // For majority: strictly MORE than half, so if cast is even, need cast/2 + 1
+  if (m.dt === 'MAJORITY' && cast > 0) needed = Math.floor(cast / 2) + 1;
+  if (m.dt === 'THREE_QUARTER' && cast > 0) needed = Math.ceil(cast * 3 / 4);
+  if (m.dt === 'EIGHTY_PERCENT' && cast > 0) needed = Math.ceil(cast * 0.8);
+  if (m.dt === 'UNANIMOUS' && totalPresent > 0) needed = totalPresent; // unanimous = ALL present
+
+  var passing = cast > 0 && (
+    (m.dt === 'MAJORITY'       && forVotes > cast / 2) ||
+    (m.dt === 'THREE_QUARTER'  && forVotes >= Math.ceil(cast * 3 / 4)) ||
+    (m.dt === 'EIGHTY_PERCENT' && forVotes >= Math.ceil(cast * 0.8)) ||
+    (m.dt === 'UNANIMOUS'      && forVotes === totalPresent && abstainVotes === 0 && againstVotes === 0)
+  );
+
+  // Threshold display
+  var thrEl = document.getElementById('mm-threshold');
+  if (thrEl) {
+    if (cast > 0) {
+      thrEl.textContent = 'Need ' + needed + ' of ' + cast + ' cast' + (abstainVotes ? ' (' + abstainVotes + ' abstaining)' : '');
+      thrEl.style.color = passing ? 'var(--grn)' : 'var(--red)';
+    } else {
+      thrEl.textContent = 'Need —';
+      thrEl.style.color = 'var(--g4)';
+    }
+  }
+
+  // Outcome display
+  var el = document.getElementById('mm-outcome'); if (!el) return;
+  if (m.outcome) {
+    el.textContent = m.outcome;
+    el.style.color = m.outcome === 'CARRIED' ? 'var(--grn)' : 'var(--red)';
+  } else if (cast > 0) {
+    el.textContent = passing ? 'Passing' : 'Failing';
+    el.style.color = passing ? 'var(--grn)' : 'var(--red)';
+  } else {
+    el.textContent = 'Pending';
+    el.style.color = 'var(--g4)';
+  }
 }
 function renderAtts(it){
   var el=document.getElementById('mm-atts');if(!el)return;
@@ -4926,10 +4971,27 @@ function renderAI(it){
     return '<div class="mm-aimsg '+m.role+' fi">'+escHtml(m.text)+'</div>';
   }).join('');
   if(!MM.ssLog.length){
+    // Build contextual chair script for this item type
+    var chairScript = '';
+    if (it) {
+      var dt = it.motion && it.motion.dt || '';
+      if (it.type === 'FOR_INFORMATION') {
+        chairScript = 'Chair: "' + escHtml(it.text) + ' is presented for information. [Present content]. Any questions or discussion? … The item is received and placed on file."';
+      } else if (dt === 'THREE_QUARTER') {
+        chairScript = 'Chair: "This item requires a Three-Quarter (¾) vote. The resolution wording was included in the meeting notice. [Read motion]. Moved by — Seconded by — Discussion? … Those in favour raise your hand — [count]. Those opposed — [count]. The ¾ resolution is [CARRIED/DEFEATED]." Note: If carried by less than 50% of all owners, the resolution cannot be implemented for one week (SPA s.50).';
+      } else if (dt === 'UNANIMOUS') {
+        chairScript = 'Chair: "This item requires a Unanimous vote — all eligible voters must be in favour. [Read resolution]. Moved by — Seconded by — Discussion? … Those in favour — [count]. Those opposed — [count]. Any abstentions? The Unanimous resolution is [CARRIED/DEFEATED]."';
+      } else if (it.motion) {
+        chairScript = 'Chair: "[Introduce ' + escHtml(it.text) + ']. Moved by — Seconded by — Discussion? … Those in favour raise your hand. Those opposed. The motion is [CARRIED/DEFEATED] by Majority vote."';
+      }
+    }
     var hint = (it && it.atts && it.atts.length)
       ? ' I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
       : ' Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
-    el.innerHTML='<div class="mm-aimsg pro fi">'+hint+'</div>';
+    el.innerHTML = (chairScript
+      ? '<div style="background:rgba(255,255,255,.06);border-left:2px solid var(--org);padding:7px 9px;border-radius:3px;font-size:10px;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:5px;font-style:italic">'+chairScript+'</div>'
+      : '')
+      + '<div class="mm-aimsg pro fi">'+hint+'</div>';
   }
   el.scrollTop=el.scrollHeight;
 }
@@ -5038,16 +5100,31 @@ function confirmDecision(){
     var mv  = document.getElementById('mm-mover').value;
     var secd= document.getElementById('mm-secd').value;
     if(!mv||!secd){ nAlert('Please select a Mover and Seconder before confirming.','Missing Info','warn'); return; }
-    var m=it.motion, tot=(m.for||0)+(m.against||0)+(m.abstain||0);
-    if(tot===0){ nAlert('Please record votes before confirming the decision.','No Votes Recorded','warn'); return; }
-    var thr={MAJORITY:50,THREE_QUARTER:75,EIGHTY_PERCENT:80,UNANIMOUS:100}[m.dt]||50;
-    var fp=Math.round((m.for||0)/tot*100);
-    var projected=fp>=thr?'CARRIED':'DEFEATED';
-    var msg='Confirm decision for:\n\n"'+it.text+'"\n\nMoved by: '+mv+'  ·  Seconded by: '+secd
-      +'\nVote: '+m.for+' in favour, '+m.against+' opposed, '+m.abstain+' abstain'
-      +'\nResult: '+projected+'\n\nThis cannot be undone.';
+    var m = it.motion;
+    var forVotes     = parseInt(m.for)     || 0;
+    var againstVotes = parseInt(m.against) || 0;
+    var abstainVotes = parseInt(m.abstain) || 0;
+    var cast = forVotes + againstVotes;
+    var totalPresent = cast + abstainVotes;
+    if (totalPresent === 0) { nAlert('Please record votes before confirming the decision.','No Votes Recorded','warn'); return; }
+    // Per SPA: threshold on votes cast (excluding abstentions)
+    var passing =
+      (m.dt === 'MAJORITY'       && forVotes > cast / 2) ||
+      (m.dt === 'THREE_QUARTER'  && forVotes >= Math.ceil(cast * 3 / 4)) ||
+      (m.dt === 'EIGHTY_PERCENT' && forVotes >= Math.ceil(cast * 0.8)) ||
+      (m.dt === 'UNANIMOUS'      && forVotes === totalPresent && abstainVotes === 0 && againstVotes === 0);
+    var projected = passing ? 'CARRIED' : 'DEFEATED';
+    var dtLabel = {MAJORITY:'Majority',THREE_QUARTER:'3/4 Resolution',EIGHTY_PERCENT:'80% Resolution',UNANIMOUS:'Unanimous'}[m.dt]||m.dt;
+    var msg = 'Confirm decision for:\n\n"' + it.text + '"\n\n'
+      + 'Moved by: ' + mv + '  ·  Seconded by: ' + secd + '\n'
+      + dtLabel + ' vote: ' + forVotes + ' in favour, ' + againstVotes + ' opposed' + (abstainVotes ? ', ' + abstainVotes + ' abstaining' : '') + '\n'
+      + 'Votes cast: ' + cast + (abstainVotes ? ' (abstentions excluded from threshold)' : '') + '\n'
+      + 'Result: ' + projected + '\n\nThis cannot be undone.';
     var icon = projected==='CARRIED'?'success':'danger';
-    nConfirm(msg, function(ok){
+    // Warn on ¾ votes that the wording must have been in the notice
+    var noticeWarn = (m.dt === 'THREE_QUARTER' || m.dt === 'EIGHTY_PERCENT' || m.dt === 'UNANIMOUS')
+      ? '\n\n[!] Confirm the exact wording of this resolution was included with the meeting notice (SPA s.45).' : '';
+    nConfirm(msg + noticeWarn, function(ok){
       if(!ok) return;
       m.outcome=projected; m.mover=mv; m.sec=secd;
       _confirmDecisionProceed(it);
@@ -5099,6 +5176,10 @@ function _confirmDecisionProceed(it){
     }
   }
   renderCtr(it); renderMmNav(); if(it.motion) updOutcome(it);
+  // Auto-generate structured minutes summary if not already set
+  if (it.motion && !it.minutesSummary) {
+    it.minutesSummary = buildMinutesSummary(it);
+  }
   mmSyncToMtg();
   // Reset vote inputs and mover/seconder
   ['mm-vfor','mm-vagainst','mm-vabstain'].forEach(function(id){
@@ -5120,7 +5201,9 @@ function mmNextItem() {
   if (!it.done) {
     it.done = true;
     if (!it.minutesSummary) {
-      it.minutesSummary = 'The council reviewed and discussed ' + (it.text||'this item') + '.';
+      it.minutesSummary = it.motion
+        ? buildMinutesSummary(it)
+        : (it.text||'This item') + ' was received and placed on file.';
     }
     renderCtr(it); renderMmNav(); mmSyncToMtg();
   }
@@ -5137,6 +5220,47 @@ function mmAdvance(){
   if(MM.agenda.length>0 && MM.agenda.every(function(a){return a.done;})){
     nConfirm('All agenda items are complete. Adjourn the meeting now?', function(ok){ if(ok) adjournMtg(); }, 'Meeting Complete', 'success');
   }
+}
+
+function buildMinutesSummary(it) {
+  // Structured minutes format per BC SPA and Chapter 15/16:
+  // "Minutes reflect what is DONE, not what is SAID"
+  if (!it) return '';
+  var m = it.motion;
+  var cat = it.cat || '';
+  var dtLabel = m ? ({MAJORITY:'Majority',THREE_QUARTER:'Three-Quarter (3/4)',EIGHTY_PERCENT:'80%',UNANIMOUS:'Unanimous'}[m.dt]||'Majority') : '';
+
+  // Information/Report items — no vote
+  if (it.type === 'FOR_INFORMATION' || !m) {
+    return it.text + ' was presented for information. The item was received and placed on file.';
+  }
+
+  // Motion items — structured format
+  var forVotes     = parseInt(m.for)     || 0;
+  var againstVotes = parseInt(m.against) || 0;
+  var abstainVotes = parseInt(m.abstain) || 0;
+  var cast         = forVotes + againstVotes;
+  var outcome      = m.outcome || 'CARRIED';
+
+  var voteStr = '';
+  if (abstainVotes > 0) {
+    voteStr = forVotes + ' in favour, ' + againstVotes + ' opposed, ' + abstainVotes + ' abstaining — ' + outcome + ' by ' + dtLabel + ' vote';
+  } else {
+    voteStr = forVotes + ' in favour, ' + againstVotes + ' opposed — ' + outcome + ' by ' + dtLabel + ' vote';
+  }
+
+  var summary = 'MOTION: Moved by ' + (m.mover||'—') + ', seconded by ' + (m.sec||'—') + '.\n';
+  if (m.text) summary += 'RESOLVED: ' + m.text + '\n';
+  summary += 'VOTE: ' + voteStr + '.';
+
+  if (m.dt === 'THREE_QUARTER' && outcome === 'CARRIED' && cast > 0) {
+    summary += ' (Note: ¾ vote resolutions require a one-week implementation delay unless immediate action is required for safety.)';
+  }
+  if (outcome === 'DEFEATED') {
+    summary += ' No further action to be taken on this matter at this time.';
+  }
+
+  return summary;
 }
 
 function saveMinSummary(id, val) {
@@ -5288,7 +5412,7 @@ function _unanimousProceed(it, mv, secd, presentCount) {
   it.motion.sec     = secd;
   it.done = true;
   if (!it.minutesSummary) {
-    it.minutesSummary = 'A motion was moved by '+mv+' and seconded by '+secd+'. The motion CARRIED unanimously ('+presentCount+' in favour).';
+    it.minutesSummary = buildMinutesSummary(it);
   }
   // Update vote displays
   var vfor=document.getElementById('mm-vfor'); if(vfor){vfor.value=presentCount;vfor.disabled=true;}
