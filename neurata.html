@@ -7484,53 +7484,25 @@ function crkLookup() {
 
 function crkSave() {
   if (!_crkData) return;
-  var email = (document.getElementById('crk-email').value||'').trim();
-  var pw    = (document.getElementById('crk-pw').value||'').trim();
   var errEl = document.getElementById('crk-err');
   errEl.style.display = 'none';
-  if (!email || email.indexOf('@')<0) { errEl.textContent = 'Enter a valid email address for the Managing Broker.'; errEl.style.display=''; return; }
-  if (!pw || pw.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display=''; return; }
-
   var btn = document.getElementById('crk-save-btn');
   btn.disabled = true; btn.textContent = 'Creating…';
 
-  // Look up MB from BCFSA by searching brokerage staff
-  // First create the brokerage row, then create the MB user account
-  var brkRow = {
-    bcfsa_lic:          _crkData.lic,
-    name:               _crkData.name || '',
-    address:            _crkData.address || '',
-    phone:              _crkData.phone || '',
+  getSupabase().from('brokerages').insert({
+    bcfsa_lic:           _crkData.lic,
+    name:                _crkData.name || '',
+    address:             _crkData.address || '',
+    phone:               _crkData.phone || '',
     subscription_status: 'trial',
-    trial_meetings_used: 0,
-    email:              email
-  };
-
-  getSupabase().from('brokerages').insert(brkRow)
+    trial_meetings_used: 0
+  })
   .then(function(r) {
-    if (r.error) throw new Error(r.error.message);
-    // Create MB auth account
-    return fetch(WORKER_URL + '/admin/create-user', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ email: email, password: pw, brokerage_id: _crkData.lic, role: 'Managing Broker' })
-    }).then(function(res){ return res.json(); });
-  })
-  .then(function(d) {
-    if (d.error) throw new Error(d.error);
-    // Write users row
-    return getSupabase().from('users').insert({
-      id:           d.userId,
-      brokerage_id: _crkData.lic,
-      full_name:    d.userId, // will be updated when MB logs in
-      role:         'Managing Broker',
-      email:        email
-    });
-  })
-  .then(function() {
-    closeMo('mo-create-brk');
     btn.disabled = false; btn.textContent = 'Create Brokerage';
-    nAlert(_crkData.name + ' created. The Managing Broker can log in with ' + email + ' and the temporary password.', 'Brokerage Created', 'success');
-    renderAdminBrokerages();
+    if (r.error) throw new Error(r.error.message);
+    closeMo('mo-create-brk');
+    nAlert(_crkData.name + ' added. Use the Reps tab to invite Managing Brokers and Representatives.', 'Brokerage Created', 'success');
+    renderDash();
   })
   .catch(function(e) {
     btn.disabled = false; btn.textContent = 'Create Brokerage';
@@ -12931,8 +12903,6 @@ init();
       </div>
       <div id="crk-result" style="display:none;margin-top:14px">
         <div id="crk-preview" style="background:var(--g1);border-radius:6px;padding:12px 14px;font-size:13px;line-height:1.7;margin-bottom:14px;color:var(--ch)"></div>
-        <div class="fg"><label>Managing Broker Email</label><input type="email" id="crk-email" placeholder="MB's email address"/></div>
-        <div class="fg"><label>Temporary Password</label><input type="text" id="crk-pw" value="Neurata2025!" placeholder="Temporary password"/></div>
       </div>
       <div id="crk-err" class="al warn" style="display:none;margin-top:10px"></div>
     </div>
