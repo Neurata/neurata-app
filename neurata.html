@@ -2306,20 +2306,148 @@ function renumAgenda(agenda) {
 }
 
 function buildAgendaFromTemplate(type) {
-  var cats = type === 'agm' ? [
-    {name:'Call to Order',            items:['Call to Order']},
-    {name:'Approve Agenda',           items:['Approve Agenda']},
-    {name:'Approve Previous AGM Minutes', items:['Approve Previous AGM Minutes']},
-    {name:'Election of Chairperson',  items:['Election of Chairperson']},
-    {name:'Financial Statements',     items:['Review Financial Statements','Approval of Operating Budget']},
-    {name:'Strata Council Election',  items:['Strata Council Election']},
-    {name:'New Business',             items:['Motion(s) for Vote']},
-    {name:'Next Meeting Date',        items:['Set Next AGM Date']},
-    {name:'Adjournment',              items:['Adjournment']}
-  ] : TEMPLATE_CATS;
+  // Templates based on BC SPA Standard Bylaws s.28 order of business (Chapter 15)
+  // and Chapter 16 meeting planning best practices
 
-  var needsMotionItems = ['Approve Agenda','Approve Previous Minutes','Approve Previous AGM Minutes',
-    'Approval of Operating Budget','Election of Chairperson','Strata Council Election','Motion(s) for Vote'];
+  var templates = {
+
+    // AGM — SPA s.28 full order of business
+    agm: [
+      {name:'Opening',              items:[
+        {text:'Call to Order',                        type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Credentials',          items:[
+        {text:'Certify Proxies and Issue Voting Cards', type:'FOR_INFORMATION', dt:null},
+        {text:'Determine Quorum',                     type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Chair',                items:[
+        {text:'Elect Chairperson (if necessary)',     type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Administrative',       items:[
+        {text:'Proof of Notice of Meeting',           type:'FOR_INFORMATION', dt:null},
+        {text:'Approve Agenda',                       type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Minutes',              items:[
+        {text:'Approve Minutes of Previous AGM',      type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Unfinished Business',  items:[
+        {text:'Business Arising from Previous AGM',  type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Council Reports',      items:[
+        {text:'Report on Council Activities Since Previous AGM', type:'FOR_INFORMATION', dt:null},
+        {text:'Committee Reports',                   type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Rules',                items:[
+        {text:'Ratify New Rules (if any) Under SPA s.125', type:'FOR_APPROVAL', dt:'MAJORITY'}
+      ]},
+      {name:'Insurance',            items:[
+        {text:'Insurance Coverage Report (SPA s.154)', type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Budget',               items:[
+        {text:'Approve Budget for Coming Fiscal Year (SPA s.103)', type:'FOR_APPROVAL', dt:'MAJORITY'}
+      ]},
+      {name:'New Business',         items:[
+        {text:'New Business — Majority Vote Item',   type:'FOR_APPROVAL',    dt:'MAJORITY'},
+        {text:'New Business — 3/4 Vote Resolution',  type:'FOR_APPROVAL',    dt:'THREE_QUARTER'}
+      ]},
+      {name:'Elections',            items:[
+        {text:'Election of Strata Council (SPA s.25)', type:'FOR_APPROVAL',  dt:'MAJORITY'}
+      ]},
+      {name:'Adjournment',          items:[
+        {text:'Adjournment',                          type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]}
+    ],
+
+    // SGM — same order as AGM minus budget/elections/reports, first item is the requisitioned matter
+    sgm: [
+      {name:'Opening',              items:[
+        {text:'Call to Order',                        type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Credentials',          items:[
+        {text:'Certify Proxies and Issue Voting Cards', type:'FOR_INFORMATION', dt:null},
+        {text:'Determine Quorum',                     type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Chair',                items:[
+        {text:'Elect Chairperson (if necessary)',     type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Administrative',       items:[
+        {text:'Proof of Notice of Meeting',           type:'FOR_INFORMATION', dt:null},
+        {text:'Approve Agenda',                       type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Minutes',              items:[
+        {text:'Approve Minutes of Previous Meeting',  type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Special Business',     items:[
+        {text:'Requisitioned Matter — [Describe]',   type:'FOR_APPROVAL',    dt:'MAJORITY'},
+        {text:'3/4 Vote Resolution — [Describe]',    type:'FOR_APPROVAL',    dt:'THREE_QUARTER'}
+      ]},
+      {name:'New Business',         items:[
+        {text:'Other New Business',                   type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Adjournment',          items:[
+        {text:'Adjournment',                          type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]}
+    ],
+
+    // Council Meeting — Standard Bylaws; all decisions by majority vote, no proxies
+    council: [
+      {name:'Opening',              items:[
+        {text:'Call to Order',                        type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Administrative',       items:[
+        {text:'Approve Agenda',                       type:'FOR_APPROVAL',    dt:'MAJORITY'},
+        {text:'Approve Minutes of Previous Council Meeting', type:'FOR_APPROVAL', dt:'MAJORITY'}
+      ]},
+      {name:'Financial',            items:[
+        {text:'Review Financial Statements',          type:'FOR_APPROVAL',    dt:'MAJORITY'},
+        {text:'Collections and Receivables',          type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Maintenance',          items:[
+        {text:'Review of Monthly/Annual Maintenance', type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Correspondence',       items:[
+        {text:'Review Correspondence',                type:'FOR_INFORMATION', dt:null},
+        {text:'Bylaw Enforcement Matters',            type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'New Business',         items:[
+        {text:'New Business Item',                    type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Next Meeting',         items:[
+        {text:'Set Next Meeting Date',                type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Adjournment',          items:[
+        {text:'Adjournment',                          type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]}
+    ],
+
+    // Committee Meeting — informal, no voting cards, majority of those present
+    committee: [
+      {name:'Opening',              items:[
+        {text:'Call to Order',                        type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Administrative',       items:[
+        {text:'Approve Agenda',                       type:'FOR_APPROVAL',    dt:'MAJORITY'},
+        {text:'Approve Previous Meeting Notes',       type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]},
+      {name:'Committee Business',   items:[
+        {text:'Review Committee Mandate and Terms of Reference', type:'FOR_INFORMATION', dt:null},
+        {text:'Status Update — Active Projects',      type:'FOR_INFORMATION', dt:null},
+        {text:'Committee Recommendation — [Describe]', type:'FOR_APPROVAL',  dt:'MAJORITY'}
+      ]},
+      {name:'Action Items',         items:[
+        {text:'Review and Assign Action Items',       type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Next Meeting',         items:[
+        {text:'Set Next Meeting Date',                type:'FOR_INFORMATION', dt:null}
+      ]},
+      {name:'Adjournment',          items:[
+        {text:'Adjournment',                          type:'FOR_APPROVAL',    dt:'MAJORITY'}
+      ]}
+    ]
+  };
+
+  var cats = templates[type] || templates.council;
+  var needsMotionTypes = ['FOR_APPROVAL','FOR_VOTE'];
   var agenda = [];
   cats.forEach(function(cat) {
     var catId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
@@ -2327,7 +2455,7 @@ function buildAgendaFromTemplate(type) {
       var itemName = typeof item === 'string' ? item : item.text;
       var itemType = typeof item === 'object' && item.type ? item.type : 'FOR_INFORMATION';
       var itemDt   = typeof item === 'object' && item.dt   ? item.dt   : 'MAJORITY';
-      var needsM   = NEEDS_MOTION.indexOf(itemType) >= 0;
+      var needsM   = needsMotionTypes.indexOf(itemType) >= 0;
       agenda.push(mkItem(itemName, cat.name, {
         catId:  catId,
         type:   itemType,
