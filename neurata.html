@@ -734,7 +734,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="ob-h">Terms &amp; Agreement</div>
         <div class="ob-s">Review and accept the Neurata End User Agreement to complete your account.</div>
         <div class="eua" id="eua-scroll" onscroll="euaScrollCheck()" style="position:relative;">
-          <h4>NEURATA PLATFORM END USER AGREEMENT (Effective March 15, 2026)</h4>
+          <h4>NEURATA PLATFORM END USER AGREEMENT (Effective May 1, 2026)</h4>
           <h4>1. Acceptance</h4>
           <p>By creating an account you agree to be bound by this Agreement. If using the platform on behalf of a brokerage or strata corporation, you represent that you have authority to do so.</p>
           <h4>2. Brokerage &amp; Representative Structure</h4>
@@ -746,14 +746,17 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <h4>5. StrataSphere &amp; Data Processing</h4>
           <p><strong>Local StrataSphere.</strong> Meeting minutes, agendas, decisions, and uploaded documents are stored and processed within your brokerage's private StrataSphere instance. This data is accessible only to authorized representatives of your brokerage and is never shared with other brokerages or third parties.</p>
           <p><strong>Global StrataSphere.</strong> If you opt into Global StrataSphere, anonymized and de-identified governance data (motions, decisions, and vote outcomes) may be aggregated across the platform to generate cross-portfolio insights. Before any data is contributed to the Global StrataSphere, Neurata applies automated PII stripping to remove all personally identifiable information including owner names, strata lot identifiers linked to individuals, contact details, and any other information that could identify a natural person.</p>
-          <p><strong>PII &amp; PIPA Compliance.</strong> Neurata processes personal information in accordance with the <em>Personal Information Protection Act</em> (PIPA, BC). Personal information collected during account creation (name, email, BCFSA licence number) is used solely for authentication, account management, and regulatory verification. Meeting minutes and documents may contain personal information about strata lot owners — by uploading such content, you confirm that you have the authority to do so under applicable strata legislation and your brokerage's privacy policies.</p>
-          <p><strong>Data Residency.</strong> All data is stored on servers located in Canada (Toronto region). No personal information is transferred outside of Canada.</p>
-          <p><strong>AI Processing.</strong> Neurata uses AI (Anthropic Claude) to generate meeting minutes summaries and parse uploaded documents. Content sent to the AI is subject to Anthropic's data processing terms. Neurata does not permit Anthropic to use your content to train AI models.</p>
+          <p><strong>PII &amp; PIPA Compliance.</strong> Neurata processes personal information in accordance with the <em>Personal Information Protection Act</em> (PIPA, BC) and the <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA). Personal information collected during account creation (name, email, BCFSA licence number) is used solely for authentication, account management, and regulatory verification. Meeting minutes and documents may contain personal information about strata lot owners — by uploading such content, you confirm that you have the authority to do so under applicable strata legislation and your brokerage's privacy policies.</p>
+          <p><strong>Data Residency.</strong> Primary data storage is on servers located in Canada (Toronto region) via Supabase. Neurata uses Cloudflare Workers for API processing (edge network, global) and Anthropic's Claude AI for StrataSphere and minutes generation. AI queries are transmitted to Anthropic's servers for processing. Neurata does not permit Anthropic to use your content to train AI models. Payment processing is handled by Stripe. Transactional email is delivered via MailTrap. Where data is processed outside Canada, Neurata relies on industry-standard data processing agreements with those providers.</p>
+          <p><strong>AI Processing.</strong> When you submit a query to StrataSphere, relevant strata governance data is sent to Anthropic's Claude AI for processing. Personal identifiers are replaced with strata lot numbers before transmission. Queries are not used to train AI models. AI-generated responses may contain errors and should not be relied upon as legal advice.</p>
+          <p><strong>Surveillance &amp; Key Fob Data.</strong> If you upload documents or records containing surveillance or key fob data, you confirm that your strata corporation has a PIPA-compliant surveillance policy in place and that the data has been collected for a verifiable security purpose as required by the BC Office of the Information and Privacy Commissioner (OIPC).</p>
           <h4>6. Data Ownership</h4>
           <p>All content related to a Strata Corporation is owned by that Strata Corporation. Neurata will not prevent data portability regardless of subscription or brokerage status.</p>
           <h4>7. Authorization</h4>
           <p>By creating an account, you confirm that you are a licensed BCFSA representative in good standing, authorized to act on behalf of your brokerage and any strata corporations assigned to you on the platform.</p>
-          <h4>8. Governing Law</h4>
+          <h4>8. Access Requests &amp; Privacy Rights</h4>
+          <p>Under PIPA, individuals have the right to access, correct, and request deletion of their personal information. To submit an access request or privacy complaint, contact <a href="mailto:privacy@neurata.ai" style="color:var(--org)">privacy@neurata.ai</a>. Neurata will respond within 30 days as required by PIPA s.29. If you are unsatisfied with our response, you may file a complaint with the <a href="https://www.oipc.bc.ca" target="_blank" style="color:var(--org)">Office of the Information and Privacy Commissioner for BC</a>.</p>
+          <h4>9. Governing Law</h4>
           <p>Governed by the laws of British Columbia, Canada.</p>
         </div>
         <div id="eua-scroll-msg" style="font-size:11px;color:var(--g4);text-align:center;margin-bottom:8px;">↓ Scroll through the agreement to enable</div><label class="ob-ck" id="eua-ck-label" style="opacity:.4;pointer-events:none;"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()" disabled><span>I have read and agree to the Neurata End User Agreement above, including the terms governing StrataSphere data processing and PII handling.</span></label>
@@ -4331,22 +4334,51 @@ var GSS_SAFE_DOC_TYPES = ['bylaws', 'strata-plan', 'policy'];
 
 function stripDocTextPII(text) {
   if (!text) return text;
-  var emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-  var phoneRe = /(\+?1[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g;
-  return text
-    .replace(emailRe, '[email redacted]')
-    .replace(phoneRe, '[phone redacted]')
+  // Core identifiers
+  var emailRe   = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  var phoneRe   = /(\+?1[\s\-.]?)?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}/g;
+  var sinRe     = /\b\d{3}[\s\-]\d{3}[\s\-]\d{3}\b/g;                          // SIN: 000-000-000
+  var creditRe  = /\b(?:\d{4}[\s\-]){3}\d{4}\b/g;                               // Credit card: 0000-0000-0000-0000
+  var bankRe    = /\b\d{5}[\s\-]\d{3}[\s\-]\d{7,12}\b/g;                        // Transit-Institution-Account
+  // BC licence plates: 2-3 letters + 3 digits (old) or 3 letters + 3 digits (new) or custom
+  var plateRe   = /\b[A-Z]{2,3}[\s\-]?\d{3,4}\b/g;
+  // Insurance policy numbers: typically alphanumeric 8-12 chars
+  var insurRe   = /\b[A-Z]{2,3}[\s\-]?\d{6,10}\b/g;
+  // SL numbers to preserve
+  var slPreserve = [];
+  var slMatches = text.match(/\bSL\s*\d{1,4}\b/gi) || [];
+  slMatches.forEach(function(m){ slPreserve.push(m); });
+
+  var result = text
+    .replace(emailRe,  '[email redacted]')
+    .replace(phoneRe,  '[phone redacted]')
+    .replace(sinRe,    '[SIN redacted]')
+    .replace(creditRe, '[payment info redacted]')
+    .replace(bankRe,   '[banking info redacted]')
+    // Names: Title Case 2-3 word sequences, with whitelist
     .replace(/\b(?!SL\s*\d)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b/g, function(match) {
       var whitelist = ['Strata Property','Managing Broker','Associate Broker',
         'Council President','Vice President','Strata Council','British Columbia',
         'Property Act','Fire Code','Building Code','City Council','Strata Manager',
         'Real Estate','Personal Information','Protection Act','Annual General',
-        'Special General','Section One','Section Two','Part One','Part Two'];
+        'Special General','Section One','Section Two','Part One','Part Two',
+        'Limited Common','Common Property','Contingency Reserve','Special Levy'];
       for (var i = 0; i < whitelist.length; i++) {
         if (match.indexOf(whitelist[i]) >= 0 || whitelist[i].indexOf(match) >= 0) return match;
       }
       return '[name redacted]';
     });
+
+  // Apply plate/insurance stripping after name stripping (so we don't double-strip)
+  // Only strip if NOT preceded by "SL" (to avoid clobbering strata lot refs)
+  result = result.replace(/(?<!SL[\s]?)\b[A-Z]{2,3}[\s\-]?\d{3,4}\b/g, function(m) {
+    // Preserve known strata terms like "SPA", "CRF", "AGM", "SGM", "SPR"
+    var keep = ['SPA','CRF','AGM','SGM','SPR','CRT','LTD','INC','GST','PST','HST'];
+    if (keep.indexOf(m.replace(/[\s\-\d]/g,'')) >= 0) return m;
+    return '[identifier redacted]';
+  });
+
+  return result;
 }
 
 function buildGssContext() {
@@ -6476,19 +6508,20 @@ function stripPII(decisions) {
     clean.mover = cleanPerson(clean.mover);
     clean.sec   = cleanPerson(clean.sec);
 
-    // Scrub motion text and item text of emails, phones, and proper names
+    // Scrub motion text and item text of PII
     function scrubText(txt) {
       if (!txt) return txt;
       return txt
         .replace(emailRe, '[email redacted]')
         .replace(phoneRe, '[phone redacted]')
-        // Remove sequences that look like proper names (Title Case 2+ words)
-        // but preserve SL numbers and common strata terms
+        .replace(/\b\d{3}[\s\-]\d{3}[\s\-]\d{3}\b/g, '[SIN redacted]')
+        .replace(/\b(?:\d{4}[\s\-]){3}\d{4}\b/g, '[payment info redacted]')
+        .replace(/\b\d{5}[\s\-]\d{3}[\s\-]\d{7,12}\b/g, '[banking info redacted]')
         .replace(/\b(?!SL\s*\d)([A-Z][a-z]{1,20}\s+[A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b/g, function(match) {
-          // Whitelist: known strata/legal terms that happen to be Title Case
           var whitelist = ['Strata Property','Managing Broker','Associate Broker',
             'Council President','Vice President','Strata Council','British Columbia',
-            'Property Act','Fire Code','Building Code','City Council','Strata Manager'];
+            'Property Act','Fire Code','Building Code','City Council','Strata Manager',
+            'Limited Common','Common Property','Contingency Reserve','Special Levy'];
           for (var i=0; i<whitelist.length; i++) {
             if (match.indexOf(whitelist[i]) >= 0 || whitelist[i].indexOf(match) >= 0) return match;
           }
