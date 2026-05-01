@@ -1176,6 +1176,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <div class="pb" id="admin-brokerages-body"></div>
 </div>
 
+<!-- ADMIN KNOWLEDGE BASE (Super Admin only) -->
+<div class="pg" id="pg-admin-kb">
+  <div class="ph"><div class="ph-row"><div><div class="pt">Knowledge Base</div><div class="ps">Global StrataSphere educational content — feeds all SS conversations platform-wide</div></div></div></div>
+  <div class="pb" id="admin-kb-body"></div>
+</div>
+
 <!-- BILLING (MB only) -->
 <div class="pg" id="pg-billing">
   <div class="ph"><div class="pt">Billing</div><div class="ps">Pre-Authorized Debit · Annual billing · Managing Broker only</div></div>
@@ -4388,6 +4394,22 @@ function buildGssContext() {
     lines.push('');
   });
 
+  // Neurata global educational content — feeds all GSS conversations
+  var globalDocs = APP._globalKbDocs || [];
+  if (globalDocs.length) {
+    lines.push('=== STRATA MANAGER EDUCATIONAL RESOURCES ===');
+    lines.push('The following educational materials inform strata governance best practices in BC.');
+    lines.push('');
+    globalDocs.forEach(function(d) {
+      if (!d.documentText || !d.documentText.trim()) return;
+      var txt = d.documentText.trim();
+      if (txt.length > 12000) txt = txt.slice(0, 12000) + '\n… [truncated]';
+      lines.push('[EDUCATIONAL: ' + (d.name||'') + ']');
+      lines.push(txt);
+      lines.push('');
+    });
+  }
+
   return lines.join('\n');
 }
 
@@ -7515,6 +7537,120 @@ function crkSave() {
   });
 }
 
+// ── SA: Knowledge Base ────────────────────────────────────────────────────────
+function renderAdminKB() {
+  var el = document.getElementById('admin-kb-body');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px">Loading knowledge base…</div>';
+  getSupabase().from('documents').select('*').eq('sc_id','NEURATA_GLOBAL').order('name')
+  .then(function(r) {
+    if (r.error) { el.innerHTML = '<div class="al warn">Error loading documents.</div>'; return; }
+    var docs = r.data || [];
+    var html = '<div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
+      + '<div style="font-size:13px;color:var(--g4)">'+docs.length+' document'+(docs.length!==1?'s':'')+' in the global knowledge base. Indexed documents feed StrataSphere platform-wide.</div>'
+      + '<button class="btn sm pri" onclick="kbUploadDoc()">+ Upload Document</button>'
+      + '</div>';
+    if (!docs.length) {
+      html += '<div class="card"><div class="cb" style="color:var(--g4)">No documents yet. Upload PDFs to build the global knowledge base.</div></div>';
+    } else {
+      docs.forEach(function(doc) {
+        var hasText = doc.document_text && doc.document_text.trim().length > 0;
+        var statusPill = hasText
+          ? '<span class="tag grn" style="font-size:10px">Indexed</span>'
+          : '<span class="tag gy" style="font-size:10px">Not Indexed</span>';
+        html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_">'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600">'+escHtml(doc.name)+'</div>'
+          + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(doc.source_label||'Educational')+'</div>'
+          + '</div>'
+          + statusPill
+          + '<div class="br">'
+          + (!hasText ? '<button class="btn sm" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)">Index</button>' : '')
+          + (hasText ? '<button class="btn xs" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)" style="color:var(--g4)">Re-index</button>' : '')
+          + '</div>'
+          + '</div></div>';
+      });
+    }
+    el.innerHTML = html;
+  });
+}
+
+function indexGlobalDoc(btn) {
+  var docId = btn.dataset.id;
+  var path  = btn.dataset.path;
+  var name  = btn.dataset.name;
+  if (!path) { nAlert('No storage path for this document.','','warn'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Indexing…';
+
+  // Fetch file from Supabase storage then run PDF.js
+  getSupabase().storage.from('neurata-documents').createSignedUrl(path, 300)
+  .then(function(r) {
+    if (r.error || !r.data) throw new Error('Could not get file URL');
+    return fetch(r.data.signedUrl);
+  })
+  .then(function(r) { return r.arrayBuffer(); })
+  .then(function(buf) {
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded');
+    return pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+      var pages = [];
+      for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+      return pages.reduce(function(chain, n) {
+        return chain.then(function(texts) {
+          return pdf.getPage(n).then(function(pg) {
+            return pg.getTextContent().then(function(c) {
+              texts.push(c.items.map(function(item){ return item.str; }).join(' '));
+              return texts;
+            });
+          });
+        });
+      }, Promise.resolve([]));
+    });
+  })
+  .then(function(texts) {
+    var fullText = texts.join('\n\n').trim();
+    if (!fullText) throw new Error('No text extracted — PDF may be image-only');
+    return getSupabase().from('documents').update({document_text: fullText}).eq('id', docId);
+  })
+  .then(function(r) {
+    if (r.error) throw new Error(r.error.message);
+    nAlert(name + ' indexed successfully.', 'Indexed', 'success');
+    renderAdminKB();
+  })
+  .catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = 'Retry';
+    nAlert('Indexing failed: ' + (e.message||'unknown error'), 'Error', 'warn');
+  });
+}
+
+function kbUploadDoc() {
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.pdf,.doc,.docx,.txt'; inp.multiple = true;
+  inp.onchange = function() {
+    Array.from(inp.files).forEach(function(f) {
+      var path = 'neurata-global/educational/' + Date.now() + '_' + f.name.replace(/\s+/g,'_');
+      getSupabase().storage.from('neurata-documents').upload(path, f, {upsert:true})
+      .then(function(ur) {
+        if (ur.error) { nAlert('Upload failed: '+ur.error.message,'','warn'); return; }
+        return getSupabase().from('documents').insert({
+          sc_id: 'NEURATA_GLOBAL', name: f.name,
+          source: 'neurata-educational', source_label: 'Strata Manager Education',
+          mime_type: f.type, storage_path: path,
+          uploaded_at: new Date().toISOString()
+        }).select('id').single();
+      })
+      .then(function(r) {
+        if (!r || !r.data) return;
+        nAlert(f.name + ' uploaded. Click Index to extract text.', 'Uploaded', 'success');
+        renderAdminKB();
+      })
+      .catch(function(e){ nAlert('Error: '+e.message,'','warn'); });
+    });
+  };
+  inp.click();
+}
+
 function adminEnterBrokerage(brkLic) {
   var b = (APP._allBrokerages || []).find(function(x){ return x.bcfsa_lic === brkLic; });
   if (!b) return;
@@ -8815,6 +8951,12 @@ function launchPlatform(){
   if(nm)nm.textContent=u.name||'—';
   var mn=document.getElementById('menu-name');var ml=document.getElementById('menu-lic');
   if(mn)mn.textContent=u.name||'';if(ml)ml.textContent=u.lic?'Licence #'+u.lic:'';
+
+  // Load global KB docs for GSS context (background, non-blocking)
+  getSupabase().from('documents').select('name,document_text,source_label')
+    .eq('sc_id','NEURATA_GLOBAL').not('document_text','is',null)
+    .then(function(r){ APP._globalKbDocs = r.data || []; })
+    .catch(function(){ APP._globalKbDocs = []; });
   // Council Delegate — go straight to their SC's meetings page
   var isDelegate = (u.role === 'Council Delegate');
   if (isDelegate && APP.sc.length) {
@@ -10307,6 +10449,7 @@ function showPg(pg) {
   if (pg === 'brokerage')     renderBrokerage();
   if (pg === 'billing')       { APP.pendingRequests = undefined; renderBilling(); }
   if (pg === 'admin-brokerages') renderAdminBrokerages();
+  if (pg === 'admin-kb') renderAdminKB();
   if (pg === 'profile')       renderProfile();
   if (pg === 'mm')            initMM();
   // Show/hide sidebar
@@ -10317,7 +10460,7 @@ function showPg(pg) {
 
 
 var ROLE_TABS = {
-  'Super Admin':      ['dashboard'],
+  'Super Admin':      ['dashboard','admin-brokerages','admin-kb'],
   'Managing Broker':  ['dashboard','strata','brokerage','billing'],
   'Associate Broker': ['dashboard','strata','brokerage'],
   'Representative':   ['dashboard','strata'],
@@ -10327,9 +10470,9 @@ var ROLE_TABS = {
 };
 var TAB_LABELS = {
   dashboard:'Dashboard', strata:'Strata Corps', meetings:'Meetings',
-  brokerage:'Brokerage', billing:'Billing'
-,
-  'admin-brokerages': 'Brokerages'
+  brokerage:'Brokerage', billing:'Billing',
+  'admin-brokerages': 'Brokerages',
+  'admin-kb': 'Knowledge Base'
 };
 
 
@@ -11043,11 +11186,30 @@ function sendSupportMsg() {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
       model: 'claude-sonnet-4-6', max_tokens: 500,
-      system: 'You are the Neurata platform support assistant. Neurata is a BC strata management platform for licensed brokerages. '
-        + 'Help with: account setup, adding strata corporations via Strata Plan upload, Meeting Mode (agendas, minutes, decisions), '
-        + 'StrataSphere AI (document indexing, bylaws, past decisions), billing (Meeting Mode CA$39/month + StrataSphere CA$1.49-2.49/lot/month), '
-        + 'inviting Representatives and Assistants, council delegates, and BC strata governance. '
-        + 'Be concise — 2-3 sentences max. Friendly and direct. If unsure, suggest emailing support@neurata.ai.',
+      system: 'You are the Neurata platform support assistant. Answer questions about the Neurata platform only. '
+        + 'If you do not know the answer, say so and suggest emailing support@neurata.ai. Never guess or make up UI details.\n\n'
+        + 'EXACT UI NAVIGATION — only reference these, nothing else:\n'
+        + '- Top nav tabs (visible based on role): Dashboard, Strata Corps, Brokerage, Billing\n'
+        + '- Left sidebar under "Management": list of strata corporations by plan number — click one to open its Meetings page\n'
+        + '- Strata Corps page: grid or list of all SCs. Click a card to open SC Detail.\n'
+        + '- SC Detail tabs: Overview, Subscription, Council Members, Strata Lots, Representatives\n'
+        + '- SC Meetings page tabs: Meetings, Minutes, Documents, StrataSphere\n'
+        + '- Brokerage page: brokerage info, logo upload, rep list from BCFSA\n'
+        + '- Billing page: payment setup (ACSS PAD), account statements, subscription management per SC\n'
+        + '- User menu: click your name in the top-right corner → My Profile or Sign Out\n'
+        + '- No "Settings" page exists anywhere in the app\n\n'
+        + 'KEY FEATURES:\n'
+        + '- Add SC: click "+ Add Strata Corporation" on the Strata Corps page, upload a Strata Plan PDF\n'
+        + '- Meeting Mode: launch from the Meetings tab on an SC Meetings page — requires active subscription or trial\n'
+        + '- StrataSphere AI: chat tab on the SC Meetings page, also active during Meeting Mode\n'
+        + '- Documents: upload on the Documents tab of the SC Meetings page\n'
+        + '- Invite Rep/ASST: SC Detail → Representatives tab → Invite button\n'
+        + '- Invite Council Delegate: SC Detail → Representatives tab → Invite Council Delegate\n'
+        + '- Billing setup: Billing page → enter banking info for ACSS pre-authorized debit\n'
+        + '- Activate Meeting Mode: SC Detail → Subscription tab (MB only)\n'
+        + '- Free trial: 2 meetings per brokerage before subscription required\n'
+        + '- Pricing: Meeting Mode CA$39/month per SC + StrataSphere CA$1.49 (local) or CA$2.49 (global) per lot/month\n'
+        + '- Support: email support@neurata.ai or use this chat',
       messages: _supportLog
     })
   })
