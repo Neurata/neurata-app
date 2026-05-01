@@ -232,6 +232,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .mm-aimsg.ai{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85)}
 .mm-aimsg.usr{background:var(--org);color:#fff;align-self:flex-end;max-width:90%}
 .mm-aimsg.pro{background:rgba(246,146,30,.15);border:1px solid rgba(246,146,30,.3);color:rgba(255,255,255,.9)}
+/* Support bot overrides — light bg context */
+#support-msgs .mm-aimsg.ai{background:var(--g1);color:var(--ch);border:none}
+#support-msgs .mm-aimsg.usr{background:var(--org);color:#fff}
 .mm-airow{display:flex;padding:6px 8px;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0}
 .mm-aiin{flex:1;background:rgba(255,255,255,.09);border:none;border-radius:4px 0 0 4px;padding:6px 9px;font-size:11px;color:#fff;font-family:inherit;outline:none}
 .mm-aiin::placeholder{color:rgba(255,255,255,.3)}
@@ -7369,11 +7372,13 @@ function renderAdminBrokerages() {
   getSupabase().from('brokerages').select('*').neq('bcfsa_lic','ADMIN').order('name')
   .then(function(r) {
     if (r.error || !r.data || !r.data.length) {
-      el.innerHTML = '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages found.</div></div>';
+      el.innerHTML = '<div style="margin-bottom:12px"><button class="btn pri" onclick="openCreateBrokerage()">+ Create Brokerage</button></div>'
+        + '<div class="card"><div class="cb" style="color:var(--g4)">No brokerages found.</div></div>';
       return;
     }
     APP._allBrokerages = r.data;
-    var html = '<div class="card"><table class="tbl"><thead><tr>'
+    var html = '<div style="margin-bottom:12px"><button class="btn pri" onclick="openCreateBrokerage()">+ Create Brokerage</button></div>'
+      + '<div class="card"><table class="tbl"><thead><tr>'
       + '<th>Brokerage</th><th>BCFSA Lic</th><th>Address</th><th>Status</th><th>Trial</th><th>SCs</th><th></th>'
       + '</tr></thead><tbody>';
     r.data.forEach(function(b) {
@@ -7394,6 +7399,119 @@ function renderAdminBrokerages() {
     });
     html += '</tbody></table></div>';
     el.innerHTML = html;
+  });
+}
+
+// ── SA: Create Brokerage ──────────────────────────────────────────────────────
+var _crkData = null;
+
+function openCreateBrokerage() {
+  _crkData = null;
+  document.getElementById('crk-lic').value = '';
+  document.getElementById('crk-email').value = '';
+  document.getElementById('crk-pw').value = 'Neurata2025!';
+  document.getElementById('crk-result').style.display = 'none';
+  document.getElementById('crk-err').style.display = 'none';
+  document.getElementById('crk-save-btn').style.display = 'none';
+  openMo('mo-create-brk');
+}
+
+function crkLookup() {
+  var lic = (document.getElementById('crk-lic').value||'').trim().toUpperCase();
+  if (!lic) { nAlert('Enter a BCFSA licence number first.','','warn'); return; }
+  var errEl = document.getElementById('crk-err');
+  var resultEl = document.getElementById('crk-result');
+  var saveBtn = document.getElementById('crk-save-btn');
+  errEl.style.display = 'none';
+  resultEl.style.display = 'none';
+  saveBtn.style.display = 'none';
+
+  // Check if brokerage already exists
+  getSupabase().from('brokerages').select('bcfsa_lic,name').eq('bcfsa_lic', lic).maybeSingle()
+  .then(function(r) {
+    if (r.data) {
+      errEl.textContent = lic + ' is already registered on the platform — ' + (r.data.name||'') + '.';
+      errEl.style.display = '';
+      return;
+    }
+    // Look up via BCFSA
+    fetch(WORKER_URL + '/?lic=' + encodeURIComponent(lic))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.error || !d.name) {
+        errEl.textContent = 'Could not find a brokerage with licence ' + lic + ' on the BCFSA registry.';
+        errEl.style.display = '';
+        return;
+      }
+      _crkData = d;
+      _crkData.lic = lic;
+      document.getElementById('crk-preview').innerHTML =
+        '<strong>' + escHtml(d.name||'') + '</strong><br>'
+        + escHtml(d.address||'') + (d.phone ? '<br>' + escHtml(d.phone) : '') + (d.city ? '<br>' + escHtml(d.city) : '');
+      resultEl.style.display = '';
+      saveBtn.style.display = '';
+    })
+    .catch(function() {
+      errEl.textContent = 'BCFSA lookup failed. Please try again.';
+      errEl.style.display = '';
+    });
+  });
+}
+
+function crkSave() {
+  if (!_crkData) return;
+  var email = (document.getElementById('crk-email').value||'').trim();
+  var pw    = (document.getElementById('crk-pw').value||'').trim();
+  var errEl = document.getElementById('crk-err');
+  errEl.style.display = 'none';
+  if (!email || email.indexOf('@')<0) { errEl.textContent = 'Enter a valid email address for the Managing Broker.'; errEl.style.display=''; return; }
+  if (!pw || pw.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display=''; return; }
+
+  var btn = document.getElementById('crk-save-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  // Look up MB from BCFSA by searching brokerage staff
+  // First create the brokerage row, then create the MB user account
+  var brkRow = {
+    bcfsa_lic:          _crkData.lic,
+    name:               _crkData.name || '',
+    address:            _crkData.address || '',
+    phone:              _crkData.phone || '',
+    subscription_status: 'trial',
+    trial_meetings_used: 0,
+    email:              email
+  };
+
+  getSupabase().from('brokerages').insert(brkRow)
+  .then(function(r) {
+    if (r.error) throw new Error(r.error.message);
+    // Create MB auth account
+    return fetch(WORKER_URL + '/admin/create-user', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, password: pw, brokerage_id: _crkData.lic, role: 'Managing Broker' })
+    }).then(function(res){ return res.json(); });
+  })
+  .then(function(d) {
+    if (d.error) throw new Error(d.error);
+    // Write users row
+    return getSupabase().from('users').insert({
+      id:           d.userId,
+      brokerage_id: _crkData.lic,
+      full_name:    d.userId, // will be updated when MB logs in
+      role:         'Managing Broker',
+      email:        email
+    });
+  })
+  .then(function() {
+    closeMo('mo-create-brk');
+    btn.disabled = false; btn.textContent = 'Create Brokerage';
+    nAlert(_crkData.name + ' created. The Managing Broker can log in with ' + email + ' and the temporary password.', 'Brokerage Created', 'success');
+    renderAdminBrokerages();
+  })
+  .catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Create Brokerage';
+    errEl.textContent = 'Error: ' + (e.message||'Unknown error');
+    errEl.style.display = '';
   });
 }
 
@@ -12603,6 +12721,35 @@ async function init(){
 
 init();
 </script>
+<!-- Create Brokerage (SA) -->
+<div class="mo" id="mo-create-brk">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-hd">
+      <div class="mo-t">Create Brokerage</div>
+      <button class="mo-x" onclick="closeMo('mo-create-brk')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div class="fg">
+        <label>BCFSA Brokerage Licence Number</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="crk-lic" placeholder="e.g. X012345" style="flex:1" oninput="this.value=this.value.toUpperCase()"/>
+          <button class="btn sm" onclick="crkLookup()">Look Up</button>
+        </div>
+      </div>
+      <div id="crk-result" style="display:none;margin-top:12px">
+        <div class="al info" id="crk-preview" style="margin-bottom:12px;font-size:13px;line-height:1.6"></div>
+        <div class="fg"><label>Managing Broker Email</label><input type="email" id="crk-email" placeholder="MB's email address"/></div>
+        <div class="fg"><label>Temporary Password</label><input type="text" id="crk-pw" value="Neurata2025!" placeholder="Temporary password"/></div>
+      </div>
+      <div id="crk-err" class="al warn" style="display:none;margin-top:10px"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-create-brk')">Cancel</button>
+      <button class="btn pri" id="crk-save-btn" onclick="crkSave()" style="display:none">Create Brokerage</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ CUSTOM DIALOG ═══════ -->
 <div id="cdlg-overlay">
   <div id="cdlg-box">
