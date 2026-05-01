@@ -619,6 +619,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 <body>
 
 <!-- ═══════ LOGIN ═══════ -->
+<div class="screen" id="scr-mobile" style="background:#f4f4f5;align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center">
+  <svg viewBox="0 0 217.96 56" height="32" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:32px"><defs><linearGradient id="nlgm" x1="28" y1="56" x2="28" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".31" stop-color="#f7941d"/></linearGradient></defs><path fill="url(#nlgm)" d="M31.14,8.46L39.6,0h16.4v16.4l-8.46,8.46V8.46h-16.4ZM8.46,47.54v-16.4L0,39.6v16.4h16.4l8.46-8.46H8.46ZM39.6,56h16.4v-16.4l-8.46-8.46v16.4h-3.33l-16.4-16.4h-13.07l24.86,24.86ZM16.4,0H0v16.4l8.46,8.46V8.46h3.33l16.4,16.4h13.07L16.4,0Z"/><g fill="#231f20"><path d="M64.46,46.6V11h4.9l7.7,21.45h.1V11h5.1v35.6h-4.8l-7.8-21.4h-.1v21.4h-5.1Z"/><path d="M90.31,46.6V11h15.2v4.8h-10.1v10.45h8.8v4.8h-8.8v10.45h10.1v5.1h-15.2Z"/><path d="M128.76,11v27.6c0,1.17-.21,2.24-.62,3.22-.42.98-1.01,1.86-1.77,2.62-.77.77-1.65,1.37-2.65,1.8-1,.43-2.07.65-3.2.65s-2.19-.22-3.17-.65c-.98-.43-1.86-1.03-2.62-1.8-.77-.77-1.37-1.64-1.8-2.62-.43-.98-.65-2.06-.65-3.22V11h5.1v27.1c0,1.27.3,2.2.9,2.8.6.6,1.35.9,2.25.9s1.65-.3,2.25-.9c.6-.6.9-1.53.9-2.8V11h5.1Z"/><path d="M137.01,46.6V11h8.2c6,0,9,3.48,9,10.45,0,2.1-.32,3.88-.97,5.35s-1.79,2.65-3.42,3.55l5.5,16.25h-5.4l-4.75-15.2h-3.05v15.2h-5.1ZM142.11,15.8v11.1h2.9c.9,0,1.62-.12,2.15-.38s.95-.61,1.25-1.07c.27-.47.45-1.04.55-1.73.1-.68.15-1.48.15-2.38s-.05-1.69-.15-2.38c-.1-.68-.3-1.27-.6-1.77-.63-.93-1.83-1.4-3.6-1.4h-2.65Z"/><path d="M159.46,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM172.06,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/><path d="M186.16,46.6V15.8h-5.9v-4.8h16.9v4.8h-5.9v30.8h-5.1Z"/><path d="M197.81,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM210.41,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/></g></svg>
+  <div style="font-size:22px;font-weight:700;color:#231f20;margin-bottom:12px">Neurata is designed for desktop</div>
+  <div style="font-size:14px;color:#666;line-height:1.7;max-width:300px;margin-bottom:32px">Strata management is complex work. For the best experience, please open Neurata on a desktop or laptop computer.</div>
+  <a href="mailto:support@neurata.ai" style="font-size:13px;color:#F6921E;text-decoration:none">support@neurata.ai</a>
+  <div><button onclick="showScr('scr-login')" style="margin-top:24px;background:none;border:none;font-size:12px;color:#999;cursor:pointer;text-decoration:underline">Continue anyway</button></div>
+</div>
+
 <div class="screen on" id="scr-login">
   <div class="ob-wrap">
     <div class="ob-card" style="width:420px">
@@ -12486,6 +12494,11 @@ document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',
 // ══════════════════════════════════════════
 
 async function init(){
+  // Mobile detection — show desktop-only screen for narrow viewports
+  if (window.innerWidth < 900 && !/iPad/.test(navigator.userAgent)) {
+    showScr('scr-mobile');
+    return;
+  }
   // Wire backdrop-click close for any modals added after script load
   document.querySelectorAll('.mo').forEach(function(m){
     if(!m._backdropWired){
