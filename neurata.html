@@ -7554,25 +7554,49 @@ function renderAdminKB() {
       html += '<div class="card"><div class="cb" style="color:var(--g4)">No documents yet. Upload PDFs to build the global knowledge base.</div></div>';
     } else {
       docs.forEach(function(doc) {
-        var hasText = doc.document_text && doc.document_text.trim().length > 0;
-        var statusPill = hasText
-          ? '<span class="tag grn" style="font-size:10px">Indexed</span>'
-          : '<span class="tag gy" style="font-size:10px">Not Indexed</span>';
-        html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_">'
-          + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:13px;font-weight:600">'+escHtml(doc.name)+'</div>'
-          + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(doc.source_label||'Educational')+'</div>'
-          + '</div>'
-          + statusPill
-          + '<div class="br">'
-          + (!hasText ? '<button class="btn sm" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)">Index</button>' : '')
-          + (hasText ? '<button class="btn xs" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)" style="color:var(--g4)">Re-index</button>' : '')
-          + '</div>'
-          + '</div></div>';
+      var ext = (doc.name||'').split('.').pop().toLowerCase();
+      var hasText = doc.document_text && doc.document_text.trim().length > 0;
+      var wordCount = hasText ? doc.document_text.trim().split(/\s+/).length : 0;
+      var statusPill = hasText
+        ? '<span class="tag grn" style="font-size:10px">Indexed · '+wordCount.toLocaleString()+' words</span>'
+        : '<span class="tag gy" style="font-size:10px">Not Indexed</span>';
+      var publicUrl = getSupabase().storage.from('neurata-documents').getPublicUrl(doc.storage_path||'').data.publicUrl;
+      html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:600">'+escHtml(doc.name)+'</div>'
+        + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(doc.source_label||'Educational')+'</div>'
+        + '</div>'
+        + statusPill
+        + '<div class="br">'
+        + (!hasText ? '<button class="btn sm" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)">Index</button>' : '')
+        + (hasText ? '<button class="btn xs" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)" style="color:var(--g4)">Re-index</button>' : '')
+        + (doc.storage_path ? '<button class="btn sm" onclick="downloadDoc(this)" data-name="'+escHtml(doc.name)+'" data-href="'+escHtml(publicUrl)+'">Download</button>' : '')
+        + '<button class="btn sm red" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="deleteKbDoc(this)">Delete</button>'
+        + '</div>'
+        + '</div></div>';
       });
     }
     el.innerHTML = html;
   });
+}
+
+function deleteKbDoc(btn) {
+  var docId = btn.dataset.id;
+  var path  = btn.dataset.path;
+  var name  = btn.dataset.name;
+  nConfirm('Delete "' + name + '" from the knowledge base? This cannot be undone.', function(ok) {
+    if (!ok) return;
+    // Delete from DB and storage in parallel
+    Promise.all([
+      getSupabase().from('documents').delete().eq('id', docId),
+      path ? getSupabase().storage.from('neurata-documents').remove([path]) : Promise.resolve()
+    ]).then(function() {
+      nAlert(name + ' deleted.', 'Deleted', 'success');
+      renderAdminKB();
+    }).catch(function(e) {
+      nAlert('Delete failed: ' + (e.message||'unknown'), 'Error', 'warn');
+    });
+  }, 'Delete Document', 'danger');
 }
 
 function indexGlobalDoc(btn) {
