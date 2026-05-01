@@ -9302,6 +9302,7 @@ function renderSuperAdminDashboard(el) {
     var brokerages = results[0].data || [];
     var corps      = results[1].data || [];
     var aiUsage    = results[2].data || [];
+    APP._allBrokerages = brokerages; // make available for adminEnterBrokerage
 
     // Stats
     var totalBrokerages = brokerages.length;
