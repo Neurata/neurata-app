@@ -10481,7 +10481,7 @@ function renderNav() {
   var isSuperAdmin = APP.currentUser.isSuperAdmin;
   var tabs;
   if (isSuperAdmin && !APP._adminContext) {
-    tabs = ['dashboard'];
+    tabs = ROLE_TABS['Super Admin'];
   } else {
     tabs = ROLE_TABS[role] || ROLE_TABS['default'];
   }
