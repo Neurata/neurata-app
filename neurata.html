@@ -12378,6 +12378,7 @@ function renderMeetingsList(sc, el) {
         } else {
           html += '<button class="btn sm" disabled title="Add agenda items first">▶ Launch</button>';
         }
+        html += '<button class="btn sm" style="color:var(--red);border-color:var(--redl)" onclick="deleteMeeting(\''+sc.id+'\',\''+m.id+'\',event)" title="Delete this draft meeting">Delete</button>';
       }
       if (!isDel && m.status === 'LIVE') {
         html += '<button class="btn sm red" onclick="resumeMM(\''+sc.id+'\',\''+m.id+'\')">▶ Resume</button>';
@@ -12392,6 +12393,27 @@ function renderMeetingsList(sc, el) {
   el.innerHTML = html;
 }
 
+
+function deleteMeeting(scId, mtgId, e) {
+  if (e) e.stopPropagation();
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  var mtg = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(mtgId);}); if(!mtg) return;
+  if (mtg.status !== 'DRAFT') { nAlert('Only draft meetings can be deleted. Once launched, a meeting record is immutable.','','warn'); return; }
+  var typeMap = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+  var label = (typeMap[mtg.type]||mtg.type||'Meeting') + ' — ' + (mtg.date||'');
+  nConfirm('Delete "' + label + '"? This will permanently remove the draft meeting and its agenda. This cannot be undone.', function(ok) {
+    if (!ok) return;
+    // Remove from Supabase
+    getSupabase().from('meetings').delete().eq('id', mtgId)
+    .then(function(r) {
+      if (r.error) { nAlert('Delete failed: ' + r.error.message, 'Error', 'warn'); return; }
+      // Remove from local state
+      sc_.meetings = (sc_.meetings||[]).filter(function(m){ return String(m.id) !== String(mtgId); });
+      sv('sc_'+sc_.id, sc_);
+      renderMeetingsList(sc_, document.getElementById('mtg-body'));
+    });
+  }, 'Delete Draft Meeting', 'danger');
+}
 
 function editMeeting(scId, mtgId) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;});
