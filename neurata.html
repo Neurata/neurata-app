@@ -11295,7 +11295,8 @@ function renderDocsList(sc, el) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
     }
 
-    var downloadHref = doc.url || doc.storagePath || '';
+    var downloadHref = doc.url || ''; // public URL if available
+    var useSignedUrl = !downloadHref && doc.storagePath; // need signed URL for sc-docs/ paths
 
     html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
       + '<div style="flex:1;min-width:0">'
@@ -11308,6 +11309,7 @@ function renderDocsList(sc, el) {
       + '<div class="br" style="flex-shrink:0">'
       + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index</button>' : '')
       + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" style="color:var(--g4)" title="Re-index">Index Again</button>' : '')
+      + (useSignedUrl ? '<button class="btn sm" data-path="'+escHtml(doc.storagePath)+'" data-name="'+escHtml(doc.name)+'" onclick="downloadDocSigned(this)">Download</button>' : '')
       + (downloadHref ? '<button class="btn sm" onclick="downloadDoc(this)" data-name="'+escHtml(doc.name)+'" data-href="'+escHtml(downloadHref)+'">Download</button>' : '')
       + '</div>'
       + '</div></div>';
@@ -12002,6 +12004,23 @@ function _finaliseDocExtract(dbId, scId, text, b64) {
     if (doc) { doc.documentText = text; doc._indexing = false; }
   }
   _reRenderDocs(sc_);
+}
+
+function downloadDocSigned(btn) {
+  var path = btn.dataset.path;
+  var name = btn.dataset.name;
+  if (!path) return;
+  btn.disabled = true; btn.textContent = '…';
+  getSupabase().storage.from('neurata-documents').createSignedUrl(path, 300)
+  .then(function(r) {
+    btn.disabled = false; btn.textContent = 'Download';
+    if (r.error || !r.data) { nAlert('Could not generate download link.','','warn'); return; }
+    var a = document.createElement('a');
+    a.href = r.data.signedUrl; a.download = name; a.target = '_blank'; a.click();
+  }).catch(function() {
+    btn.disabled = false; btn.textContent = 'Download';
+    nAlert('Download failed.','','warn');
+  });
 }
 
 function downloadDoc(btn) {
