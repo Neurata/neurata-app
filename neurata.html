@@ -4978,12 +4978,12 @@ function renderCtr(it) {
       +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Date</label>'
       +'<input type="date" min="'+todayStr+'" value="'+(it.nextMeetingDate||'')+'" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)"></div>'
       +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Time</label>'
-      +'<input type="time" value="'+(it.nextMeetingTime||'')+'" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingTime=this.value;mmSyncToMtg();}" data-itemid2="'+it.id+'"></div>'
+      +'<input type="time" value="'+(it.nextMeetingTime||'')+'" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingField(this.dataset.itemid,\'nextMeetingTime\',this.value)"></div>'
       +'</div>'
       +'<div style="margin-bottom:10px"><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Location</label>'
-      +'<input type="text" value="'+(it.nextMeetingLocation||'')+'" placeholder="e.g. Amenity Room, 123 Main St" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingLocation=this.value;mmSyncToMtg();}"></div>'
+      +'<input type="text" value="'+(it.nextMeetingLocation||'')+'" placeholder="e.g. Amenity Room, 123 Main St" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingField(this.dataset.itemid,\'nextMeetingLocation\',this.value)"></div>'
       +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Link (Electronic / Hybrid)</label>'
-      +'<input type="url" value="'+(it.nextMeetingLink||'')+'" placeholder="https://zoom.us/j/..." style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingLink=this.value;mmSyncToMtg();}"></div>'
+      +'<input type="url" value="'+(it.nextMeetingLink||'')+'" placeholder="https://zoom.us/j/..." style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingField(this.dataset.itemid,\'nextMeetingLink\',this.value)"></div>'
       +'</div></div>';
 
     var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
@@ -5457,6 +5457,11 @@ function buildMinutesSummary(it) {
 function saveMinSummary(id, val) {
   var it = MM.agenda.find(function(a){return a.id===id;});
   if(it) { it.minutesSummary = val; mmSyncToMtg(); }
+}
+
+function saveNextMeetingField(id, field, val) {
+  var it = MM.agenda.find(function(a){ return String(a.id) === String(id); });
+  if (it) { it[field] = val; mmSyncToMtg(); }
 }
 
 function saveNextMeetingDate(id, val) {
