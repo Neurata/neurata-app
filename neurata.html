@@ -9688,17 +9688,43 @@ function syncBrokerageInfo(brkLic, btn) {
     if (d.name)    updates.name    = d.name;
     if (d.address) updates.address = d.address;
     if (d.phone)   updates.phone   = d.phone;
-    if (!Object.keys(updates).length) {
+
+    var promises = [];
+
+    // Update brokerage info if anything came back
+    if (Object.keys(updates).length) {
+      promises.push(
+        getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', brkLic)
+        .then(function(r){ if(r.error) throw new Error(r.error.message); })
+      );
+    }
+
+    // Also persist reps to Supabase if any returned
+    if (d.reps && d.reps.length) {
+      var repRows = d.reps.map(function(r) {
+        return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
+      });
+      promises.push(
+        getSupabase().from('reps').upsert(repRows, {onConflict: 'brokerage_id,bcfsa_lic'})
+        .then(function(r){ if(r.error) console.error('Reps upsert error:', r.error); })
+      );
+    }
+
+    if (!promises.length) {
       if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
-      nAlert('BCFSA returned no name or address for ' + brkLic + '. The brokerage may not be listed publicly, or the page structure has changed.', 'Nothing to Sync', 'warn');
+      nAlert('BCFSA returned no data for ' + brkLic + '. The brokerage may not be publicly listed, or the page structure has changed.', 'Nothing to Sync', 'warn');
       return;
     }
-    return getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', brkLic)
-    .then(function(r) {
-      if (r.error) throw new Error(r.error.message);
+
+    return Promise.all(promises).then(function() {
       if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
-      var msg = [d.name && ('Name: ' + d.name), d.address && ('Address: ' + d.address), d.phone && ('Phone: ' + d.phone)].filter(Boolean).join(' · ');
-      nAlert('Updated from BCFSA — ' + msg, 'Synced', 'success');
+      var msg = [
+        d.name    && ('Name: ' + d.name),
+        d.address && ('Address: ' + d.address),
+        d.phone   && ('Phone: ' + d.phone),
+        d.reps && d.reps.length && (d.reps.length + ' reps saved')
+      ].filter(Boolean).join(' · ');
+      nAlert('Synced from BCFSA — ' + msg, 'Synced', 'success');
       renderDash();
     });
   })
