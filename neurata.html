@@ -4622,6 +4622,22 @@ function mgmtSsSend(scId) {
   }
 
   var ssTier = scSsTier(sc) || 'local';
+  var isPaidSS = sc && (sc.mmStatus === 'ACTIVE' || sc.ssTier === 'global' || sc.ssTier === 'local');
+
+  // Trial SS limit — 10 queries per SC per month for unpaid SCs
+  if (!isPaidSS) {
+    var now = new Date();
+    var monthKey = 'ss_trial_' + sc.plan + '_' + now.getFullYear() + '_' + (now.getMonth()+1);
+    var trialCount = parseInt(localStorage.getItem(monthKey) || '0');
+    var TRIAL_SS_LIMIT = 10;
+    if (trialCount >= TRIAL_SS_LIMIT) {
+      var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
+      nAlert('You have used all ' + TRIAL_SS_LIMIT + ' free StrataSphere queries for this strata corporation this month. Activate Meeting Mode to continue using StrataSphere.', 'Trial Limit Reached', 'warn');
+      if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
+      return;
+    }
+    localStorage.setItem(monthKey, trialCount + 1);
+  }
   var history = conv.msgs.slice(-10).map(function(m){return {role:m.role==='user'?'user':'assistant',content:m.text};});
   var lastUser = history.pop();
 
