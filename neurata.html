@@ -8621,23 +8621,40 @@ function billingSubmit() {
   var payMethod = APP.brokerage.payMethod || 'acss';
   var btn = document.querySelector('[onclick="billingSubmit()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
-  var email = (document.getElementById('bill-email') && document.getElementById('bill-email').value.trim())
-    || APP.brokerage.email || APP.currentUser.email || '';
+
+  // Email: required from modal — no fallbacks
+  var emailEl = document.getElementById('bill-email');
+  var email = emailEl ? emailEl.value.trim() : '';
+  if (!email) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Payment Method'; }
+    nAlert('Please enter a billing email address.', 'Missing Field', 'warn');
+    return;
+  }
+
+  // Individual name: required from modal — no fallbacks
   var individualName = (document.getElementById('acss-name') && document.getElementById('acss-name').value.trim())
-    || (document.getElementById('card-name') && document.getElementById('card-name').value.trim())
-    || APP.currentUser.name || '';
+    || (document.getElementById('card-name') && document.getElementById('card-name').value.trim());
+  if (!individualName) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Payment Method'; }
+    nAlert('Please enter the account holder name.', 'Missing Field', 'warn');
+    return;
+  }
+
   var businessName = APP.brokerage.name || '';
-  // Stripe name: "Individual Name — Business Name" for clear identification
-  var name = individualName ? (individualName + (businessName ? ' — ' + businessName : '')) : businessName;
+  var businessAddr = APP.brokerage.addr || '';
+  var businessPhone = APP.brokerage.phone || '';
+
+  // Stripe customer name: "Individual Name — Business Name"
+  var name = individualName + (businessName ? ' — ' + businessName : '');
 
   fetch(WORKER_URL + '/stripe/create-customer', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
-      brkLic: APP.brokerage.lic,
-      name:   name,
-      email:  email,
-      phone:  APP.brokerage.phone || '',
-      address: APP.brokerage.addr || '',
+      brkLic:  APP.brokerage.lic,
+      name:    name,
+      email:   email,
+      phone:   businessPhone,
+      address: businessAddr,
       country: 'CA',
       metadata: {
         brokerage_id:   APP.brokerage.lic,
@@ -8659,11 +8676,11 @@ function billingSubmit() {
     if (si.error) throw new Error(si.error);
     return getStripe().then(function(s) {
       var billingDetails = {
-        name: name,
+        name:  name,
         email: email,
-        phone: APP.brokerage.phone || '',
+        phone: businessPhone,
         address: {
-          line1:   APP.brokerage.addr || '',
+          line1:   businessAddr,
           country: 'CA'
         }
       };
