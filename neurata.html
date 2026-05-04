@@ -228,7 +228,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .mm-aittl{font-size:11px;font-weight:600;color:#fff}.mm-aisub{font-size:9px;color:rgba(255,255,255,.4);margin-top:1px}
 .mm-aimsgs{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
-.mm-aimsg{font-size:11px;line-height:1.5;padding:7px 9px;border-radius:5px;word-break:break-word}
+.ss-typing-wrap{display:flex;align-items:center;gap:4px;padding:8px 10px!important}
+.ss-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);animation:ss-bounce .9s infinite}
+.ss-dot:nth-child(2){animation-delay:.2s}
+.ss-dot:nth-child(3){animation-delay:.4s}
+@keyframes ss-bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-5px);opacity:1}}
 .mm-aimsg.ai{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85)}
 .mm-aimsg.usr{background:var(--org);color:#fff;align-self:flex-end;max-width:90%}
 .mm-aimsg.pro{background:rgba(246,146,30,.15);border:1px solid rgba(246,146,30,.3);color:rgba(255,255,255,.9)}
@@ -4737,11 +4741,15 @@ function renderMmNav() {
 
 function setItem(id) {
   curItem = id;
-  var it = MM.agenda.find(function(a){return a.id===id;}); if(!it) return;
+  var it = MM.agenda.find(function(a){return String(a.id)===String(id);}); if(!it) return;
   // Ensure motion object exists for items that need one (handles AI-parsed agendas)
   if (NEEDS_MOTION.indexOf(it.type) >= 0 && !it.motion) {
     it.motion = {text:'', dt:'MAJORITY', for:0, against:0, abstain:0, outcome:null, mover:'', sec:''};
   }
+  // Pin SS conversations to the agenda item — each item gets its own log
+  if (!MM.ssLogs) MM.ssLogs = {};
+  if (!MM.ssLogs[id]) MM.ssLogs[id] = [];
+  MM.ssLog = MM.ssLogs[id]; // point MM.ssLog at this item's conversation
   document.querySelectorAll('.nav-it,.nav-sub').forEach(function(e){e.classList.remove('on');});
   var ne = document.getElementById('nav'+id); if(ne) ne.classList.add('on');
   var editBtn = document.getElementById('mm-edit-item-btn');
@@ -4926,18 +4934,59 @@ function renderCtr(it) {
     return;
   }
 
-  // Background / Financial / Risk — always render, collapsed by default
-  h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
-  h += mmSec('Financial Implications', it.financial||'', false);
-  h += mmSec('Risks / Compliance',     it.risks||it.compliance||'', false);
+  // Chair Script — shown at top of main window, collapsible, open by default
+  if (!isCallToOrder && !isAdjournment) {
+    var dt = it.motion && it.motion.dt || '';
+    var chairScript = '';
+    if (it.type === 'FOR_INFORMATION') {
+      chairScript = 'Chair: "' + escHtml(it.text) + ' is presented for information. [Present content]. Any questions or discussion? … The item is received and placed on file."';
+    } else if (dt === 'THREE_QUARTER') {
+      chairScript = 'Chair: "This item requires a Three-Quarter (¾) vote. The resolution wording was included in the meeting notice. [Read motion]. Moved by — Seconded by — Discussion? … Those in favour raise your hand — [count]. Those opposed — [count]. The ¾ resolution is [CARRIED/DEFEATED]." Note: If carried by less than 50% of all owners, the resolution cannot be implemented for one week (SPA s.50).';
+    } else if (dt === 'UNANIMOUS') {
+      chairScript = 'Chair: "This item requires a Unanimous vote — all eligible voters must be in favour. [Read resolution]. Moved by — Seconded by — Discussion? … Those in favour — [count]. Those opposed — [count]. Any abstentions? The Unanimous resolution is [CARRIED/DEFEATED]."';
+    } else if (it.motion) {
+      chairScript = 'Chair: "[Introduce ' + escHtml(it.text) + ']. Moved by — Seconded by — Discussion? … Those in favour raise your hand. Those opposed. The motion is [CARRIED/DEFEATED] by Majority vote."';
+    } else if (it.type === 'FOR_DISCUSSION') {
+      chairScript = 'Chair: "The next item is ' + escHtml(it.text) + ' for discussion. [Introduce topic]. The floor is open for discussion. … [After discussion] Thank you. Are there any further comments? … [Close discussion]."';
+    }
+    if (chairScript) {
+      h += '<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Chair Script</span><span class="mm-stog">▼</span></div>'
+        + '<div class="mm-sbd"><div style="font-size:12px;color:var(--ch3);line-height:1.7;font-style:italic">'+chairScript+'</div></div></div>';
+    }
+  }
 
-  // Special: date picker for "Set Next Meeting Date" item
+  // Adjournment script
+  if (isAdjournment) {
+    var adjScript = 'Chair: "Is there a motion to adjourn? … Moved by — Seconded by — All in favour? … The motion is CARRIED. This meeting is adjourned at [time]. Thank you all for attending."';
+    h += '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:12px;color:var(--ch3);line-height:1.7;font-style:italic">'+adjScript+'</div>';
+  }
+  if (!isAdjournment && itemLower.indexOf('next meeting') < 0 && itemLower.indexOf('set next') < 0) {
+    h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
+    h += mmSec('Financial Implications', it.financial||'', false);
+    h += mmSec('Risks / Compliance',     it.risks||it.compliance||'', false);
+  }
+
+  // Special: "Set Next Meeting Date" — date/time/location only
   if(itemLower.indexOf('next meeting')>=0 || itemLower.indexOf('set next')>=0){
     var todayStr = new Date().toISOString().slice(0,10);
-    h+='<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Next Meeting Date</span><span class="mm-stog">▼</span></div>'
-      +'<div class="mm-sbd"><label style="font-size:11px;color:var(--g4);margin-bottom:4px;display:block">Select the date for the next meeting:</label>'
-      +'<input type="date" id="mm-next-date" min="'+todayStr+'" value="'+(it.nextMeetingDate||'')+'" style="border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)">'
+    var nmScript = 'Chair: "Before we adjourn, we need to set the date for our next meeting. Does the council have any preferences for the next meeting date?"';
+    h += '<div style="background:rgba(255,255,255,.06);border-left:2px solid var(--org);padding:7px 10px;border-radius:3px;font-size:11px;color:var(--g4);line-height:1.6;margin-bottom:10px;font-style:italic">'+nmScript+'</div>';
+    h += '<div class="mm-sec"><div class="mm-shd on" onclick="togSec(this)"><span class="mm-slbl">Next Meeting Details</span><span class="mm-stog">▼</span></div>'
+      +'<div class="mm-sbd">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+      +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Date</label>'
+      +'<input type="date" min="'+todayStr+'" value="'+(it.nextMeetingDate||'')+'" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="saveNextMeetingDate(this.dataset.itemid,this.value)"></div>'
+      +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Time</label>'
+      +'<input type="time" value="'+(it.nextMeetingTime||'')+'" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingTime=this.value;mmSyncToMtg();}" data-itemid2="'+it.id+'"></div>'
+      +'</div>'
+      +'<div style="margin-bottom:10px"><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Location</label>'
+      +'<input type="text" value="'+(it.nextMeetingLocation||'')+'" placeholder="e.g. Amenity Room, 123 Main St" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingLocation=this.value;mmSyncToMtg();}"></div>'
+      +'<div><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);display:block;margin-bottom:4px">Link (Electronic / Hybrid)</label>'
+      +'<input type="url" value="'+(it.nextMeetingLink||'')+'" placeholder="https://zoom.us/j/..." style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:5px 8px;font-size:13px;font-family:inherit" data-itemid="'+it.id+'" onchange="var i=MM.agenda.find(function(a){return String(a.id)===String(this.dataset.itemid);});if(i){i.nextMeetingLink=this.value;mmSyncToMtg();}"></div>'
       +'</div></div>';
+
+    var el=document.getElementById('mm-item-detail')||document.getElementById('mm-ctr'); if(el)el.innerHTML=h;
+    return;
   }
 
   if(it.motion){
@@ -5078,16 +5127,21 @@ function renderAtts(it){
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId||s.id===APP.currentScId;});
   el.innerHTML=atts.map(function(a){
     var name = typeof a==='object' ? a.name : a;
-    var ext=(name||'').split('.').pop().toLowerCase();
-    var ic=ext==='pdf'?'':['jpg','jpeg','png','gif'].indexOf(ext)>=0?'':'';
-    // Look up doc entry for download URL
     var docEntry = sc_ && sc_.docs && sc_.docs.find(function(d){ return d.name===name; });
-    var href = docEntry ? (docEntry.url||'') : '';
-    var action = href
-      ? '<a href="'+href+'" target="_blank" style="color:var(--org);text-decoration:none">'+escHtml(name)+'</a>'
+    var storagePath = docEntry ? (docEntry.storagePath||docEntry.storage_path||'') : '';
+    var attHtml = storagePath
+      ? '<a href="#" onclick="openAttDoc(\''+escHtml(storagePath)+'\',\''+escHtml(name)+'\');return false;" style="color:var(--org);text-decoration:none">'+escHtml(name)+'</a>'
       : escHtml(name);
-    return '<div class="att-it"><span class="att-ic">'+ic+'</span><span class="att-nm">'+action+'</span></div>';
+    return '<div class="att-it"><span class="att-nm">'+attHtml+'</span></div>';
   }).join('')+'<button class="att-up" onclick="document.getElementById(\'mm-att-input\').click()">+ Add</button>';
+}
+
+function openAttDoc(storagePath, name) {
+  getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 300)
+  .then(function(r) {
+    if (r.error || !r.data) { nAlert('Could not open attachment: ' + (r.error&&r.error.message||'unknown error'), '', 'warn'); return; }
+    window.open(r.data.signedUrl, '_blank');
+  });
 }
 function mmPreviewImg(src,name){
   var ov=document.createElement('div');
@@ -5124,27 +5178,10 @@ function renderAI(it){
     return '<div class="mm-aimsg '+m.role+' fi">'+escHtml(m.text)+'</div>';
   }).join('');
   if(!MM.ssLog.length){
-    // Build contextual chair script for this item type
-    var chairScript = '';
-    if (it) {
-      var dt = it.motion && it.motion.dt || '';
-      if (it.type === 'FOR_INFORMATION') {
-        chairScript = 'Chair: "' + escHtml(it.text) + ' is presented for information. [Present content]. Any questions or discussion? … The item is received and placed on file."';
-      } else if (dt === 'THREE_QUARTER') {
-        chairScript = 'Chair: "This item requires a Three-Quarter (¾) vote. The resolution wording was included in the meeting notice. [Read motion]. Moved by — Seconded by — Discussion? … Those in favour raise your hand — [count]. Those opposed — [count]. The ¾ resolution is [CARRIED/DEFEATED]." Note: If carried by less than 50% of all owners, the resolution cannot be implemented for one week (SPA s.50).';
-      } else if (dt === 'UNANIMOUS') {
-        chairScript = 'Chair: "This item requires a Unanimous vote — all eligible voters must be in favour. [Read resolution]. Moved by — Seconded by — Discussion? … Those in favour — [count]. Those opposed — [count]. Any abstentions? The Unanimous resolution is [CARRIED/DEFEATED]."';
-      } else if (it.motion) {
-        chairScript = 'Chair: "[Introduce ' + escHtml(it.text) + ']. Moved by — Seconded by — Discussion? … Those in favour raise your hand. Those opposed. The motion is [CARRIED/DEFEATED] by Majority vote."';
-      }
-    }
     var hint = (it && it.atts && it.atts.length)
       ? ' I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
       : ' Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
-    el.innerHTML = (chairScript
-      ? '<div style="background:rgba(255,255,255,.06);border-left:2px solid var(--org);padding:7px 9px;border-radius:3px;font-size:10px;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:5px;font-style:italic">'+chairScript+'</div>'
-      : '')
-      + '<div class="mm-aimsg pro fi">'+hint+'</div>';
+    el.innerHTML = '<div class="mm-aimsg pro fi">'+hint+'</div>';
   }
   el.scrollTop=el.scrollHeight;
 }
@@ -5154,9 +5191,9 @@ function mmAiSend(){
   if(!MM.ssLog) MM.ssLog=[];
   MM.ssLog.push({role:'usr',text:msg});
   el.innerHTML+='<div class="mm-aimsg usr fi">'+escHtml(msg)+'</div>';el.scrollTop=el.scrollHeight;
-  // Typing indicator
+  // Animated typing indicator
   var typingId='mm-typing-'+Date.now();
-  el.innerHTML+='<div id="'+typingId+'" class="mm-aimsg ai" style="opacity:.5">…</div>';
+  el.innerHTML+='<div id="'+typingId+'" class="mm-aimsg ai ss-typing-wrap"><span class="ss-dot"></span><span class="ss-dot"></span><span class="ss-dot"></span></div>';
   el.scrollTop=el.scrollHeight;
 
   var it = MM.agenda.find(function(a){return a.id===curItem;});
@@ -5364,13 +5401,13 @@ function mmNextItem() {
 }
 
 function mmAdvance(){
-  var idx=MM.agenda.findIndex(function(a){return a.id===curItem;});
+  var idx = MM.agenda.findIndex(function(a){ return String(a.id) === String(curItem); });
   // Find next undone item
-  for(var i=idx+1;i<MM.agenda.length;i++){
+  for(var i=idx+1; i<MM.agenda.length; i++){
     if(!MM.agenda[i].done){ setItem(MM.agenda[i].id); return; }
   }
   // All done — offer to adjourn
-  if(MM.agenda.length>0 && MM.agenda.every(function(a){return a.done;})){
+  if(MM.agenda.length > 0 && MM.agenda.every(function(a){ return a.done; })){
     nConfirm('All agenda items are complete. Adjourn the meeting now?', function(ok){ if(ok) adjournMtg(); }, 'Meeting Complete', 'success');
   }
 }
@@ -5660,7 +5697,8 @@ function adjournMtg() {
 }
 function _adjournProceed() {
   clearInterval(MM.timerInt);
-  MM.ssLog = []; // flush SS conversation on adjournment (#14)
+  MM.ssLog  = []; // flush SS conversation on adjournment (#14)
+  MM.ssLogs = {}; // flush all per-item SS logs
   var sc_ = APP.sc.find(function(s){return s.id===MM.scId;});
   if (!sc_) return;
   var mtg = sc_.meetings && sc_.meetings.find(function(m){return m.id===MM.mtgId;});
@@ -5907,6 +5945,25 @@ function minSaveEdit(el) {
   var it = mtg.agenda && mtg.agenda.find(function(a){return a.id===id;}); if(!it) return;
   it[field] = val;
   sv('sc_'+sc_.id, sc_);
+}
+
+function finalizeMinutesFromCard(scId, mtgId) {
+  nConfirm('Finalize the minutes for this meeting?\n\nOnce finalized, the minutes will be locked and cannot be edited.', function(ok) {
+    if (!ok) return;
+    var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+    var mtg = sc_.meetings && sc_.meetings.find(function(m){return String(m.id)===String(mtgId);}); if(!mtg) return;
+    mtg.minutesState = 'FINAL';
+    if (mtg.minutes) mtg.minutes.status = 'FINAL';
+    sv('sc_'+sc_.id, sc_);
+    getSupabase().from('meetings').update({
+      minutes_state: 'FINAL',
+      minutes_content: mtg.minutes
+    }).eq('id', mtgId).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
+    nAlert('Minutes finalized.', '', 'success');
+    // Re-render whichever tab is active
+    var activeTab = document.querySelector('.mtg-tab.on');
+    if (activeTab) activeTab.click();
+  }, 'Finalize Minutes', 'warn');
 }
 
 function finalizeMinutes() {
@@ -10909,6 +10966,7 @@ function renderMinutesList(sc, el) {
         : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Edit Minutes</button>')
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>'
       +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
+      +(!isFinal?'<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>':'')
       +'</div></div></div>';
   });
   el.innerHTML = html;
@@ -12380,8 +12438,10 @@ function renderMeetingsList(sc, el) {
         html += '<button class="btn sm red" onclick="resumeMM(\''+sc.id+'\',\''+m.id+'\')">▶ Resume</button>';
       }
       if (m.status === 'ADJOURNED') {
+        var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
         html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Minutes</button>';
         html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>';
+        if (!isFinal) html += '<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>';
       }
       html += '</div></div></div>';
     });
