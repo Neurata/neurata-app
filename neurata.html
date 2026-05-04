@@ -920,6 +920,27 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <option value="Secretary">Secretary</option>
         </select>
       </div>
+      <!-- More Info collapsible -->
+      <div style="margin-top:14px;border-top:1px solid var(--g2);padding-top:10px">
+        <div onclick="var bd=document.getElementById('oi-more-bd');var tg=document.getElementById('oi-more-tg');if(bd.style.display==='none'){bd.style.display='';tg.textContent='▼';}else{bd.style.display='none';tg.textContent='▶';}" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);user-select:none">
+          <span>More Info (Optional)</span><span id="oi-more-tg">▶</span>
+        </div>
+        <div id="oi-more-bd" style="display:none;margin-top:10px">
+          <div class="fr fr2" style="gap:8px">
+            <div class="fg"><label>Unit Entitlement</label><input id="oi-ue" type="number" min="0" placeholder="e.g. 100"/></div>
+            <div class="fg"><label>Owner Type</label>
+              <select id="oi-owner-type" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:6px 8px;font-size:13px;font-family:inherit">
+                <option value="">— Select —</option>
+                <option value="Owner Occupant">Owner Occupant</option>
+                <option value="Owner Absentee">Owner Absentee</option>
+                <option value="Developer">Developer</option>
+              </select>
+            </div>
+            <div class="fg"><label>Parking Stall(s)</label><input id="oi-parking" type="text" placeholder="e.g. P1-42, P2-07"/></div>
+            <div class="fg"><label>Storage Locker(s)</label><input id="oi-storage" type="text" placeholder="e.g. L1-12"/></div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="mo-ft">
       <button class="btn red" id="oi-clear-btn" onclick="clearOwnerInfo()" style="display:none">Clear Owner</button>
@@ -7797,20 +7818,21 @@ function crkLookup() {
       errEl.style.display = '';
       return;
     }
-    // Look up via BCFSA
-    fetch(WORKER_URL + '/?lic=' + encodeURIComponent(lic))
+    // Look up via BCFSA brokerage endpoint
+    fetch(WORKER_URL + '/brokerage-reps?lic=' + encodeURIComponent(lic))
     .then(function(r){ return r.json(); })
     .then(function(d) {
-      if (d.error || !d.name) {
+      // brokerage-reps returns {name, address, phone, reps:[]}
+      var brkName = d.name || (d.brokerage && d.brokerage.name) || '';
+      if (d.error || !brkName) {
         errEl.textContent = 'Could not find a brokerage with licence ' + lic + ' on the BCFSA registry.';
         errEl.style.display = '';
         return;
       }
-      _crkData = d;
-      _crkData.lic = lic;
+      _crkData = { lic: lic, name: brkName, address: d.address||'', phone: d.phone||'', city: d.city||'' };
       document.getElementById('crk-preview').innerHTML =
-        '<strong>' + escHtml(d.name||'') + '</strong><br>'
-        + escHtml(d.address||'') + (d.phone ? '<br>' + escHtml(d.phone) : '') + (d.city ? '<br>' + escHtml(d.city) : '');
+        '<strong>' + escHtml(_crkData.name) + '</strong><br>'
+        + escHtml(_crkData.address||'') + (_crkData.phone ? '<br>' + escHtml(_crkData.phone) : '');
       resultEl.style.display = '';
       saveBtn.style.display = '';
     })
@@ -8073,7 +8095,8 @@ function adminEnterBrokerage(brkLic) {
           };
         });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
-          return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council };
+          return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council,
+            unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'' };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
           return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
@@ -8577,8 +8600,14 @@ function billingSubmit() {
   var payMethod = APP.brokerage.payMethod || 'acss';
   var btn = document.querySelector('[onclick="billingSubmit()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
-  var email = (document.getElementById('bill-email') && document.getElementById('bill-email').value) || APP.brokerage.email || APP.currentUser.email || '';
-  var name  = APP.brokerage.name || '';
+  var email = (document.getElementById('bill-email') && document.getElementById('bill-email').value.trim())
+    || APP.brokerage.email || APP.currentUser.email || '';
+  var individualName = (document.getElementById('acss-name') && document.getElementById('acss-name').value.trim())
+    || (document.getElementById('card-name') && document.getElementById('card-name').value.trim())
+    || APP.currentUser.name || '';
+  var businessName = APP.brokerage.name || '';
+  // Stripe name: "Individual Name — Business Name" for clear identification
+  var name = individualName ? (individualName + (businessName ? ' — ' + businessName : '')) : businessName;
 
   fetch(WORKER_URL + '/stripe/create-customer', {
     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -8588,7 +8617,12 @@ function billingSubmit() {
       email:  email,
       phone:  APP.brokerage.phone || '',
       address: APP.brokerage.addr || '',
-      country: 'CA'
+      country: 'CA',
+      metadata: {
+        brokerage_id:   APP.brokerage.lic,
+        brokerage_name: businessName,
+        contact_name:   individualName
+      }
     })
   })
   .then(function(r){ return r.json(); })
@@ -8933,6 +8967,13 @@ function loadUserProfile(userId) {
                     if (!u.full_name) return;
                     var rep = APP.reps.find(function(r){ return r.lic === u.bcfsa_lic; });
                     if (rep) rep.name = u.full_name; // use Known As from users
+                  });
+                  // Re-resolve smName now that Known As names are applied
+                  APP.sc.forEach(function(sc_) {
+                    if (sc_.smLic) {
+                      var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
+                      if (smRep) sc_.smName = smRep.name;
+                    }
                   });
                 }).catch(function(){});
 
@@ -10470,6 +10511,21 @@ function openOwnerInfo(scId, sl) {
   var roleSel = document.getElementById('oi-role');
   roleSel.value = (existing && existing.role) || 'Member at Large';
   ck.onchange = function(){ roleRow.style.display = ck.checked ? '' : 'none'; };
+  // More Info fields
+  var ue = document.getElementById('oi-ue');
+  var ot = document.getElementById('oi-owner-type');
+  var pk = document.getElementById('oi-parking');
+  var st = document.getElementById('oi-storage');
+  if (ue) ue.value = (existing && existing.unitEntitlement) || '';
+  if (ot) ot.value = (existing && existing.ownerType)       || '';
+  if (pk) pk.value = (existing && existing.parking)         || '';
+  if (st) st.value = (existing && existing.storage)         || '';
+  // Collapse More Info by default unless data exists
+  var hasMore = existing && (existing.unitEntitlement || existing.ownerType || existing.parking || existing.storage);
+  var moreBd = document.getElementById('oi-more-bd');
+  var moreTg = document.getElementById('oi-more-tg');
+  if (moreBd) { moreBd.style.display = hasMore ? '' : 'none'; }
+  if (moreTg) { moreTg.textContent   = hasMore ? '▼' : '▶'; }
   openMo('mo-owner-info');
 }
 
@@ -10503,21 +10559,28 @@ function saveOwnerInfo() {
   var email = document.getElementById('oi-email').value.trim();
   var isCouncil = document.getElementById('oi-is-council').checked;
   var role  = isCouncil ? document.getElementById('oi-role').value : '';
+  var ue = (document.getElementById('oi-ue') && document.getElementById('oi-ue').value.trim()) || '';
+  var ot = (document.getElementById('oi-owner-type') && document.getElementById('oi-owner-type').value) || '';
+  var pk = (document.getElementById('oi-parking') && document.getElementById('oi-parking').value.trim()) || '';
+  var st = (document.getElementById('oi-storage') && document.getElementById('oi-storage').value.trim()) || '';
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
-  var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil};
+  var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil,
+    unitEntitlement:ue, ownerType:ot, parking:pk, storage:st};
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
-  // Persist to Supabase — uses plan number as sc_id, lot_number not sl
-  var sc_plan = s.plan;
   getSupabase().from('council_members').upsert({
-    sc_id:       sc_plan,
+    sc_id:       s.plan,
     lot_number:  _oiSl,
     full_name:   name,
     email:       email||null,
     council_role: role||null,
-    is_council:  isCouncil
+    is_council:  isCouncil,
+    unit_entitlement: ue ? parseFloat(ue) : null,
+    owner_type:  ot||null,
+    parking:     pk||null,
+    storage:     st||null
   }, {onConflict: 'sc_id,lot_number'}).then(function(r){
     if(r.error) console.error('council_members upsert error:', r.error);
   });
@@ -10528,9 +10591,9 @@ function saveOwnerInfo() {
 function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var lots = s.lots || 20;
-  var rows = ['Strata Lot,Owner Name,Email'];
+  var rows = ['Strata Lot,Owner Name,Email,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'];
   for (var i = 1; i <= lots; i++) {
-    rows.push('SL'+String(i).padStart(3,'0')+',,');
+    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,');
   }
   var csv = rows.join('\n');
   var a = document.createElement('a');
@@ -11530,30 +11593,26 @@ function sendSupportMsg() {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
       model: 'claude-sonnet-4-6', max_tokens: 500,
-      system: 'You are the Neurata platform support assistant. Answer questions about the Neurata platform only. '
-        + 'If you do not know the answer, say so and suggest emailing support@neurata.ai. Never guess or make up UI details.\n\n'
-        + 'EXACT UI NAVIGATION — only reference these, nothing else:\n'
-        + '- Top nav tabs (visible based on role): Dashboard, Strata Corps, Brokerage, Billing\n'
-        + '- Left sidebar under "Management": list of strata corporations by plan number — click one to open its Meetings page\n'
-        + '- Strata Corps page: grid or list of all SCs. Click a card to open SC Detail.\n'
-        + '- SC Detail tabs: Overview, Subscription, Council Members, Strata Lots, Representatives\n'
-        + '- SC Meetings page tabs: Meetings, Minutes, Documents, StrataSphere\n'
-        + '- Brokerage page: brokerage info, logo upload, rep list from BCFSA\n'
-        + '- Billing page: payment setup (ACSS PAD), account statements, subscription management per SC\n'
-        + '- User menu: click your name in the top-right corner → My Profile or Sign Out\n'
-        + '- No "Settings" page exists anywhere in the app\n\n'
-        + 'KEY FEATURES:\n'
-        + '- Add SC: click "+ Add Strata Corporation" on the Strata Corps page, upload a Strata Plan PDF\n'
-        + '- Meeting Mode: launch from the Meetings tab on an SC Meetings page — requires active subscription or trial\n'
-        + '- StrataSphere AI: chat tab on the SC Meetings page, also active during Meeting Mode\n'
-        + '- Documents: upload on the Documents tab of the SC Meetings page\n'
-        + '- Invite Rep/ASST: SC Detail → Representatives tab → Invite button\n'
-        + '- Invite Council Delegate: SC Detail → Representatives tab → Invite Council Delegate\n'
-        + '- Billing setup: Billing page → enter banking info for ACSS pre-authorized debit\n'
-        + '- Activate Meeting Mode: SC Detail → Subscription tab (MB only)\n'
-        + '- Free trial: 2 meetings per brokerage before subscription required\n'
-        + '- Pricing: Meeting Mode CA$39/month per SC + StrataSphere CA$1.49 (local) or CA$2.49 (global) per lot/month\n'
-        + '- Support: email support@neurata.ai or use this chat',
+      system: 'You are the Neurata support assistant. Answer questions about the Neurata platform conversationally — no markdown, no headers, no bullet points, no bold text, no numbered lists. Just plain, friendly sentences. If you need to describe steps, write them out naturally like "first do this, then do that." Keep answers to 2-4 sentences. If unsure, say so and suggest emailing support@neurata.ai.\n\n'
+        + 'EXACT NAVIGATION — only reference these, nothing else:\n'
+        + 'Top nav tabs by role: Dashboard, Strata Corps, Brokerage, Billing (MB only)\n'
+        + 'Left sidebar Management section: click a strata corporation plan number to open its Meetings page\n'
+        + 'SC Meetings page tabs: Meetings, Minutes, Documents, StrataSphere\n'
+        + 'SC Detail tabs (click a card on Strata Corps page): Overview, Subscription, Council Members, Strata Lots, Representatives\n'
+        + 'Brokerage page: brokerage info, logo, rep list, sync from BCFSA\n'
+        + 'Billing page: payment setup, statements, subscription per SC\n'
+        + 'User menu: click your name top-right for My Profile or Sign Out\n'
+        + 'No Settings page exists anywhere.\n\n'
+        + 'KEY FACTS:\n'
+        + 'Add SC: click + Add Strata Corporation on the Strata Corps page and upload a Strata Plan PDF\n'
+        + 'Launch Meeting Mode: go to an SC in the sidebar, open the Meetings tab, click Launch on a draft meeting\n'
+        + 'StrataSphere AI: the chat tab on the SC Meetings page, and the right panel during Meeting Mode\n'
+        + 'Invite rep or assistant: SC Detail, Representatives tab, Invite button\n'
+        + 'Billing setup: Billing page, enter banking info for ACSS pre-authorized debit\n'
+        + 'Activate Meeting Mode: SC Detail, Subscription tab, Managing Broker only\n'
+        + 'Free trial: 2 meetings per brokerage before subscription required\n'
+        + 'Pricing: Meeting Mode CA$39/month per SC plus StrataSphere CA$1.49 local or CA$2.49 global per lot per month\n'
+        + 'Support: support@neurata.ai',
       messages: _supportLog
     })
   })
@@ -11585,8 +11644,9 @@ function sendSupportMsg() {
 function uploadDoc(file, sc_, opts) {
   opts = opts || {};
   if (!sc_) return;
-  var plan = sc_.plan.replace(/\s+/g,'-');
-  var path = plan + '/documents/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
+  var plan = sc_.plan; // preserve spaces for folder name per convention
+  var planSlug = sc_.plan.replace(/\s+/g,'-'); // for filename
+  var path = 'sc-docs/' + plan + '/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
   var ext  = file.name.split('.').pop().toLowerCase();
   var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
 
@@ -13318,6 +13378,7 @@ init();
 </div>
 <!-- PDF.js for client-side text extraction -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
