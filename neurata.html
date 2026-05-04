@@ -1357,6 +1357,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <div class="fg"><label>Strata Lots *</label><input id="sc-lots" type="number" placeholder="e.g. 42" min="1"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Strata Corporation Name *</label><input id="sc-name" placeholder="e.g. The Pines at Ridgeway"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Civic Address</label><input id="sc-addr" placeholder="e.g. 123 Ridgeway Blvd, Kelowna BC"/></div>
+          <div class="fg"><label>Plan Filed Year <span style="font-size:10px;color:var(--g4);font-weight:400">(auto-detected from plan)</span></label><input id="sc-filed-year" type="number" placeholder="e.g. 1998" min="1960" max="2030"/></div>
         </div>
         <button class="btn xs ghost" style="margin-bottom:10px" onclick="scShowUpload()">← Upload a different plan</button>
       </div>
@@ -4353,6 +4354,10 @@ function buildLssContext(sc) {
   lines.push('Name: ' + (sc.name || '—'));
   lines.push('Address: ' + (sc.addr || '—'));
   lines.push('Strata Lots: ' + (sc.lots || '—'));
+  if (sc.filedYear) {
+    var age = new Date().getFullYear() - sc.filedYear;
+    lines.push('Plan Filed: ' + sc.filedYear + ' (Building age: ~' + age + ' years)');
+  }
   lines.push('Brokerage: ' + (APP.brokerage.name || '—') + ' (Lic: ' + (APP.brokerage.lic || '—') + ')');
 
   // ── 2. Brokerage Representatives ─────────────────────────────────
@@ -9031,6 +9036,7 @@ function mapSCRow(sc) {
     name:                sc.name,
     lots:                sc.lots || 1,
     addr:                sc.address || '',
+    filedYear:           sc.filed_year || null,
     brokerage_id:        sc.brokerage_id || '',
     mgr:                 '',
     mgrLic:              '',
@@ -12027,6 +12033,7 @@ function createSC() {
   var name = document.getElementById('sc-name').value.trim();
   var lots = parseInt(document.getElementById('sc-lots').value) || 0;
   var addr = document.getElementById('sc-addr').value.trim();
+  var filedYear = parseInt((document.getElementById('sc-filed-year')||{}).value) || null;
   var warn = document.getElementById('sc-warn');
   warn.style.display = 'none';
   if (!plan) { warn.style.display=''; warn.textContent='Plan number is required.'; return; }
@@ -12037,11 +12044,12 @@ function createSC() {
     warn.style.display=''; warn.textContent=plan+' already exists in your portfolio.'; return;
   }
   var newSC = {
-    id:        plan,  // use plan_number as id — matches Supabase primary key
+    id:        plan,
     plan:      plan,
     name:      name,
     lots:      lots,
     addr:      addr,
+    filedYear: filedYear,
     mgr:       APP.currentUser.name,
     mgrLic:    APP.currentUser.lic || '',
     mmStatus:  'TRIAL',
@@ -12052,14 +12060,16 @@ function createSC() {
   APP.sc.push(newSC);
   APP.currentScId = newSC.id;
   // Save to Supabase
-  getSupabase().from('strata_corps').insert({
+  var scInsert = {
     plan_number:   plan,
     brokerage_id:  APP.brokerage.lic,
     name:          name,
     lots:          lots,
     address:       addr,
     is_subscribed: false
-  }).then(function(r){
+  };
+  if (filedYear) scInsert.filed_year = filedYear;
+  getSupabase().from('strata_corps').insert(scInsert).then(function(r){
     if(r.error){
       APP.sc = APP.sc.filter(function(s){return s.id!==plan;});
       // 23505 = unique_violation — plan number already exists on the platform
@@ -12382,7 +12392,8 @@ function scParsePlan(b64, filename, callback){
           +'phase: integer if phased, else 0. '
           +'lots: highest SL number or row count in unit entitlement schedule. '
           +'address: civic address (not surveyor address). '
-          +'totalUnitEntitlement: AGGREGATE total if present.'}
+          +'totalUnitEntitlement: AGGREGATE total if present. '
+          +'filedYear: 4-digit year the plan was filed/registered at LTSA (look for "Filed", "Registered", "Deposited" date near the LTO stamp or cover page — return just the year as integer).'}
       ]}]
     })
   })
@@ -12402,6 +12413,11 @@ function scParsePlan(b64, filename, callback){
     if(p.name)    document.getElementById('sc-name').value=p.name;
     if(p.lots)    document.getElementById('sc-lots').value=parseInt(p.lots)||'';
     if(p.address) document.getElementById('sc-addr').value=p.address;
+    if(p.filedYear && parseInt(p.filedYear) > 1960) {
+      var fyEl = document.getElementById('sc-filed-year');
+      if (fyEl) fyEl.value = parseInt(p.filedYear);
+      document.getElementById('sc-plan').dataset.filedYear = parseInt(p.filedYear);
+    }
     var missing=[];
     if(!planNum) missing.push('plan number');
     if(!p.lots)  missing.push('lot count');
