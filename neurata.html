@@ -8108,6 +8108,14 @@ function adminEnterBrokerage(brkLic) {
         return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
       });
 
+      // Resolve smName for each SC using the loaded reps
+      scList.forEach(function(sc_) {
+        if (sc_.smLic) {
+          var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
+          if (smRep) sc_.smName = smRep.name;
+        }
+      });
+
       // Restore repIds from sc_users, and get full_name (Known As) from users table
       if (scUsers.length) {
         var userIds = scUsers.map(function(r){ return r.user_id; });
