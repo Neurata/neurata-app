@@ -10403,55 +10403,60 @@ function renderSCSubscription(s) {
 }
 
 function renderSCOverview(s) {
-  var mtgCount  = (s.meetings||[]).length;
-  var minCount  = (s.meetings||[]).filter(function(m){return m.minutes;}).length;
   var cmCount   = (s.councilMembers||[]).filter(function(m){return m.isCouncil;}).length;
-  // Find exact President only — Vice President should not show as President contact
-  var president = (s.councilMembers||[]).find(function(m){
-    if (!m.isCouncil) return false;
-    var r = (m.role||'').toLowerCase().trim();
-    return r === 'president' || r === 'strata council president' || r === 'council president';
-  });
   var mmOn  = scMmActive(s);
   var ssTier = scSsTier(s);
-  var role = APP.currentUser && APP.currentUser.role || '';
-  var canManage = (role === 'Managing Broker' || role === 'Associate Broker');
   var trialExhausted = scTrialExhausted();
+
+  // Manager name
+  var mgrNames = (s.repIds||[]).map(function(lic){
+    if (APP.currentUser && APP.currentUser.lic === lic) return APP.currentUser.name;
+    var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
+    return rep ? rep.name : lic;
+  });
+  if (!mgrNames.length && APP.currentUser && (APP.currentUser.role==='Managing Broker'||APP.currentUser.role==='Associate Broker')) {
+    mgrNames = [APP.currentUser.name];
+  }
+  var mgrDisplay = mgrNames.length ? mgrNames.join(', ') : '—';
+  if (s.smName) mgrDisplay = s.smName; // designated SM takes priority
 
   var html = '<div class="card"><div class="cb">';
 
   // ── Subscription status bar ─────────────────────────────────────────
   html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--g2)">';
-  // Subscription status — one clean badge
   var subLabel = mmOn ? (ssTier === 'global' ? 'Active — Global StrataSphere' : 'Active — Local StrataSphere') : (trialExhausted ? 'Inactive' : 'Trial — '+(PRICING.trialMeetings-(APP.brokerage&&APP.brokerage.trialMeetingsUsed||0))+' meetings left');
   var subClass = mmOn ? 'grn' : (trialExhausted ? 'gy' : 'amb');
   html += '<span class="tag '+subClass+'">'+subLabel+'</span>';
   html += '</div>';
+
   // ── Stats row ────────────────────────────────────────────────────────
-  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:14px">';
-  html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+s.lots+'</div><div style="font-size:11px;color:var(--g4)">Strata Lots</div></div>';
-  html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+cmCount+'</div><div style="font-size:11px;color:var(--g4)">Council Members</div></div>';
-  html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+mtgCount+'</div><div style="font-size:11px;color:var(--g4)">Meetings</div></div>';
-  html += '<div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--ch)">'+minCount+'</div><div style="font-size:11px;color:var(--g4)">Sets of Minutes</div></div>';
+  var filedYearDisplay = s.filedYear ? s.filedYear : '—';
+  html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--g2)">';
+  html += '<div style="text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ch)">'+filedYearDisplay+'</div><div style="font-size:11px;color:var(--g4)">Plan Filed</div></div>';
+  html += '<div style="text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ch)">'+s.lots+'</div><div style="font-size:11px;color:var(--g4)">Strata Lots</div></div>';
+  html += '<div style="text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ch)">'+cmCount+'</div><div style="font-size:11px;color:var(--g4)">Council Members</div></div>';
+  html += '<div style="text-align:center"><div id="sc-ai-usage-pct" style="font-size:22px;font-weight:700;color:var(--g3)">—</div><div style="font-size:11px;color:var(--g4)">AI Usage (mo.)</div></div>';
+  html += '<div style="text-align:center"><div style="font-size:14px;font-weight:600;color:var(--ch);padding-top:4px">'+escHtml(mgrDisplay)+'</div><div style="font-size:11px;color:var(--g4)">Manager</div></div>';
   html += '</div>';
 
-  // Address
-  if (s.addr) html += '<div style="font-size:13px;margin-bottom:8px;display:flex;gap:5px"><span></span><span>'+escHtml(s.addr)+'</span></div>';
-  // Manager — derive from assigned reps
-  var mgrNames = (s.repIds||[]).map(function(lic){
-    // users.full_name = Known As name (set during BCFSA onboarding)
-    // reps.name = Legal name (from brokerage sync) or Known As (if signed up via Neurata)
-    // APP.currentUser has the known-as name if this rep is logged in
-    if (APP.currentUser && APP.currentUser.lic === lic) return APP.currentUser.name;
-    var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
-    return rep ? rep.name : lic;
-  });
-  // If MB/AB viewing their own SC, also show current user
-  if (!mgrNames.length && APP.currentUser && (APP.currentUser.role==='Managing Broker'||APP.currentUser.role==='Associate Broker')) {
-    mgrNames = [APP.currentUser.name];
-  }
-  html += '<div style="font-size:13px;margin-bottom:8px"><strong>Manager:</strong> '+escHtml(mgrNames.length ? mgrNames.join(', ') : '—')+'</div>';
   html += '</div></div>';
+
+  // Load AI usage async
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  var limit = 200; // ss_local limit per SC per month
+  getSupabase().from('ai_usage').select('id').eq('sc_id', s.plan)
+    .gte('created_at', monthStart)
+    .then(function(r) {
+      var count = (r.data || []).length;
+      var pct = Math.round(count / limit * 100);
+      var el = document.getElementById('sc-ai-usage-pct');
+      if (el) {
+        el.textContent = pct + '%';
+        el.style.color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--org)' : 'var(--grn)';
+      }
+    }).catch(function(){});
+
   return html;
 }
 
