@@ -9683,16 +9683,22 @@ function syncBrokerageInfo(brkLic, btn) {
   fetch(WORKER_URL + '/brokerage-reps?lic=' + encodeURIComponent(brkLic))
   .then(function(r){ return r.json(); })
   .then(function(d) {
-    if (d.error || !d.name) throw new Error(d.error || 'No data returned from BCFSA');
+    if (d.error) throw new Error(d.error);
     var updates = {};
     if (d.name)    updates.name    = d.name;
     if (d.address) updates.address = d.address;
     if (d.phone)   updates.phone   = d.phone;
+    if (!Object.keys(updates).length) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
+      nAlert('BCFSA returned no name or address for ' + brkLic + '. The brokerage may not be listed publicly, or the page structure has changed.', 'Nothing to Sync', 'warn');
+      return;
+    }
     return getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', brkLic)
     .then(function(r) {
       if (r.error) throw new Error(r.error.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
-      nAlert('Brokerage info updated from BCFSA — ' + (d.address || 'no address found') + '.', 'Synced', 'success');
+      var msg = [d.name && ('Name: ' + d.name), d.address && ('Address: ' + d.address), d.phone && ('Phone: ' + d.phone)].filter(Boolean).join(' · ');
+      nAlert('Updated from BCFSA — ' + msg, 'Synced', 'success');
       renderDash();
     });
   })
