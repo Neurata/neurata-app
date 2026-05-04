@@ -7699,14 +7699,16 @@ function syncBrokerageReps() {
   .then(function(data){
     if (data.reps && data.reps.length) {
       APP.reps = data.reps;
-      // Persist reps to Supabase so they survive refresh
       var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
       var repRows = data.reps.map(function(r) {
         return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
       });
-      // Upsert all reps
-      getSupabase().from('reps').upsert(repRows, {onConflict: 'brokerage_id,bcfsa_lic'}).then(function(r) {
-        if (r.error) console.error('Could not save reps:', r.error);
+      // Delete existing reps for this brokerage then re-insert fresh from BCFSA
+      getSupabase().from('reps').delete().eq('brokerage_id', brkLic)
+      .then(function() {
+        getSupabase().from('reps').insert(repRows).then(function(r) {
+          if (r.error) console.error('Could not save reps:', r.error);
+        });
       });
     }
     renderBrokerage();
@@ -8051,7 +8053,13 @@ function adminEnterBrokerage(brkLic) {
     });
     if (!scList.length) {
       APP.sc = [];
-      _adminFinishEnter(brkLic, b);
+      // Still load reps even if no strata corps
+      db.from('reps').select('*').eq('brokerage_id', brkLic).then(function(r) {
+        APP.reps = (r.data||[]).map(function(rep){
+          return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
+        });
+        _adminFinishEnter(brkLic, b);
+      }).catch(function(){ _adminFinishEnter(brkLic, b); });
       return;
     }
     var planNumbers = scList.map(function(s){ return s.plan; });
@@ -9705,8 +9713,11 @@ function syncBrokerageInfo(brkLic, btn) {
         return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
       });
       promises.push(
-        getSupabase().from('reps').upsert(repRows, {onConflict: 'brokerage_id,bcfsa_lic'})
-        .then(function(r){ if(r.error) console.error('Reps upsert error:', r.error); })
+        getSupabase().from('reps').delete().eq('brokerage_id', brkLic)
+        .then(function() {
+          return getSupabase().from('reps').insert(repRows)
+          .then(function(r){ if(r.error) console.error('Reps insert error:', r.error); });
+        })
       );
     }
 
