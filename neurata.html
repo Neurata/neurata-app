@@ -4817,6 +4817,7 @@ function renderCtr(it) {
   var h='';
   var itemLower = (it.text||'').toLowerCase();
   var isCallToOrder = itemLower.indexOf('call to order') >= 0;
+  var isAdjournment = itemLower.indexOf('adjourn') >= 0;
 
   // ── Call to Order: quorum confirmation + clock start ─────────────
   if (isCallToOrder) {
