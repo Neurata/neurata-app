@@ -9678,6 +9678,30 @@ function saSetTrialUsedCustom(brkLic) {
   }, '', 'Number of meetings used');
 }
 
+function syncBrokerageInfo(brkLic, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  fetch(WORKER_URL + '/brokerage-reps?lic=' + encodeURIComponent(brkLic))
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.error || !d.name) throw new Error(d.error || 'No data returned from BCFSA');
+    var updates = {};
+    if (d.name)    updates.name    = d.name;
+    if (d.address) updates.address = d.address;
+    if (d.phone)   updates.phone   = d.phone;
+    return getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', brkLic)
+    .then(function(r) {
+      if (r.error) throw new Error(r.error.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
+      nAlert('Brokerage info updated from BCFSA — ' + (d.address || 'no address found') + '.', 'Synced', 'success');
+      renderDash();
+    });
+  })
+  .catch(function(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sync'; }
+    nAlert('Sync failed: ' + (e.message || 'unknown error'), 'Error', 'warn');
+  });
+}
+
 function renderSuperAdminDashboard(el) {
   el.innerHTML = '<div style="color:var(--g4);font-size:13px;padding:20px">Loading platform data…</div>';
   var db = getSupabase();
@@ -9751,7 +9775,7 @@ function renderSuperAdminDashboard(el) {
 
     if (saView === 'list') {
       html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
-        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th style="text-align:right">MRR</th><th>Trial</th><th>AI Use</th><th>Address</th>'
+        + '<th>Brokerage</th><th>BCFSA Lic</th><th>Corps</th><th style="text-align:right">MRR</th><th>Trial</th><th>AI Use</th><th>Address</th><th></th>'
         + '</tr></thead><tbody>';
       brokerages.forEach(function(b) {
         var bCorps = corps.filter(function(s){ return s.brokerage_id === b.bcfsa_lic; });
@@ -9777,7 +9801,8 @@ function renderSuperAdminDashboard(el) {
           + '<td style="font-size:12px;text-align:right;font-weight:600;color:'+(bMRR>0?'var(--ch)':'var(--g4)')+'">'+( bMRR>0 ? 'CA$'+bMRR.toFixed(2) : '—')+'</td>'
           + '<td style="font-size:12px">'+(b.trial_meetings_used||0)+'/2</td>'
           + (function(){ var u=aiUsage.filter(function(x){return x.brokerage_id===b.bcfsa_lic;}).length; var lim=bCorps.length*100+bMM*50; var p=lim>0?Math.round(u/lim*100):0; return '<td style="font-size:12px;color:'+(p>=80?(p>=100?'var(--red)':'var(--org)'):'var(--g4)')+'">'+p+'%</td>'; })()
-          + '<td style="font-size:12px;color:var(--g4)">'+escHtml(b.address||'')+'</td>'
+          + '<td style="font-size:12px;color:'+(b.address?'var(--g4)':'var(--red)')+'">'+(b.address ? escHtml(b.address) : '— missing')+'</td>'
+          + '<td onclick="event.stopPropagation()"><button class="btn xs" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="syncBrokerageInfo(this.dataset.lic,this)">Sync</button></td>'
           + '</tr>';
       });
       html += '</tbody></table></div>';
@@ -9807,8 +9832,9 @@ function renderSuperAdminDashboard(el) {
           + '<span style="color:'+aiColor+';font-weight:'+(bAiPct>=80?700:400)+'">AI: '+bAiPct+'%</span>'
           + '<span>'+(b.trial_meetings_used||0)+'/'+PRICING.trialMeetings+' trial</span>'
           + '</div>'
-          + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '')
-          + '<div style="display:flex;justify-content:flex-end">'
+          + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '<div style="font-size:11px;color:var(--red);margin-bottom:10px">No address on file</div>')
+          + '<div style="display:flex;justify-content:flex-end;gap:6px">'
+          + '<button class="btn xs" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="event.stopPropagation();syncBrokerageInfo(this.dataset.lic,this)">Sync</button>'
           + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ')">Manage Trial</button>'
           + '</div>'
           + '</div>';
