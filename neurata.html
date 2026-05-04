@@ -8128,7 +8128,7 @@ function _adminFinishEnter(brkLic, b) {
   if (bar) {
     bar.style.display = 'flex';
     var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
-    var roleLabels = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
+    var roleLabels = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'SM','Assistant':'AS','Council Delegate':'CD'};
     bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>'
       + '<span style="font-size:11px;color:#fff;margin-right:8px">Viewing: <strong>' + escHtml(b.name) + '</strong></span>'
       + roles.map(function(r) {
@@ -9229,7 +9229,7 @@ function renderSuperAdminBar() {
   if (APP._adminContext) {
     var cur = APP.currentUser.role;
     var roles = ['Managing Broker','Associate Broker','Representative','Assistant','Council Delegate'];
-    var rl = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'REP','Assistant':'ASST','Council Delegate':'DEL'};
+    var rl = {'Managing Broker':'MB','Associate Broker':'AB','Representative':'SM','Assistant':'AS','Council Delegate':'CD'};
     var btns = roles.map(function(r){
       var a = r===cur;
       return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(a?'.8':'.25')+');background:'+(a?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(a?'700':'400')+'">'+ rl[r] +'</button>';
