@@ -2134,9 +2134,22 @@ function _callActivateSC(sc_, tier, onSuccess) {
 }
 
 
-var WORKER_URL       = 'https://api.neurata.ai';
-var SUPABASE_URL      = 'https://sozghbobflcjrfsmewxv.supabase.co';
-var SUPABASE_ANON_KEY = 'sb_publishable_KA_-dMzzaj3SA750GqL4Yg_hqIrCT8K';
+// ══════════════════════════════════════════
+// ENVIRONMENT — switch to 'development' for the dev build
+// ══════════════════════════════════════════
+var ENV = 'development';
+
+var WORKER_URL = ENV === 'development'
+  ? 'https://api-dev.neurata.ai'
+  : 'https://api.neurata.ai';
+
+var SUPABASE_URL = ENV === 'development'
+  ? 'https://dzurctohotgtummajgiw.supabase.co'
+  : 'https://sozghbobflcjrfsmewxv.supabase.co';
+
+var SUPABASE_ANON_KEY = ENV === 'development'
+  ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6dXJjdG9ob3RndHVtbWFqZ2l3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5Mjc3MTUsImV4cCI6MjA5MzUwMzcxNX0.xdFyM-fDIjDjY1Ao626Y66aL_I_JqKLNuqxyj7RiW_I'
+  : 'sb_publishable_KA_-dMzzaj3SA750GqL4Yg_hqIrCT8K';
 
 // Supabase client — initialised after the CDN library loads
 var _supabaseClient = null;
