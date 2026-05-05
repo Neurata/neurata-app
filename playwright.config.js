@@ -9,7 +9,7 @@ module.exports = defineConfig({
   reporter: [['html'], ['list']],
   use: {
     baseURL: 'https://appdev.neurata.ai',
-    headless: false, // must be false to bypass Cloudflare bot detection
+    headless: process.env.CI ? true : false, // headed locally to bypass Cloudflare, headless in CI
     screenshot: 'only-on-failure',
     video: 'off',
     trace: 'retain-on-failure',
