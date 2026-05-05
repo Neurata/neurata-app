@@ -1,0 +1,23 @@
+{
+  "name": "neurata-app",
+  "version": "1.0.0",
+  "description": "Intelligent Governance Platform for Strata Management",
+  "main": "worker.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neurata/neurata-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/neurata/neurata-app/issues"
+  },
+  "homepage": "https://github.com/neurata/neurata-app#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0"
+  }
+}
