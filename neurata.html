@@ -807,10 +807,16 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="fg">
           <label>Password</label>
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="password" id="inv-pw" placeholder="Min 8 characters" oninput="invCheckBtn();invPwStrength()" style="flex:1"/>
+            <input type="password" id="inv-pw" placeholder="Min 8 characters" oninput="invCheckBtn();invPwStrength();invPwRules()" style="flex:1"/>
             <button type="button" class="btn xs" onclick="invTogglePw()" id="inv-pw-toggle" style="flex-shrink:0">Show</button>
           </div>
           <div id="inv-pw-strength" style="font-size:10px;margin-top:4px;color:var(--g4)">Minimum 8 characters</div>
+          <div id="inv-pw-rules" style="margin-top:6px">
+            <div id="inv-rule-len"  class="pw-rule">○ At least 8 characters</div>
+            <div id="inv-rule-cap"  class="pw-rule">○ One uppercase letter</div>
+            <div id="inv-rule-num"  class="pw-rule">○ One number</div>
+            <div id="inv-rule-spec" class="pw-rule">○ One special character (!@#$%^&amp;*)</div>
+          </div>
         </div>
         <div class="fg">
           <label>Confirm Password</label>
@@ -4047,7 +4053,8 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
   var scParam = (allPlans && allPlans.length > 1) ? allPlans.join(',') : (s.plan||scId);
-  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scParam)+'&lic='+encodeURIComponent(lic||'')+'&email='+encodeURIComponent(email||'');
+  var invitePayload = btoa(JSON.stringify({ brk: APP.brokerage.lic||'', sc: scParam, lic: lic||'', email: email||'' }));
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?token=' + encodeURIComponent(invitePayload);
 
   // Save assignment locally and persist to Supabase
   if (lic && s) {
@@ -9090,7 +9097,17 @@ function loadUserProfile(userId) {
                   (ur2.data||[]).forEach(function(u) {
                     if (!u.full_name) return;
                     var rep = APP.reps.find(function(r){ return r.lic === u.bcfsa_lic; });
-                    if (rep) rep.name = u.full_name; // Known As overrides legal name
+                    if (rep) rep.name = u.full_name;
+                  });
+                  // Re-resolve smName with KA names now applied
+                  APP.sc.forEach(function(sc_) {
+                    if (!sc_.smLic) return;
+                    var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
+                    if (smRep) { sc_.smName = smRep.name; return; }
+                    // SM not in reps — look up directly from users
+                    getSupabase().from('users').select('full_name').eq('bcfsa_lic', sc_.smLic).maybeSingle()
+                    .then(function(ur3) { if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name; })
+                    .catch(function(){});
                   });
                 }).catch(function(){});
               }
@@ -9105,10 +9122,13 @@ function loadUserProfile(userId) {
                   });
                   // Re-resolve smName now that Known As names are applied
                   APP.sc.forEach(function(sc_) {
-                    if (sc_.smLic) {
-                      var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
-                      if (smRep) sc_.smName = smRep.name;
-                    }
+                    if (!sc_.smLic) return;
+                    var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
+                    if (smRep) { sc_.smName = smRep.name; return; }
+                    // SM not in reps list — look up directly
+                    getSupabase().from('users').select('full_name').eq('bcfsa_lic', sc_.smLic).maybeSingle()
+                    .then(function(ur3) { if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name; })
+                    .catch(function(){});
                   });
                 }).catch(function(){});
 
@@ -9596,7 +9616,7 @@ function checkOnboardingNudges() {
       var titleEl = document.getElementById('bn-title');
       var bodyEl  = document.getElementById('bn-body');
       var ctaEl   = document.getElementById('bn-cta');
-      var logoImg = '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/>';
+      var logoImg = '<img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/>';
       if (isMB || isAB) {
         if (iconEl)  { iconEl.innerHTML = logoImg; iconEl.style.background='none'; iconEl.style.border='none'; }
         if (titleEl) titleEl.textContent = 'Set Up Your Payment Method';
@@ -12373,6 +12393,13 @@ function createSC() {
     is_subscribed: false
   };
   if (filedYear) scInsert.filed_year = filedYear;
+  // Auto-assign creator as SM if they are a Strata Manager or Representative
+  var creatorRole = APP.currentUser && APP.currentUser.role;
+  var smRoles = ['Strata Manager', 'Representative', 'Managing Broker', 'Associate Broker'];
+  var creatorLic = APP.currentUser && APP.currentUser.lic;
+  if (creatorLic && smRoles.indexOf(creatorRole) >= 0) {
+    scInsert.sm_lic = creatorLic;
+  }
 
   // Do the DB insert FIRST -- only navigate on confirmed success
   getSupabase().from('strata_corps').insert(scInsert).then(function(r){
@@ -12391,6 +12418,8 @@ function createSC() {
     var newSC = {
       id: plan, plan: plan, name: name, lots: lots, addr: addr, filedYear: filedYear,
       mgr: APP.currentUser.name, mgrLic: APP.currentUser.lic || '', mmStatus: 'TRIAL',
+      smLic:  (creatorLic && smRoles.indexOf(creatorRole) >= 0) ? creatorLic : '',
+      smName: (creatorLic && smRoles.indexOf(creatorRole) >= 0) ? (APP.currentUser.name || '') : '',
       adjCount: 0, meetings: [], decisions: [], docs: [], councilMembers: [], repIds: [], delegateIds: []
     };
     APP.sc.push(newSC);
@@ -13424,6 +13453,13 @@ function invPwStrength(){
   el.style.color  = pw.length === 0 ? 'var(--g4)' : colors[score] || 'var(--grn)';
 }
 
+function invPwRules(){
+  var pw = (document.getElementById('inv-pw')||{}).value||'';
+  var rules = {len:pw.length>=8, cap:/[A-Z]/.test(pw), num:/[0-9]/.test(pw), spec:/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?`~]/.test(pw)};
+  function sr(id,ok){var el=document.getElementById(id);if(!el)return;el.className='pw-rule'+(ok?' ok':'');el.innerHTML=(ok?'●':'○')+' '+el.innerHTML.replace(/^[●○]\s*/,'');}
+  sr('inv-rule-len',rules.len);sr('inv-rule-cap',rules.cap);sr('inv-rule-num',rules.num);sr('inv-rule-spec',rules.spec);
+}
+
 function invCheckBtn(){
   var lic   = (document.getElementById('inv-lic')||{}).value||'';
   var email = (document.getElementById('inv-email')||{}).value||'';
@@ -13441,8 +13477,9 @@ function invCheckBtn(){
   } else if (matchEl) {
     matchEl.textContent = '';
   }
+  var pwValid = pw.length>=8 && /[A-Z]/.test(pw) && /[0-9]/.test(pw) && /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?`~]/.test(pw);
   var btn = document.getElementById('inv-create-btn');
-  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8 && pw === pw2);
+  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pwValid && pw === pw2);
 }
 
 function obInviteComplete(){
@@ -13732,14 +13769,26 @@ async function init(){
     }
     return;
   }
-  var inviteBrk  = urlParams.get('invite');   // brokerage lic
-  var inviteSc   = urlParams.get('sc');        // SC id
-  var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic
+  var inviteBrk  = urlParams.get('invite');   // brokerage lic (legacy)
+  var inviteSc   = urlParams.get('sc');        // SC id (legacy)
+  var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic (legacy)
   var delegateSc = urlParams.get('delegate'); // SC id for delegate
   var delegateSl = urlParams.get('sl');        // strata lot
   var asstBrk    = urlParams.get('asst');      // brokerage lic for assistant invite
   var asstSc     = urlParams.get('sc');        // SC plan for assistant invite
   var asstEmail  = urlParams.get('email');     // pre-filled email for assistant
+
+  // Decode obfuscated invite token
+  var inviteToken = urlParams.get('token');
+  if (inviteToken) {
+    try {
+      var decoded = JSON.parse(atob(inviteToken));
+      inviteBrk = decoded.brk || '';
+      inviteSc  = decoded.sc  || '';
+      inviteLic = decoded.lic || '';
+      asstEmail = decoded.email || '';
+    } catch(e) { console.warn('Invalid invite token'); }
+  }
   var inviteScPlans = inviteSc ? inviteSc.split(',').map(function(p){return p.trim();}).filter(Boolean) : [];
   var hasInvite  = !!(inviteBrk || delegateSc || asstBrk);
 
@@ -13871,22 +13920,22 @@ if (typeof pdfjsLib !== 'undefined') {
 
       <!-- Slide 1: Welcome -->
       <div class="ob-slide on" id="ob-slide-1">
-        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
         <div class="ob-nudge-h" id="ob-welcome-name">Welcome to Neurata!</div>
         <div class="ob-nudge-s">You're all set. Neurata helps strata managers run compliant, paperless meetings — with AI-powered minutes, decision tracking, and document Q&amp;A built in.</div>
         <div class="ob-feature">
-          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/MM.png" style="width:24px;height:24px;object-fit:contain"/></div>
+          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/MM.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">Meeting Mode</div><div class="ob-feature-s">Run AGMs, SGMs, and council meetings with a live agenda, motions, and automated minutes.</div></div>
         </div>
         <div class="ob-feature">
-          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" style="width:24px;height:24px;object-fit:contain"/></div>
+          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">StrataSphere AI</div><div class="ob-feature-s">Ask plain-English questions about bylaws, minutes, and strata documents — get instant answers.</div></div>
         </div>
       </div>
 
       <!-- Slide 2: Create your first SC -->
       <div class="ob-slide" id="ob-slide-2">
-        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
         <div class="ob-nudge-h">Add Your First Strata Corporation</div>
         <div class="ob-nudge-s">Each strata corporation you manage gets its own entity — with meetings, minutes, documents, and a decision ledger. Start by adding one now.</div>
         <div style="background:var(--orgl);border:1px solid var(--org);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--orgd);line-height:1.5">
@@ -13916,7 +13965,7 @@ if (typeof pdfjsLib !== 'undefined') {
 <div class="mo" id="mo-first-meeting-prompt">
   <div class="mo-box" style="max-width:440px">
     <div class="mo-bd" style="padding:28px 28px 20px;text-align:center">
-      <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+      <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
       <div class="ob-nudge-h" id="fmp-sc-name">Strata Corporation Added!</div>
       <div class="ob-nudge-s">Your strata corporation is ready. Would you like to create your first meeting now? You can set the type, date, location, and agenda — then launch Meeting Mode when council is ready.</div>
       <div style="display:flex;gap:10px;justify-content:center">
@@ -13935,7 +13984,7 @@ if (typeof pdfjsLib !== 'undefined') {
 <div class="mo" id="mo-billing-nudge">
   <div class="mo-box" style="max-width:440px">
     <div class="mo-bd" style="padding:28px 28px 20px;text-align:center">
-      <div class="ob-nudge-icon" id="bn-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+      <div class="ob-nudge-icon" id="bn-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
       <div class="ob-nudge-h" id="bn-title">Set Up Your Payment Method</div>
       <div class="ob-nudge-s" id="bn-body">Your free trial has been used. To continue running meetings and using StrataSphere, set up a payment method in the Billing tab.</div>
       <div style="display:flex;gap:10px;justify-content:center">
