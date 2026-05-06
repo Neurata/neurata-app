@@ -9443,24 +9443,42 @@ function launchPlatform(){
   }
 
   // ── Onboarding & nudge checks (REP roles only) ───────────────────
-  // Path B: invited REP with exactly one SC and zero meetings → land on that SC's meetings
   var role_ = APP.currentUser && APP.currentUser.role;
   var repRoles_ = ['Managing Broker','Associate Broker','Representative','Strata Manager'];
-  if (!isDelegate && repRoles_.indexOf(role_) >= 0 && APP.sc.length === 1) {
-    var onlySC = APP.sc[0];
-    var hasNoMeetings = !onlySC.meetings || onlySC.meetings.length === 0;
-    var isFirstLogin  = !APP._userHasSeenOnboarding;
-    if (hasNoMeetings && isFirstLogin) {
-      // Invited rep landing on their one SC with no meetings — go straight there
-      APP.currentScId = onlySC.id;
-      showPg('strata');
-      setTimeout(function() { selectSC(onlySC.id); }, 100);
-      _markOnboardingSeen(); // suppress the welcome overlay for this path
-      return;
-    }
-  }
+  if (!isDelegate && repRoles_.indexOf(role_) >= 0) {
 
-  setTimeout(function() { checkOnboardingNudges(); }, 400);
+    // Path: invited REP — stashed SC from signup flow or existing 1-SC-no-meetings pattern
+    var targetScId = APP._postSignupScId || null;
+    APP._postSignupScId = null; // consume it
+
+    if (targetScId) {
+      // Invited REP: go straight to that SC's detail page
+      var targetSC = APP.sc.find(function(s){ return s.plan === targetScId || s.id === targetScId; });
+      if (targetSC) {
+        APP.currentScId = targetSC.id;
+        showPg('strata');
+        setTimeout(function() { openSCDetail(targetSC.id); }, 100);
+        _markOnboardingSeen();
+        return;
+      }
+    }
+
+    // Path B (login, not signup): invited REP with exactly 1 SC and no meetings
+    if (!APP._userHasSeenOnboarding && APP.sc.length === 1) {
+      var onlySC = APP.sc[0];
+      if (!onlySC.meetings || onlySC.meetings.length === 0) {
+        APP.currentScId = onlySC.id;
+        showPg('strata');
+        setTimeout(function() { openSCDetail(onlySC.id); }, 100);
+        _markOnboardingSeen();
+        return;
+      }
+    }
+
+    // Path: new REP, brokerage already exists (no SCs yet, but not their first time overall)
+    // or new REP self-signup — show welcome overlay only if truly brand new
+    setTimeout(function() { checkOnboardingNudges(); }, 400);
+  }
 }
 
 
@@ -13311,6 +13329,9 @@ function obComplete(){
           brkLic:OB.brkLic, brkName:OB.brkName
         };
         APP.brokerage = {name:OB.brkName, lic:OB.brkLic, addr:OB.brkAddr, phone:OB.brkPhone, city:''};
+        APP._postSignupScId  = null;
+        // If brokerage already existed, suppress welcome overlay — they join an existing team
+        if (OB.brkExists) APP._userHasSeenOnboarding = true;
         // Refresh session so JWT picks up brokerage_id/role from trigger before loading platform
         getSupabase().auth.refreshSession().then(function() {
           // Send welcome email
@@ -13456,6 +13477,7 @@ function obInviteComplete(){
         phone:rep.brkPhone||rep.businessPhone||''
       };
       window._inviteContext = null;
+      APP._postSignupScId = (ctx && ctx.scId) ? ctx.scId : null; // stash for launchPlatform
       // Refresh session so JWT picks up new brokerage_id/role from trigger
       getSupabase().auth.refreshSession().then(function() {
         fetch(WORKER_URL + '/send-welcome', {
