@@ -4258,7 +4258,7 @@ function renderMgmtStrataSphere(sc, el) {
     + '<div style="width:240px;flex-shrink:0;background:var(--ch);display:flex;flex-direction:column;overflow:hidden">'
     // Logo
     + '<div style="padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-    + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:block"/>'
+    + '<img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" alt="StrataSphere" style="height:28px;display:block"/>'
     + '</div>'
     // + New Conversation button
     + '<div style="padding:10px 10px 4px;flex-shrink:0">'
@@ -9067,7 +9067,7 @@ function loadUserProfile(userId) {
       APP._hasSubRequest = false;
       var userId_ = u.id;
       var brkLic_ = u.brokerage_id;
-      getSupabase().from('ai_usage').select('id').eq('user_id', userId_).limit(1)
+      getSupabase().from('ai_usage').select('id').or('user_id.eq.'+userId_+(brkLic_?',brokerage_id.eq.'+brkLic_:'')).limit(1)
       .then(function(r){ if (r.data && r.data.length) APP._hasSSQuery = true; }).catch(function(){});
       if (brkLic_) {
         getSupabase().from('activation_requests').select('id').eq('brokerage_id', brkLic_).limit(1)
@@ -9659,8 +9659,8 @@ function getGSTasks() {
   var hasCouncil   = sc.some(function(s){ return s.councilMembers && s.councilMembers.length > 0; });
   var hasRoster    = sc.some(function(s){ return (s.councilMembers||[]).some(function(m){ return m.name && m.name.trim(); }); });
   var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
-  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='minutes'||d.docType==='minutes'||d.sourceLabel==='Historic Minutes'; }); });
-  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
+  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; }); });
+  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='upload'||d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
   var hasSSQuery   = APP._hasSSQuery || false;
   var hasInvited   = sc.some(function(s){ return (s.repIds||[]).length > 0; });
   var hasBilling   = brk.billingSetup || false;
@@ -9676,17 +9676,18 @@ function getGSTasks() {
 
   function goMtgTab(tab) {
     if (!firstSCId) return "showPg('strata')";
-    return "selectSCMeeting('"+firstSCId+"');setTimeout(function(){switchMtgTab('"+tab+"',document.getElementById('mtgtab-"+tab+"'));},300)";
+    return "goToMtgTab('"+firstSCId+"','"+tab+"')";
   }
 
-  var goSync      = "showPg('brokerage');setTimeout(function(){syncBCFSA();},300)";
+  var goSync      = "showPg('brokerage');setTimeout(function(){syncBrokerageReps();},300)";
   var goAddSC     = "showPg('strata');openMo('mo-add-sc')";
   var goRoster    = goSCTab('lots');
   var goCouncil   = goSCTab('council');
   var goDocs      = goMtgTab('docs');
+  var goMinutes   = goMtgTab('minutes');
   var goSS        = goMtgTab('stratasphere');
   var goReps      = goSCTab('reps');
-  var goMeetings  = firstSCId ? "selectSCMeeting('"+firstSCId+"')" : "showPg('strata')";
+  var goMeetings  = firstSCId ? "goToMtgTab('"+firstSCId+"','meetings')" : "showPg('strata')";
   var goBilling   = "showPg('billing')";
   var goSubReq    = goSCTab('subscription');
 
@@ -9696,7 +9697,7 @@ function getGSTasks() {
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
       { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
-      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
       { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
@@ -9708,7 +9709,7 @@ function getGSTasks() {
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
       { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
-      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
       { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
@@ -9720,7 +9721,7 @@ function getGSTasks() {
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
       { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
-      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
       { label: 'Create your first meeting',         done: hasMeeting, action: goMeetings },
@@ -11726,15 +11727,22 @@ function selectSC(id) {
 
 function selectSCMeeting(id) {
   APP.currentScId = id;
-  // Always land on the Meetings tab and open new meeting modal
   currentMtgTab = 'meetings';
   showPg('meetings');
-  // Switch to the meetings tab visually
   setTimeout(function(){
     var tab = document.getElementById('mtgtab-meetings');
     if (tab) switchMtgTab('meetings', tab);
-    openNewMtgModal();
   }, 50);
+}
+
+function goToMtgTab(scId, tab) {
+  APP.currentScId = scId;
+  currentMtgTab = tab;
+  showPg('meetings');
+  setTimeout(function(){
+    var tabEl = document.getElementById('mtgtab-' + tab);
+    if (tabEl) switchMtgTab(tab, tabEl);
+  }, 100);
 }
 
 function renderLedger(sc, el) {
