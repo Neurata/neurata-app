@@ -9423,6 +9423,7 @@ function loadUserSCs(userId) {
                 if (sc_.repIds.indexOf(lic) < 0) sc_.repIds.push(lic);
               }
             });
+            refreshGSCard();
             renderBrokerage();
           });
         }).catch(function(){});
@@ -9683,7 +9684,7 @@ function getGSTasks() {
   var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; }); });
   var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='upload'||d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
   var hasSSQuery   = APP._hasSSQuery || false;
-  var hasInvited   = sc.some(function(s){ return (s.repIds||[]).length > 0; });
+  var hasInvited   = sc.some(function(s){ return (s.repIds||[]).some(function(lic){ return lic !== APP.currentUser.lic; }); });
   var hasBilling   = brk.billingSetup || false;
   var hasSubReq    = APP._hasSubRequest || false;
 
