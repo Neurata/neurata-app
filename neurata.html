@@ -4770,6 +4770,7 @@ function mgmtSsSend(scId) {
       var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim() || 'Unable to respond.';
       conv.msgs.push({role:'assistant', text:txt});
       ssPersistConv(scId, conv);
+      markSSQueryDone(); // mark after confirmed successful response
       if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
     })
     .catch(function(){
@@ -7082,9 +7083,6 @@ function ssSend() {
   var msg = inp.value.trim();
   if (!msg) return;
   inp.value = ''; inp.style.height = 'auto';
-
-  // Mark SS query done for Getting Started checklist
-  markSSQueryDone();
 
   var scId = ssGetScId();
   if (!scId) { nAlert('Please select a strata corporation first.', 'No Corp', 'warn'); return; }
@@ -9671,7 +9669,7 @@ function getGSTasks() {
 
   function goSCTab(tab) {
     if (!firstSCId) return "showPg('strata')";
-    return "openSCDetail('"+firstSCId+"');setTimeout(function(){scDetailTab('"+firstSCId+"','"+tab+"');},150)";
+    return "showPg('strata');setTimeout(function(){APP.currentScId='"+firstSCId+"';_scDetailTab='"+tab+"';renderSCDetail('"+firstSCId+"');},100)";
   }
 
   function goMtgTab(tab) {
@@ -12766,7 +12764,7 @@ function hmSave() {
     var file = _hmUploadedFile;
     _hmUploadedFile = null;
     var ext = file.name.split('.').pop();
-    var path = 'historic-minutes/' + sc_.plan + '/' + now + '_' + file.name;
+    var path = 'sc-docs/' + sc_.plan.replace(/\s+/g,'-') + '/' + now + '_' + file.name;
     // Convert base64 data URL to blob
     var b64 = file.data.split(',')[1];
     var raw = atob(b64);
