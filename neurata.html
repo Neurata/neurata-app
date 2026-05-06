@@ -9100,15 +9100,27 @@ function loadUserProfile(userId) {
                     if (rep) rep.name = u.full_name;
                   });
                   // Re-resolve smName with KA names now applied
+                  var smResolvePending = 0;
                   APP.sc.forEach(function(sc_) {
                     if (!sc_.smLic) return;
                     var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
                     if (smRep) { sc_.smName = smRep.name; return; }
                     // SM not in reps — look up directly from users
+                    smResolvePending++;
                     getSupabase().from('users').select('full_name').eq('bcfsa_lic', sc_.smLic).maybeSingle()
-                    .then(function(ur3) { if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name; })
-                    .catch(function(){});
+                    .then(function(ur3) {
+                      if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name;
+                      smResolvePending--;
+                      if (smResolvePending === 0) {
+                        if (document.getElementById('pg-strata') && document.getElementById('pg-strata').classList.contains('on')) renderStrata();
+                      }
+                    })
+                    .catch(function(){ smResolvePending--; });
                   });
+                  // Re-render immediately if all smNames resolved from reps (no async lookups needed)
+                  if (smResolvePending === 0) {
+                    if (document.getElementById('pg-strata') && document.getElementById('pg-strata').classList.contains('on')) renderStrata();
+                  }
                 }).catch(function(){});
               }
               var repLics = r.data.map(function(rep){ return rep.bcfsa_lic; }).filter(Boolean);
@@ -9121,15 +9133,27 @@ function loadUserProfile(userId) {
                     if (rep) rep.name = u.full_name; // use Known As from users
                   });
                   // Re-resolve smName now that Known As names are applied
+                  var smPending2 = 0;
                   APP.sc.forEach(function(sc_) {
                     if (!sc_.smLic) return;
                     var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
                     if (smRep) { sc_.smName = smRep.name; return; }
-                    // SM not in reps list — look up directly
+                    smPending2++;
                     getSupabase().from('users').select('full_name').eq('bcfsa_lic', sc_.smLic).maybeSingle()
-                    .then(function(ur3) { if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name; })
-                    .catch(function(){});
+                    .then(function(ur3) {
+                      if (ur3.data && ur3.data.full_name) sc_.smName = ur3.data.full_name;
+                      smPending2--;
+                      if (smPending2 === 0) {
+                        var strataPage = document.getElementById('pg-strata');
+                        if (strataPage && strataPage.classList.contains('on')) renderStrata();
+                      }
+                    })
+                    .catch(function(){ smPending2--; });
                   });
+                  if (smPending2 === 0) {
+                    var strataPage = document.getElementById('pg-strata');
+                    if (strataPage && strataPage.classList.contains('on')) renderStrata();
+                  }
                 }).catch(function(){});
 
               }
