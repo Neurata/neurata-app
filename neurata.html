@@ -686,10 +686,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div class="ob-s">Enter your BCFSA licence number. We'll verify your credentials and set up your brokerage automatically.</div>
         <div class="fg" style="margin-bottom:16px">
           <label>Your BCFSA Licence Number</label>
-          <input id="ob-lic" type="text" placeholder="e.g. 183255" style="font-size:20px;font-weight:600;text-align:center;letter-spacing:.12em;padding:12px" oninput="this.value=this.value.toUpperCase()"/>
+          <input id="ob-lic" type="text" placeholder="e.g. 123456, or RE123456"
+            oninput="this.value=this.value.replace(/\s/g,'').toUpperCase()"
+            onpaste="var _t=this;setTimeout(function(){_t.value=_t.value.replace(/\s/g,'').toUpperCase();},0)"
+            onfocus="if(this.placeholder)this.setAttribute('data-ph',this.placeholder)"
+            onblur="if(this.getAttribute('data-ph'))this.placeholder=this.getAttribute('data-ph')"
+          />
         </div>
-        <div class="al info" style="font-size:11px;margin-bottom:16px">Enter your BCFSA licence number — numeric (e.g. 183255) or RE-prefixed (e.g. RE607179). Neurata verifies directly against the BCFSA registry.</div>
-        <button class="btn pri full" id="ob-verify-btn" onclick="obVerifyLicence()">Verify with BCFSA →</button>
+        <div class="al info" style="font-size:11px;margin-bottom:16px">Enter your licence number (e.g. 123456, or RE123456), and we will verify it with the BCFSA registry.</div>
+        <button class="btn pri" id="ob-verify-btn" onclick="obVerifyLicence()" style="width:auto">Verify with BCFSA →</button>
         <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button></div>
       </div>
       <!-- Step 2 -->
@@ -13174,6 +13179,19 @@ function obVerifyLicence(){
         ? d.brkStatus + (d.brkExpiry ? ' · Expires ' + d.brkExpiry : '')
         : (d.licenceStatus || 'Licensed');
       document.getElementById('ob-brk-exists-warn').style.display = 'none';
+
+      // Check if this brokerage already exists on Neurata
+      if (OB.brkLic) {
+        getSupabase().from('brokerages').select('bcfsa_lic,name').eq('bcfsa_lic', OB.brkLic).maybeSingle()
+        .then(function(bRes) {
+          if (bRes.data) {
+            OB.brkExists = true;
+            var warn = document.getElementById('ob-brk-exists-warn');
+            if (warn) warn.style.display = '';
+          }
+        }).catch(function(){});
+      }
+
       obGoStep(2);
     })
     .catch(function(err){
@@ -13266,15 +13284,16 @@ function obComplete(){
       }, {onConflict: 'bcfsa_lic'})
       .then(function() {
         // Step 3: Create user profile
+        // Step 3: Create user profile (upsert in case of prior orphaned row)
         var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-        return getSupabase().from('users').insert({
+        return getSupabase().from('users').upsert({
           id:           userId,
           brokerage_id: OB.brkLic,
           full_name:    OB.repName,
           email:        email,
           bcfsa_lic:    OB.lic,
           role:         OB.repRole || 'Managing Broker'
-        });
+        }, {onConflict: 'id'});
       })
       .then(function() {
         // Step 4: Write brokerage_id to JWT app_metadata
