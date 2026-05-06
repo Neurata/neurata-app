@@ -13312,7 +13312,16 @@ function obComplete(){
         nAlert(result.error.message || 'Could not create account. Please try again.', 'Error', 'warn');
         return;
       }
-      var userId = result.data.user.id;
+      var userId  = result.data.user && result.data.user.id;
+      var session = result.data.session;
+
+      // Email confirmation required — no session yet
+      if (!session) {
+        var el = document.getElementById('check-email-address');
+        if (el) el.textContent = email;
+        showScr('scr-check-email');
+        return;
+      }
 
       // Step 2: Upsert brokerage record
       return getSupabase().from('brokerages').upsert({
@@ -13464,7 +13473,16 @@ function obInviteComplete(){
     })
     .then(function(result){
       if(result.error){ return Promise.reject(result.error.message||'Could not create account.'); }
-      var userId = result.data.user.id;
+      var userId  = result.data.user && result.data.user.id;
+      var session = result.data.session;
+
+      // Email confirmation required — no session yet
+      if (!session) {
+        var el = document.getElementById('check-email-address');
+        if (el) el.textContent = email;
+        showScr('scr-check-email');
+        return;
+      }
 
       // Step 3: Metadata + profile + SC connection (fire and forget)
       getSupabase().auth.updateUser({data:{brokerage_id:brkLic}});
@@ -13669,6 +13687,22 @@ async function init(){
       return;
     }
     console.log('[confirm] verifyOtp success');
+    // Session is now active — load the user
+    var confirmedUser = vResult.data && vResult.data.user;
+    if (confirmedUser && confirmedUser.id) {
+      refreshAndLoad(confirmedUser.id);
+    } else {
+      // Fallback: show login with success message
+      showScr('scr-login');
+      var errEl2 = document.getElementById('li-err');
+      if (errEl2) {
+        errEl2.style.display = '';
+        errEl2.style.background = '#f0fdf4';
+        errEl2.style.color = '#16a34a';
+        errEl2.style.border = '1px solid #bbf7d0';
+        errEl2.textContent = '✓ Email confirmed! Please sign in.';
+      }
+    }
     return;
   }
   var inviteBrk  = urlParams.get('invite');   // brokerage lic
