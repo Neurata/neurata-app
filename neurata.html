@@ -629,7 +629,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .gs-task-lbl{font-size:12px;font-weight:500;color:var(--ch);flex:1}
 .gs-task.done .gs-task-lbl{text-decoration:line-through;color:var(--g4)}
 .gs-progress{font-size:10px;color:var(--g4);margin-top:2px}
-</style>
+/* ── Onboarding & Nudge Modals ── */
 .ob-nudge-icon{width:64px;height:64px;border-radius:16px;background:var(--orgl);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 16px;border:2px solid var(--org)}
 .ob-nudge-h{font-size:18px;font-weight:700;color:var(--ch);text-align:center;margin-bottom:8px}
 .ob-nudge-s{font-size:13px;color:var(--ch3);text-align:center;line-height:1.6;margin-bottom:24px}
@@ -7812,6 +7812,7 @@ function syncBrokerageReps() {
       });
     }
     renderBrokerage();
+    refreshGSCard();
     nAlert(data.reps&&data.reps.length?'Synced '+data.reps.length+' representatives.':'No representatives found.');
   })
   .catch(function(err){
@@ -9656,58 +9657,68 @@ function getGSTasks() {
   var hasSC        = sc.length > 0;
   var hasReps      = reps.length > 0;
   var hasCouncil   = sc.some(function(s){ return s.councilMembers && s.councilMembers.length > 0; });
-  var hasRoster    = sc.some(function(s){ return s.lots && parseInt(s.lots) > 0 && s.rosterUploaded; });
+  var hasRoster    = sc.some(function(s){ return (s.councilMembers||[]).some(function(m){ return m.name && m.name.trim(); }); });
   var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
-  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='minutes'||d.docType==='minutes'; }); });
-  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='bylaws'||d.docType==='bylaws'; }); });
+  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='minutes'||d.docType==='minutes'||d.sourceLabel==='Historic Minutes'; }); });
+  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
   var hasSSQuery   = APP._hasSSQuery || false;
-  var hasInvited   = reps.some(function(r){ return r.userId; });
+  var hasInvited   = sc.some(function(s){ return (s.repIds||[]).length > 0; });
   var hasBilling   = brk.billingSetup || false;
   var hasSubReq    = APP._hasSubRequest || false;
-  var trialDone    = (brk.trialMeetingsUsed||0) >= PRICING.trialMeetings;
 
   // Navigation actions
-  var goBrokerage  = "showPg('brokerage')";
-  var goSC         = "showPg('strata')";
-  var goAddSC      = "showPg('strata');openMo('mo-add-sc')";
-  var goSS         = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='ss';renderSCDetail(APP.sc[0].id);},100)" : goSC;
-  var goCouncil    = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='council';renderSCDetail(APP.sc[0].id);},100)" : goSC;
-  var goDocs       = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='documents';renderSCDetail(APP.sc[0].id);},100)" : goSC;
-  var goMeetings   = sc.length ? "selectSCMeeting(APP.sc[0].id)" : goSC;
-  var goBilling    = "showPg('billing')";
-  var goInvite     = "showPg('brokerage');setTimeout(function(){openMo('mo-invite-rep');},200)";
-  var goSubReq     = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='subscription';renderSCDetail(APP.sc[0].id);},100)" : goSC;
-  var goSync       = "showPg('brokerage');setTimeout(function(){syncBCFSA();},200)";
+  var firstSCId = sc.length ? sc[0].id : null;
+
+  function goSCTab(tab) {
+    if (!firstSCId) return "showPg('strata')";
+    return "openSCDetail('"+firstSCId+"');setTimeout(function(){scDetailTab('"+firstSCId+"','"+tab+"');},150)";
+  }
+
+  function goMtgTab(tab) {
+    if (!firstSCId) return "showPg('strata')";
+    return "selectSCMeeting('"+firstSCId+"');setTimeout(function(){switchMtgTab('"+tab+"',document.getElementById('mtgtab-"+tab+"'));},300)";
+  }
+
+  var goSync      = "showPg('brokerage');setTimeout(function(){syncBCFSA();},300)";
+  var goAddSC     = "showPg('strata');openMo('mo-add-sc')";
+  var goRoster    = goSCTab('lots');
+  var goCouncil   = goSCTab('council');
+  var goDocs      = goMtgTab('docs');
+  var goSS        = goMtgTab('stratasphere');
+  var goReps      = goSCTab('reps');
+  var goMeetings  = firstSCId ? "selectSCMeeting('"+firstSCId+"')" : "showPg('strata')";
+  var goBilling   = "showPg('billing')";
+  var goSubReq    = goSCTab('subscription');
 
   if (role === 'Managing Broker') {
     return [
       { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
-      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
       { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
-      { label: 'Invite a representative (SM)',      done: hasInvited, action: goInvite },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
       { label: 'Set up payment method',             done: hasBilling, action: goBilling }
     ];
   } else if (role === 'Associate Broker') {
     return [
       { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
-      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
       { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
-      { label: 'Invite a representative (SM)',      done: hasInvited, action: goInvite },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
       { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
     ];
   } else {
     // Strata Manager / Representative
     return [
       { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
-      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
       { label: 'Add council members',               done: hasCouncil, action: goCouncil },
       { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
       { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
@@ -9718,14 +9729,22 @@ function getGSTasks() {
   }
 }
 
+// Call this whenever data changes that affects GS task completion
+function refreshGSCard() {
+  var pg = document.getElementById('pg-dashboard');
+  if (pg && pg.classList.contains('on')) renderDash();
+}
+
 // Call this after a StrataSphere query to mark it done
 function markSSQueryDone() {
   APP._hasSSQuery = true;
+  refreshGSCard();
 }
 
 // Call this after a subscription request is submitted
 function markSubRequestDone() {
   APP._hasSubRequest = true;
+  refreshGSCard();
 }
 
 
@@ -9957,7 +9976,7 @@ function obCreateSC() {
     if (r.error) console.error('SC save error:', r.error);
     if (_scPlanPdfFile) {
       var pdfFile = _scPlanPdfFile; _scPlanPdfFile = null;
-      var path = 'strata-plans/'+plan+'/'+pdfFile.name;
+      var path = 'strata-plans/'+plan.replace(/\s+/g,'-')+'/'+pdfFile.name;
       getSupabase().storage.from('neurata-documents').upload(path, pdfFile, {upsert:true}).then(function(ur){
         if (!ur.error) {
           var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
@@ -11275,6 +11294,7 @@ function _parseRosterCSV(csv, s) {
     : 'No changes detected — roster is already up to date.';
   nAlert(msg + (skipped ? ' ' + skipped + ' rows unchanged or skipped.' : ''), 'Roster Updated', 'success');
   renderSCDetail(s.id);
+  refreshGSCard();
 }
 
 function openAddCouncilMember(scId, sl) {
@@ -11388,6 +11408,7 @@ function saveCouncilMember() {
   });
   closeMo('mo-council-member');
   renderSCDetail(_cmScId);
+  refreshGSCard();
 }
 
 
@@ -12230,7 +12251,7 @@ function uploadDoc(file, sc_, opts) {
   if (!sc_) return;
   var plan = sc_.plan; // preserve spaces for folder name per convention
   var planSlug = sc_.plan.replace(/\s+/g,'-'); // for filename
-  var path = 'sc-docs/' + plan + '/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
+  var path = 'sc-docs/' + plan.replace(/\s+/g,'-') + '/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
   var ext  = file.name.split('.').pop().toLowerCase();
   var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
 
@@ -12317,6 +12338,7 @@ function uploadDoc(file, sc_, opts) {
     }
     if (opts.onComplete) opts.onComplete(docEntry);
     _reRenderDocs(sc_);
+    refreshGSCard();
   })
   .catch(function(e){ console.error('Upload error:', e); docEntry._indexing = false; _reRenderDocs(sc_); });
 }
