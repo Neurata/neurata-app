@@ -618,7 +618,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ag-cat-label{font-size:12px;font-weight:700;color:var(--ch);text-transform:uppercase;letter-spacing:.04em;flex:1;}
 .ag-it.drag-over{border-top:2.5px solid var(--org)!important;}
 .ag-cat-block.drag-over-cat{border-top:2.5px solid var(--org)!important;}
-/* ── Onboarding & Nudge Modals ── */
+/* ── Getting Started Card ── */
+.gs-task{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2);cursor:pointer;transition:background .15s}
+.gs-task:last-child{border-bottom:none}
+.gs-task:hover{background:var(--g1);margin:0 -14px;padding:8px 14px;border-radius:6px}
+.gs-task.done{opacity:.45;cursor:default}
+.gs-task.done:hover{background:none;margin:0;padding:8px 0}
+.gs-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--g3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--wh)}
+.gs-task.done .gs-check{background:var(--grn);border-color:var(--grn)}
+.gs-task-lbl{font-size:12px;font-weight:500;color:var(--ch);flex:1}
+.gs-task.done .gs-task-lbl{text-decoration:line-through;color:var(--g4)}
+.gs-progress{font-size:10px;color:var(--g4);margin-top:2px}
+</style>
 .ob-nudge-icon{width:64px;height:64px;border-radius:16px;background:var(--orgl);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 16px;border:2px solid var(--org)}
 .ob-nudge-h{font-size:18px;font-weight:700;color:var(--ch);text-align:center;margin-bottom:8px}
 .ob-nudge-s{font-size:13px;color:var(--ch3);text-align:center;line-height:1.6;margin-bottom:24px}
@@ -1805,6 +1816,7 @@ function submitActivationRequest(scId, requestType) {
         })
       }).catch(function(){});
 
+      markSubRequestDone();
       nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. Your Managing Broker has been notified at ' + mbEmail + '.', 'Request Sent', 'success');
     },
     APP.brokerage.email || '',
@@ -7071,6 +7083,9 @@ function ssSend() {
   if (!msg) return;
   inp.value = ''; inp.style.height = 'auto';
 
+  // Mark SS query done for Getting Started checklist
+  markSSQueryDone();
+
   var scId = ssGetScId();
   if (!scId) { nAlert('Please select a strata corporation first.', 'No Corp', 'warn'); return; }
 
@@ -7473,7 +7488,7 @@ function renderBrokerage() {
     +'</div></div></div>';
   // Branding card
   if(canSeeAll){
-    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">🎨 Branding</div></div><div class="cb">';
+    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">Branding</div></div><div class="cb">';
     html+='<div style="font-size:11px;color:var(--g4);margin-bottom:10px">Brokerage logo appears on exported minutes. PNG or SVG, max 2MB, recommended 400×120px.</div>';
     if(APP.brokerage.logoUrl){
       html+='<img src="'+APP.brokerage.logoUrl+'" style="max-height:60px;max-width:200px;object-fit:contain;display:block;margin-bottom:10px;border:1px solid var(--g2);border-radius:4px;padding:6px" alt="Brokerage logo"/>';
@@ -7490,7 +7505,7 @@ function renderBrokerage() {
 
   // Right: Documents
   html+='<div>';
-  html+='<div class="card"><div class="ch_"><div class="ct">&#128193; Brokerage Documents</div>';
+  html+='<div class="card"><div class="ch_"><div class="ct">Brokerage Documents</div>';
   if(canUploadDocs) html+='<button class="btn sm pri" onclick="uploadBrkDoc()">+ Upload</button>';
   html+='</div><div class="cb">';
   if(!brkDocs.length){
@@ -7511,7 +7526,7 @@ function renderBrokerage() {
   // AI Usage card - half width, same column as docs
   if (canSeeAll) {
     html += '<div class="card" style="margin-top:14px" id="brk-ai-usage-card">'
-      + '<div class="ch_"><div class="ct">🤖 AI Usage This Month</div></div>'
+      + '<div class="ch_"><div class="ct">AI Usage This Month</div></div>'
       + '<div class="cb" id="brk-ai-usage-body"><div style="color:var(--g4);font-size:13px">Loading…</div></div></div>';
   }
   html+='</div>'; // close right column
@@ -9046,6 +9061,17 @@ function loadUserProfile(userId) {
       // Store onboarding flags for use in launchPlatform
       APP._userHasSeenOnboarding   = u.has_seen_onboarding   || false;
       APP._userHasSeenBillingNudge = u.has_seen_billing_nudge || false;
+      // Load Getting Started completion flags from DB
+      APP._hasSSQuery    = false;
+      APP._hasSubRequest = false;
+      var userId_ = u.id;
+      var brkLic_ = u.brokerage_id;
+      getSupabase().from('ai_usage').select('id').eq('user_id', userId_).limit(1)
+      .then(function(r){ if (r.data && r.data.length) APP._hasSSQuery = true; }).catch(function(){});
+      if (brkLic_) {
+        getSupabase().from('activation_requests').select('id').eq('brokerage_id', brkLic_).limit(1)
+        .then(function(r){ if (r.data && r.data.length) APP._hasSubRequest = true; }).catch(function(){});
+      }
       // Super Admin — load all data across all brokerages
       if (u.role === 'Super Admin') {
         APP.brokerage = { name: 'Neurata Admin', lic: 'ADMIN', addr: '', email: u.email || '' };
@@ -9073,6 +9099,24 @@ function loadUserProfile(userId) {
           payMethod:          b.pay_method || 'acss'
         };
         if (b.name) APP.currentUser.brkName = b.name;
+        // If brokerage name is blank, fetch it from BCFSA via worker and update
+        if (!b.name && APP.brokerage.lic && APP.brokerage.lic !== 'ADMIN') {
+          fetch(WORKER_URL + '/bcfsa-lookup?lic=' + encodeURIComponent(APP.brokerage.lic))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var brkName = d && (d.brkName || d.name || '');
+            var brkAddr = d && (d.brkAddr || d.address || '');
+            if (brkName) {
+              APP.brokerage.name = brkName;
+              APP.brokerage.addr = APP.brokerage.addr || brkAddr;
+              APP.currentUser.brkName = brkName;
+              getSupabase().from('brokerages').update({ name: brkName, address: brkAddr || APP.brokerage.addr }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+              // Re-render dashboard subtitle
+              var sub = document.getElementById('dash-sub');
+              if (sub) sub.textContent = brkName + (APP.brokerage.lic ? ' · BCFSA ' + APP.brokerage.lic : '');
+            }
+          }).catch(function(){});
+        }
         // Load reps inside brokerage callback so APP.brokerage.lic is set
         var brkLicForReps = b.bcfsa_lic || u.brokerage_id || '';
         if (brkLicForReps) {
@@ -9601,7 +9645,90 @@ function launchPlatform(){
 
 
 // ══════════════════════════════════════════
-// ONBOARDING FUNCTIONS
+// ── Getting Started Tasks ─────────────────────────────────────────────
+function getGSTasks() {
+  var role  = APP.currentUser && APP.currentUser.role;
+  var sc    = APP.sc || [];
+  var reps  = APP.reps || [];
+  var brk   = APP.brokerage || {};
+
+  // Completion checks
+  var hasSC        = sc.length > 0;
+  var hasReps      = reps.length > 0;
+  var hasCouncil   = sc.some(function(s){ return s.councilMembers && s.councilMembers.length > 0; });
+  var hasRoster    = sc.some(function(s){ return s.lots && parseInt(s.lots) > 0 && s.rosterUploaded; });
+  var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
+  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='minutes'||d.docType==='minutes'; }); });
+  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='bylaws'||d.docType==='bylaws'; }); });
+  var hasSSQuery   = APP._hasSSQuery || false;
+  var hasInvited   = reps.some(function(r){ return r.userId; });
+  var hasBilling   = brk.billingSetup || false;
+  var hasSubReq    = APP._hasSubRequest || false;
+  var trialDone    = (brk.trialMeetingsUsed||0) >= PRICING.trialMeetings;
+
+  // Navigation actions
+  var goBrokerage  = "showPg('brokerage')";
+  var goSC         = "showPg('strata')";
+  var goAddSC      = "showPg('strata');openMo('mo-add-sc')";
+  var goSS         = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='ss';renderSCDetail(APP.sc[0].id);},100)" : goSC;
+  var goCouncil    = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='council';renderSCDetail(APP.sc[0].id);},100)" : goSC;
+  var goDocs       = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='documents';renderSCDetail(APP.sc[0].id);},100)" : goSC;
+  var goMeetings   = sc.length ? "selectSCMeeting(APP.sc[0].id)" : goSC;
+  var goBilling    = "showPg('billing')";
+  var goInvite     = "showPg('brokerage');setTimeout(function(){openMo('mo-invite-rep');},200)";
+  var goSubReq     = sc.length ? "openSCDetail(APP.sc[0].id);setTimeout(function(){_scDetailTab='subscription';renderSCDetail(APP.sc[0].id);},100)" : goSC;
+  var goSync       = "showPg('brokerage');setTimeout(function(){syncBCFSA();},200)";
+
+  if (role === 'Managing Broker') {
+    return [
+      { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goInvite },
+      { label: 'Set up payment method',             done: hasBilling, action: goBilling }
+    ];
+  } else if (role === 'Associate Broker') {
+    return [
+      { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goInvite },
+      { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
+    ];
+  } else {
+    // Strata Manager / Representative
+    return [
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goSC },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goDocs },
+      { label: 'Upload bylaws',                     done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Create your first meeting',         done: hasMeeting, action: goMeetings },
+      { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
+    ];
+  }
+}
+
+// Call this after a StrataSphere query to mark it done
+function markSSQueryDone() {
+  APP._hasSSQuery = true;
+}
+
+// Call this after a subscription request is submitted
+function markSubRequestDone() {
+  APP._hasSubRequest = true;
+}
+
+
 // ══════════════════════════════════════════
 
 // ── Welcome Onboarding (Path A: new REP, no SCs) ──────────────────
@@ -10294,23 +10421,50 @@ function renderDash() {
   html += '<div class="stat"><div class="sv">'+recentMins.length+'</div><div class="sl">Sets of Minutes</div></div>';
   html += '</div>';
 
-  // ── Trial status (brokerage-level) ─────────────────────────────────
+  // ── Trial + Getting Started row ────────────────────────────────────
   var isActive = APP.brokerage.subscriptionStatus === 'active';
-  if (!isActive) {
-    var trialPct = Math.min((adjCount/PRICING.trialMeetings)*100,100);
-    var trialColor = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
-    html += '<div class="card" style="margin-bottom:14px"><div class="ch_"><div class="ct">Trial</div>';
-    if (adjCount >= PRICING.trialMeetings) {
-      html += '<span class="tag red">Trial complete</span>';
-    } else {
-      html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+  var gsTasks  = getGSTasks();
+  var gsDone   = gsTasks.filter(function(t){return t.done;}).length;
+  var gsTotal  = gsTasks.length;
+  var gsAllDone = gsDone === gsTotal;
+
+  if (!isActive || !gsAllDone) {
+    html += '<div style="display:grid;grid-template-columns:'+((!isActive && !gsAllDone)?'1fr 1fr':(!isActive?'1fr':'1fr'))+';gap:14px;margin-bottom:14px">';
+
+    // Trial card (left) — only if not active
+    if (!isActive) {
+      var trialPct = Math.min((adjCount/PRICING.trialMeetings)*100,100);
+      var trialColor = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
+      html += '<div class="card"><div class="ch_"><div class="ct">Trial</div>';
+      if (adjCount >= PRICING.trialMeetings) {
+        html += '<span class="tag red">Trial complete</span>';
+      } else {
+        html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+      }
+      var isMbOnly = APP.currentUser && APP.currentUser.role === 'Managing Broker';
+      if (isMbOnly) html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
+      html += '</div><div class="cb" style="padding:10px 14px">';
+      html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
+      html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
+      html += '</div></div>';
     }
-    var isMbAb = APP.currentUser && APP.currentUser.role === 'Managing Broker';
-    if (isMbAb) html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
-    html += '</div><div class="cb" style="padding:10px 14px">';
-    html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
-    html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
-    html += '</div></div>';
+
+    // Getting Started card (right) — only if not all done
+    if (!gsAllDone) {
+      html += '<div class="card"><div class="ch_"><div class="ct">Getting Started</div>';
+      html += '<span class="gs-progress">'+gsDone+' of '+gsTotal+' complete</span>';
+      html += '</div><div class="cb" style="padding:4px 14px 8px">';
+      gsTasks.forEach(function(t) {
+        html += '<div class="gs-task'+(t.done?' done':'')+'" onclick="'+(t.done?'':t.action)+'">';
+        html += '<div class="gs-check">'+(t.done?'✓':'')+'</div>';
+        html += '<div class="gs-task-lbl">'+escHtml(t.label)+'</div>';
+        if (!t.done) html += '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5L8 6L4.5 9.5" stroke="var(--g3)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    html += '</div>';
   }
 
   html += '<div class="g2">';
@@ -10354,7 +10508,7 @@ function renderDash() {
   // ── Brokerage documents ────────────────────────────────────────────
   var brkDocs = APP.brokerage.docs || [];
   if (brkDocs.length) {
-    html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">📁 Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
+    html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
     brkDocs.forEach(function(d) {
       html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--g2)">'
         +'<span></span><span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'
