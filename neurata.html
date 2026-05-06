@@ -14150,11 +14150,11 @@ if (typeof pdfjsLib !== 'undefined') {
   <div class="mo-box" style="max-width:480px">
     <div class="mo-bd" style="padding:28px 28px 20px">
 
-      <!-- Slide 1: Welcome -->
+      <!-- Single welcome slide -->
       <div class="ob-slide on" id="ob-slide-1">
         <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
         <div class="ob-nudge-h" id="ob-welcome-name">Welcome to Neurata!</div>
-        <div class="ob-nudge-s">You're all set. Neurata helps strata managers run compliant, paperless meetings — with AI-powered minutes, decision tracking, and document Q&amp;A built in.</div>
+        <div class="ob-nudge-s">Neurata helps strata managers run compliant, paperless meetings — with AI-powered minutes, decision tracking, and document Q&amp;A built in.</div>
         <div class="ob-feature">
           <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/MM.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">Meeting Mode</div><div class="ob-feature-s">Run AGMs, SGMs, and council meetings with a live agenda, motions, and automated minutes.</div></div>
@@ -14163,28 +14163,15 @@ if (typeof pdfjsLib !== 'undefined') {
           <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">StrataSphere AI</div><div class="ob-feature-s">Ask plain-English questions about bylaws, minutes, and strata documents — get instant answers.</div></div>
         </div>
-      </div>
-
-      <!-- Slide 2: Create your first SC -->
-      <div class="ob-slide" id="ob-slide-2">
-        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
-        <div class="ob-nudge-h">Add Your First Strata Corporation</div>
-        <div class="ob-nudge-s">Each strata corporation you manage gets its own entity — with meetings, minutes, documents, and a decision ledger. Start by adding one now.</div>
-        <div style="background:var(--orgl);border:1px solid var(--org);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--orgd);line-height:1.5">
-          <strong>Tip:</strong> If you have a Strata Plan PDF, upload it and Neurata will automatically fill in the plan number, lot count, and address.
+        <div style="background:var(--orgl);border:1px solid var(--org);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--orgd);line-height:1.5;margin-top:8px">
+          Your <strong>Getting Started</strong> checklist on the dashboard will guide you through setting up your account step by step.
         </div>
-      </div>
-
-      <!-- Dots -->
-      <div class="ob-dots" style="margin-top:20px">
-        <div class="ob-dot on" id="ob-dot-1"></div>
-        <div class="ob-dot" id="ob-dot-2"></div>
       </div>
 
       <!-- Footer -->
       <div class="ob-nudge-ft">
-        <button class="btn ghost" onclick="dismissWelcomeOnboard()" id="ob-skip-btn">Skip for now</button>
-        <button class="btn pri" onclick="obWelcomeNext()" id="ob-next-btn" style="min-width:140px">Continue →</button>
+        <button class="btn ghost" onclick="dismissWelcomeOnboard()">Skip</button>
+        <button class="btn pri" onclick="dismissWelcomeOnboard()" style="min-width:140px">Get Started →</button>
       </div>
     </div>
   </div>
