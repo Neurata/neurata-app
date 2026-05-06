@@ -618,6 +618,17 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .ag-cat-label{font-size:12px;font-weight:700;color:var(--ch);text-transform:uppercase;letter-spacing:.04em;flex:1;}
 .ag-it.drag-over{border-top:2.5px solid var(--org)!important;}
 .ag-cat-block.drag-over-cat{border-top:2.5px solid var(--org)!important;}
+/* ── Getting Started Card ── */
+.gs-task{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2);cursor:pointer;transition:background .15s}
+.gs-task:last-child{border-bottom:none}
+.gs-task:hover{background:var(--g1);margin:0 -14px;padding:8px 14px;border-radius:6px}
+.gs-task.done{opacity:.45;cursor:default}
+.gs-task.done:hover{background:none;margin:0;padding:8px 0}
+.gs-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--g3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--wh)}
+.gs-task.done .gs-check{background:var(--grn);border-color:var(--grn)}
+.gs-task-lbl{font-size:12px;font-weight:500;color:var(--ch);flex:1}
+.gs-task.done .gs-task-lbl{text-decoration:line-through;color:var(--g4)}
+.gs-progress{font-size:10px;color:var(--g4);margin-top:2px}
 /* ── Onboarding & Nudge Modals ── */
 .ob-nudge-icon{width:64px;height:64px;border-radius:16px;background:var(--orgl);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 16px;border:2px solid var(--org)}
 .ob-nudge-h{font-size:18px;font-weight:700;color:var(--ch);text-align:center;margin-bottom:8px}
@@ -1805,6 +1816,7 @@ function submitActivationRequest(scId, requestType) {
         })
       }).catch(function(){});
 
+      markSubRequestDone();
       nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. Your Managing Broker has been notified at ' + mbEmail + '.', 'Request Sent', 'success');
     },
     APP.brokerage.email || '',
@@ -4246,7 +4258,7 @@ function renderMgmtStrataSphere(sc, el) {
     + '<div style="width:240px;flex-shrink:0;background:var(--ch);display:flex;flex-direction:column;overflow:hidden">'
     // Logo
     + '<div style="padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-    + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/StrataSphereBlueWhite.svg" alt="StrataSphere" style="height:28px;display:block"/>'
+    + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" alt="StrataSphere" style="height:28px;display:block"/>'
     + '</div>'
     // + New Conversation button
     + '<div style="padding:10px 10px 4px;flex-shrink:0">'
@@ -4696,7 +4708,21 @@ function mgmtSsSend(scId) {
     var TRIAL_SS_LIMIT = 10;
     if (trialCount >= TRIAL_SS_LIMIT) {
       var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
-      nAlert('You have used all ' + TRIAL_SS_LIMIT + ' free StrataSphere queries for this strata corporation this month. Activate Meeting Mode to continue using StrataSphere.', 'Trial Limit Reached', 'warn');
+      var isMB = APP.currentUser && APP.currentUser.role === 'Managing Broker';
+      var isAB = APP.currentUser && APP.currentUser.role === 'Associate Broker';
+      if (isMB || isAB) {
+        nConfirm(
+          'You have used all ' + TRIAL_SS_LIMIT + ' free StrataSphere queries for this strata corporation this month. Set up a payment method to activate Meeting Mode and continue using StrataSphere.',
+          'Trial Limit Reached',
+          function() { showPg('billing'); }
+        );
+      } else {
+        nConfirm(
+          'You have used all ' + TRIAL_SS_LIMIT + ' free StrataSphere queries for this strata corporation this month. Request subscription activation from your Managing Broker to continue.',
+          'Trial Limit Reached',
+          function() { if (APP.currentScId) requestSCActivation(APP.currentScId); }
+        );
+      }
       if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
       return;
     }
@@ -4753,11 +4779,21 @@ function mgmtSsSend(scId) {
     .then(function(d){
       if (!d) return; // retrying
       var typing = document.getElementById('mgmt-typing'); if(typing) typing.remove();
-      if(d.error==='usage_limit_exceeded'){ nAlert(d.message||'Monthly AI limit reached.','Usage Limit','warn'); if(sc) renderMgmtStrataSphere(sc,document.getElementById('mtg-body')); return; }
+      if(d.error==='usage_limit_exceeded'){
+        var isMB_ = APP.currentUser && APP.currentUser.role === 'Managing Broker';
+        var isAB_ = APP.currentUser && APP.currentUser.role === 'Associate Broker';
+        if (isMB_ || isAB_) {
+          nConfirm(d.message||'Monthly AI limit reached. Set up a payment method to continue.', 'Usage Limit', function(){ showPg('billing'); });
+        } else {
+          nConfirm(d.message||'Monthly AI limit reached. Request activation from your Managing Broker.', 'Usage Limit', function(){ if(APP.currentScId) requestSCActivation(APP.currentScId); });
+        }
+        if(sc) renderMgmtStrataSphere(sc,document.getElementById('mtg-body')); return;
+      }
       if(d._usageWarning){ nAlert(d._usageWarning.message,'AI Usage Notice','info'); }
       var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim() || 'Unable to respond.';
       conv.msgs.push({role:'assistant', text:txt});
       ssPersistConv(scId, conv);
+      markSSQueryDone(); // mark after confirmed successful response
       if(sc) renderMgmtStrataSphere(sc, document.getElementById('mtg-body'));
     })
     .catch(function(){
@@ -7473,7 +7509,7 @@ function renderBrokerage() {
     +'</div></div></div>';
   // Branding card
   if(canSeeAll){
-    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">🎨 Branding</div></div><div class="cb">';
+    html+='<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">Branding</div></div><div class="cb">';
     html+='<div style="font-size:11px;color:var(--g4);margin-bottom:10px">Brokerage logo appears on exported minutes. PNG or SVG, max 2MB, recommended 400×120px.</div>';
     if(APP.brokerage.logoUrl){
       html+='<img src="'+APP.brokerage.logoUrl+'" style="max-height:60px;max-width:200px;object-fit:contain;display:block;margin-bottom:10px;border:1px solid var(--g2);border-radius:4px;padding:6px" alt="Brokerage logo"/>';
@@ -7490,7 +7526,7 @@ function renderBrokerage() {
 
   // Right: Documents
   html+='<div>';
-  html+='<div class="card"><div class="ch_"><div class="ct">&#128193; Brokerage Documents</div>';
+  html+='<div class="card"><div class="ch_"><div class="ct">Brokerage Documents</div>';
   if(canUploadDocs) html+='<button class="btn sm pri" onclick="uploadBrkDoc()">+ Upload</button>';
   html+='</div><div class="cb">';
   if(!brkDocs.length){
@@ -7511,7 +7547,7 @@ function renderBrokerage() {
   // AI Usage card - half width, same column as docs
   if (canSeeAll) {
     html += '<div class="card" style="margin-top:14px" id="brk-ai-usage-card">'
-      + '<div class="ch_"><div class="ct">🤖 AI Usage This Month</div></div>'
+      + '<div class="ch_"><div class="ct">AI Usage This Month</div></div>'
       + '<div class="cb" id="brk-ai-usage-body"><div style="color:var(--g4);font-size:13px">Loading…</div></div></div>';
   }
   html+='</div>'; // close right column
@@ -7797,6 +7833,7 @@ function syncBrokerageReps() {
       });
     }
     renderBrokerage();
+    refreshGSCard();
     nAlert(data.reps&&data.reps.length?'Synced '+data.reps.length+' representatives.':'No representatives found.');
   })
   .catch(function(err){
@@ -8378,7 +8415,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '<div id="pay-form-acss" style="display:'+(payMethod==='acss'?'block':'none')+'">';
     html += '<div style="font-size:12px;color:var(--ch3);margin-bottom:12px">Pre-Authorized Debit (PAD) allows Neurata to automatically collect payments from your Canadian bank account.</div>';
     html += '<div class="fr fr2">';
-    html += '<div class="fg" style="grid-column:1/-1"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" placeholder="Receipts and billing notices will be sent here" id="bill-email" value="'+escHtml(APP.brokerage.email||APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
+    html += '<div class="fg" style="grid-column:1/-1"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" placeholder="Receipts and billing notices will be sent here" id="bill-email" value=""/></div>';
     html += '<div class="fg"><label>Account Holder Name</label><input type="text" placeholder="As it appears on the account" id="acss-name"/></div>';
     html += '<div class="fg"><label>Institution Number</label><input type="text" placeholder="e.g. 001" maxlength="3" id="acss-inst"/></div>';
     html += '<div class="fg"><label>Transit Number</label><input type="text" placeholder="e.g. 12345" maxlength="5" id="acss-transit"/></div>';
@@ -8386,7 +8423,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '</div></div>';
     var cardDisp = payMethod==='card' ? 'block' : 'none';
     html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
-    html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email" placeholder="Receipts and billing notices will be sent here" value="'+escHtml(APP.brokerage.email||APP.currentUser&&APP.currentUser.email||'')+'"/></div>';
+    html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email" placeholder="Receipts and billing notices will be sent here" value=""/></div>';
     html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
     html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
     html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
@@ -9046,6 +9083,17 @@ function loadUserProfile(userId) {
       // Store onboarding flags for use in launchPlatform
       APP._userHasSeenOnboarding   = u.has_seen_onboarding   || false;
       APP._userHasSeenBillingNudge = u.has_seen_billing_nudge || false;
+      // Load Getting Started completion flags from DB
+      APP._hasSSQuery    = false;
+      APP._hasSubRequest = false;
+      var userId_ = u.id;
+      var brkLic_ = u.brokerage_id;
+      getSupabase().from('ai_usage').select('id').or('user_id.eq.'+userId_+(brkLic_?',brokerage_id.eq.'+brkLic_:'')).limit(1)
+      .then(function(r){ if (r.data && r.data.length) APP._hasSSQuery = true; }).catch(function(){});
+      if (brkLic_) {
+        getSupabase().from('activation_requests').select('id').eq('brokerage_id', brkLic_).limit(1)
+        .then(function(r){ if (r.data && r.data.length) APP._hasSubRequest = true; }).catch(function(){});
+      }
       // Super Admin — load all data across all brokerages
       if (u.role === 'Super Admin') {
         APP.brokerage = { name: 'Neurata Admin', lic: 'ADMIN', addr: '', email: u.email || '' };
@@ -9073,6 +9121,24 @@ function loadUserProfile(userId) {
           payMethod:          b.pay_method || 'acss'
         };
         if (b.name) APP.currentUser.brkName = b.name;
+        // If brokerage name is blank, fetch it from BCFSA via worker and update
+        if (!b.name && APP.brokerage.lic && APP.brokerage.lic !== 'ADMIN') {
+          fetch(WORKER_URL + '/bcfsa-lookup?lic=' + encodeURIComponent(APP.brokerage.lic))
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var brkName = d && (d.brkName || d.name || '');
+            var brkAddr = d && (d.brkAddr || d.address || '');
+            if (brkName) {
+              APP.brokerage.name = brkName;
+              APP.brokerage.addr = APP.brokerage.addr || brkAddr;
+              APP.currentUser.brkName = brkName;
+              getSupabase().from('brokerages').update({ name: brkName, address: brkAddr || APP.brokerage.addr }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+              // Re-render dashboard subtitle
+              var sub = document.getElementById('dash-sub');
+              if (sub) sub.textContent = brkName + (APP.brokerage.lic ? ' · BCFSA ' + APP.brokerage.lic : '');
+            }
+          }).catch(function(){});
+        }
         // Load reps inside brokerage callback so APP.brokerage.lic is set
         var brkLicForReps = b.bcfsa_lic || u.brokerage_id || '';
         if (brkLicForReps) {
@@ -9601,7 +9667,109 @@ function launchPlatform(){
 
 
 // ══════════════════════════════════════════
-// ONBOARDING FUNCTIONS
+// ── Getting Started Tasks ─────────────────────────────────────────────
+function getGSTasks() {
+  var role  = APP.currentUser && APP.currentUser.role;
+  var sc    = APP.sc || [];
+  var reps  = APP.reps || [];
+  var brk   = APP.brokerage || {};
+
+  // Completion checks
+  var hasSC        = sc.length > 0;
+  var hasReps      = reps.length > 0;
+  var hasCouncil   = sc.some(function(s){ return s.councilMembers && s.councilMembers.length > 0; });
+  var hasRoster    = sc.some(function(s){ return (s.councilMembers||[]).some(function(m){ return m.name && m.name.trim(); }); });
+  var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
+  var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; }); });
+  var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='upload'||d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
+  var hasSSQuery   = APP._hasSSQuery || false;
+  var hasInvited   = sc.some(function(s){ return (s.repIds||[]).length > 0; });
+  var hasBilling   = brk.billingSetup || false;
+  var hasSubReq    = APP._hasSubRequest || false;
+
+  // Navigation actions
+  var firstSCId = sc.length ? sc[0].id : null;
+
+  function goSCTab(tab) {
+    if (!firstSCId) return "showPg('strata')";
+    return "showPg('strata');setTimeout(function(){APP.currentScId='"+firstSCId+"';_scDetailTab='"+tab+"';renderSCDetail('"+firstSCId+"');},100)";
+  }
+
+  function goMtgTab(tab) {
+    if (!firstSCId) return "showPg('strata')";
+    return "goToMtgTab('"+firstSCId+"','"+tab+"')";
+  }
+
+  var goSync      = "showPg('brokerage');setTimeout(function(){syncBrokerageReps();},300)";
+  var goAddSC     = "showPg('strata');openMo('mo-add-sc')";
+  var goRoster    = goSCTab('lots');
+  var goCouncil   = goSCTab('council');
+  var goDocs      = goMtgTab('docs');
+  var goMinutes   = goMtgTab('minutes');
+  var goSS        = goMtgTab('stratasphere');
+  var goReps      = goSCTab('reps');
+  var goMeetings  = firstSCId ? "goToMtgTab('"+firstSCId+"','meetings')" : "showPg('strata')";
+  var goBilling   = "showPg('billing')";
+  var goSubReq    = goSCTab('subscription');
+
+  if (role === 'Managing Broker') {
+    return [
+      { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
+      { label: 'Upload a document (e.g. bylaws)',   done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
+      { label: 'Set up payment method',             done: hasBilling, action: goBilling }
+    ];
+  } else if (role === 'Associate Broker') {
+    return [
+      { label: 'Sync representatives from BCFSA',  done: hasReps,    action: goSync },
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
+      { label: 'Upload a document (e.g. bylaws)',   done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
+      { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
+    ];
+  } else {
+    // Strata Manager / Representative
+    return [
+      { label: 'Add your first strata corporation', done: hasSC,      action: goAddSC },
+      { label: 'Upload the owner roster',           done: hasRoster,  action: goRoster },
+      { label: 'Add council members',               done: hasCouncil, action: goCouncil },
+      { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
+      { label: 'Upload a document (e.g. bylaws)',   done: hasBylaws,  action: goDocs },
+      { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Create your first meeting',         done: hasMeeting, action: goMeetings },
+      { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
+    ];
+  }
+}
+
+// Call this whenever data changes that affects GS task completion
+function refreshGSCard() {
+  var pg = document.getElementById('pg-dashboard');
+  if (pg && pg.classList.contains('on')) renderDash();
+}
+
+// Call this after a StrataSphere query to mark it done
+function markSSQueryDone() {
+  APP._hasSSQuery = true;
+  refreshGSCard();
+}
+
+// Call this after a subscription request is submitted
+function markSubRequestDone() {
+  APP._hasSubRequest = true;
+  refreshGSCard();
+}
+
+
 // ══════════════════════════════════════════
 
 // ── Welcome Onboarding (Path A: new REP, no SCs) ──────────────────
@@ -9830,7 +9998,7 @@ function obCreateSC() {
     if (r.error) console.error('SC save error:', r.error);
     if (_scPlanPdfFile) {
       var pdfFile = _scPlanPdfFile; _scPlanPdfFile = null;
-      var path = 'strata-plans/'+plan+'/'+pdfFile.name;
+      var path = 'strata-plans/'+plan.replace(/\s+/g,'-')+'/'+pdfFile.name;
       getSupabase().storage.from('neurata-documents').upload(path, pdfFile, {upsert:true}).then(function(ur){
         if (!ur.error) {
           var url = getSupabase().storage.from('neurata-documents').getPublicUrl(path).data.publicUrl;
@@ -10294,23 +10462,50 @@ function renderDash() {
   html += '<div class="stat"><div class="sv">'+recentMins.length+'</div><div class="sl">Sets of Minutes</div></div>';
   html += '</div>';
 
-  // ── Trial status (brokerage-level) ─────────────────────────────────
+  // ── Trial + Getting Started row ────────────────────────────────────
   var isActive = APP.brokerage.subscriptionStatus === 'active';
-  if (!isActive) {
-    var trialPct = Math.min((adjCount/PRICING.trialMeetings)*100,100);
-    var trialColor = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
-    html += '<div class="card" style="margin-bottom:14px"><div class="ch_"><div class="ct">Trial</div>';
-    if (adjCount >= PRICING.trialMeetings) {
-      html += '<span class="tag red">Trial complete</span>';
-    } else {
-      html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+  var gsTasks  = getGSTasks();
+  var gsDone   = gsTasks.filter(function(t){return t.done;}).length;
+  var gsTotal  = gsTasks.length;
+  var gsAllDone = gsDone === gsTotal;
+
+  if (!isActive || !gsAllDone) {
+    html += '<div style="display:grid;grid-template-columns:'+((!isActive && !gsAllDone)?'1fr 1fr':(!isActive?'1fr':'1fr'))+';gap:14px;margin-bottom:14px">';
+
+    // Trial card (left) — only if not active
+    if (!isActive) {
+      var trialPct = Math.min((adjCount/PRICING.trialMeetings)*100,100);
+      var trialColor = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
+      html += '<div class="card"><div class="ch_"><div class="ct">Trial</div>';
+      if (adjCount >= PRICING.trialMeetings) {
+        html += '<span class="tag red">Trial complete</span>';
+      } else {
+        html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+      }
+      var isMbOnly = APP.currentUser && APP.currentUser.role === 'Managing Broker';
+      if (isMbOnly) html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
+      html += '</div><div class="cb" style="padding:10px 14px">';
+      html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
+      html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
+      html += '</div></div>';
     }
-    var isMbAb = APP.currentUser && APP.currentUser.role === 'Managing Broker';
-    if (isMbAb) html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
-    html += '</div><div class="cb" style="padding:10px 14px">';
-    html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
-    html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
-    html += '</div></div>';
+
+    // Getting Started card (right) — only if not all done
+    if (!gsAllDone) {
+      html += '<div class="card"><div class="ch_"><div class="ct">Getting Started</div>';
+      html += '<span class="gs-progress">'+gsDone+' of '+gsTotal+' complete</span>';
+      html += '</div><div class="cb" style="padding:4px 14px 8px">';
+      gsTasks.forEach(function(t) {
+        html += '<div class="gs-task'+(t.done?' done':'')+'" onclick="'+(t.done?'':t.action)+'">';
+        html += '<div class="gs-check">'+(t.done?'✓':'')+'</div>';
+        html += '<div class="gs-task-lbl">'+escHtml(t.label)+'</div>';
+        if (!t.done) html += '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5L8 6L4.5 9.5" stroke="var(--g3)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    html += '</div>';
   }
 
   html += '<div class="g2">';
@@ -10354,7 +10549,7 @@ function renderDash() {
   // ── Brokerage documents ────────────────────────────────────────────
   var brkDocs = APP.brokerage.docs || [];
   if (brkDocs.length) {
-    html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">📁 Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
+    html += '<div class="card" style="margin-top:14px"><div class="ch_"><div class="ct">Brokerage Documents</div><button class="btn sm" onclick="showPg(\'brokerage\')">Manage →</button></div><div class="cb" style="padding:8px">';
     brkDocs.forEach(function(d) {
       html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--g2)">'
         +'<span></span><span style="flex:1;font-size:12px">'+escHtml(d.name)+'</span>'
@@ -11121,6 +11316,7 @@ function _parseRosterCSV(csv, s) {
     : 'No changes detected — roster is already up to date.';
   nAlert(msg + (skipped ? ' ' + skipped + ' rows unchanged or skipped.' : ''), 'Roster Updated', 'success');
   renderSCDetail(s.id);
+  refreshGSCard();
 }
 
 function openAddCouncilMember(scId, sl) {
@@ -11234,6 +11430,7 @@ function saveCouncilMember() {
   });
   closeMo('mo-council-member');
   renderSCDetail(_cmScId);
+  refreshGSCard();
 }
 
 
@@ -11551,15 +11748,22 @@ function selectSC(id) {
 
 function selectSCMeeting(id) {
   APP.currentScId = id;
-  // Always land on the Meetings tab and open new meeting modal
   currentMtgTab = 'meetings';
   showPg('meetings');
-  // Switch to the meetings tab visually
   setTimeout(function(){
     var tab = document.getElementById('mtgtab-meetings');
     if (tab) switchMtgTab('meetings', tab);
-    openNewMtgModal();
   }, 50);
+}
+
+function goToMtgTab(scId, tab) {
+  APP.currentScId = scId;
+  currentMtgTab = tab;
+  showPg('meetings');
+  setTimeout(function(){
+    var tabEl = document.getElementById('mtgtab-' + tab);
+    if (tabEl) switchMtgTab(tab, tabEl);
+  }, 100);
 }
 
 function renderLedger(sc, el) {
@@ -12076,7 +12280,7 @@ function uploadDoc(file, sc_, opts) {
   if (!sc_) return;
   var plan = sc_.plan; // preserve spaces for folder name per convention
   var planSlug = sc_.plan.replace(/\s+/g,'-'); // for filename
-  var path = 'sc-docs/' + plan + '/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
+  var path = 'sc-docs/' + plan.replace(/\s+/g,'-') + '/' + Date.now() + '_' + file.name.replace(/\s+/g,'_');
   var ext  = file.name.split('.').pop().toLowerCase();
   var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
 
@@ -12163,6 +12367,7 @@ function uploadDoc(file, sc_, opts) {
     }
     if (opts.onComplete) opts.onComplete(docEntry);
     _reRenderDocs(sc_);
+    refreshGSCard();
   })
   .catch(function(e){ console.error('Upload error:', e); docEntry._indexing = false; _reRenderDocs(sc_); });
 }
@@ -12582,7 +12787,7 @@ function hmSave() {
     var file = _hmUploadedFile;
     _hmUploadedFile = null;
     var ext = file.name.split('.').pop();
-    var path = 'historic-minutes/' + sc_.plan + '/' + now + '_' + file.name;
+    var path = 'sc-docs/' + sc_.plan.replace(/\s+/g,'-') + '/' + now + '_' + file.name;
     // Convert base64 data URL to blob
     var b64 = file.data.split(',')[1];
     var raw = atob(b64);
@@ -13387,10 +13592,12 @@ function obComplete(){
 
       // Step 2: Upsert brokerage record
       // Only set trial defaults if brokerage is new — don't reset existing trial state
-      var brkUpsert = { bcfsa_lic: OB.brkLic, name: OB.brkName, address: OB.brkAddr, phone: OB.brkPhone };
+      var brkName = OB.brkName || OB.brkLic; // fallback to lic if name is blank
+      var brkUpsert = { bcfsa_lic: OB.brkLic, name: brkName, address: OB.brkAddr || null, phone: OB.brkPhone || null };
       if (!OB.brkExists) { brkUpsert.subscription_status = 'trial'; brkUpsert.trial_meetings_used = 0; }
       return getSupabase().from('brokerages').upsert(brkUpsert, {onConflict: 'bcfsa_lic'})
-      .then(function() {
+      .then(function(bUpsertRes) {
+        if (bUpsertRes.error) console.error('[obComplete] brokerage upsert error:', bUpsertRes.error);
         // Fetch the actual brokerage row so APP.brokerage has real name/address (esp. if it pre-existed)
         return getSupabase().from('brokerages').select('*').eq('bcfsa_lic', OB.brkLic).single();
       })
