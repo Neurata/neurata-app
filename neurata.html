@@ -693,8 +693,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             onblur="if(this.getAttribute('data-ph'))this.placeholder=this.getAttribute('data-ph')"
           />
         </div>
-        <div class="al info" style="font-size:11px;margin-bottom:16px">Enter your licence number (e.g. 123456, or RE123456), and we will verify it with the BCFSA registry.</div>
-        <button class="btn pri" id="ob-verify-btn" onclick="obVerifyLicence()" style="width:auto">Verify with BCFSA →</button>
+        <div class="al info" style="font-size:11px;margin-bottom:16px;display:none">Enter your licence number (e.g. 123456, or RE123456), and we will verify it with the BCFSA registry.</div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn pri" id="ob-verify-btn" onclick="obVerifyLicence()">Verify with BCFSA →</button>
+        </div>
         <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button></div>
       </div>
       <!-- Step 2 -->
@@ -3745,9 +3747,9 @@ function obAsstSignup() {
           method: 'POST', headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ to: email, name: name, role: 'Assistant', brokerage: brkLic })
         }).catch(function(){});
-        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        refreshAndLoad(userId);
       }).catch(function() {
-        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        refreshAndLoad(userId);
       });
     });
   })
@@ -8939,6 +8941,27 @@ function showForgotPassword() {
 }
 
 
+// ── Robust post-signup session refresh ───────────────────────────────────────
+// After signUp + updateUser, the JWT app_metadata write can lag behind.
+// This retries refreshSession until brokerage_id is present in the token (max 5×).
+function refreshAndLoad(userId, attempt) {
+  attempt = attempt || 1;
+  getSupabase().auth.refreshSession().then(function(r) {
+    var session = r && r.data && r.data.session;
+    var meta    = session && session.user && session.user.app_metadata;
+    var hasBrk  = meta && (meta.brokerage_id || meta.role);
+    if (hasBrk || attempt >= 5) {
+      loadUserProfile(userId);
+    } else {
+      setTimeout(function() { refreshAndLoad(userId, attempt + 1); }, 1200);
+    }
+  }).catch(function() {
+    if (attempt >= 5) { loadUserProfile(userId); }
+    else { setTimeout(function() { refreshAndLoad(userId, attempt + 1); }, 1200); }
+  });
+}
+
+
 function loadUserProfile(userId) {
   getSupabase()
     .from('users')
@@ -13344,9 +13367,9 @@ function obComplete(){
               brokerage: OB.brkName
             })
           }).catch(function(){});
-          setTimeout(function(){ loadUserProfile(userId); }, 2500);
+          refreshAndLoad(userId);
         }).catch(function() {
-          setTimeout(function(){ loadUserProfile(userId); }, 2500);
+          refreshAndLoad(userId);
         });
       });
     })
@@ -13489,9 +13512,9 @@ function obInviteComplete(){
             brokerage: rep.brkName || ''
           })
         }).catch(function(){});
-        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        refreshAndLoad(userId);
       }).catch(function() {
-        setTimeout(function(){ loadUserProfile(userId); }, 2500);
+        refreshAndLoad(userId);
       });
     });
   })
