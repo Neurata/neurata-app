@@ -678,6 +678,15 @@ UPDATE public.users
   SET has_seen_onboarding = true
   WHERE created_at < NOW() - INTERVAL '1 minute';
 
+-- ss_conversations: id must be text (app uses timestamp-based IDs, not UUIDs)
+-- msgs and scope columns added post-launch
+ALTER TABLE public.ss_conversations ALTER COLUMN id TYPE text;
+ALTER TABLE public.ss_conversations ADD COLUMN IF NOT EXISTS msgs  jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE public.ss_conversations ADD COLUMN IF NOT EXISTS scope text DEFAULT 'local';
+
+-- ai_usage: id needs a default UUID
+ALTER TABLE public.ai_usage ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 
 -- ── 10. ai_usage RLS FIX ──────────────────────────────────────
 -- Default policy only allows SA to read ai_usage.
@@ -686,6 +695,10 @@ DROP POLICY IF EXISTS "ai_usage_select" ON public.ai_usage;
 CREATE POLICY "ai_usage_select"
 ON public.ai_usage FOR SELECT TO authenticated
 USING (jwt_is_sa() OR user_id = auth.uid() OR brokerage_id = jwt_brokerage_id());
+
+-- Service role needs explicit grants (not covered by RLS bypass in all Supabase versions)
+GRANT INSERT ON public.ai_usage TO service_role;
+GRANT SELECT ON public.ai_usage TO service_role;
 
 
 -- ── 11. SUPER ADMIN SEED ──────────────────────────────────────
