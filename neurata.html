@@ -10305,7 +10305,8 @@ function renderDash() {
     } else {
       html += '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
     }
-    html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
+    var isMbAb = APP.currentUser && APP.currentUser.role === 'Managing Broker';
+    if (isMbAb) html += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
     html += '</div><div class="cb" style="padding:10px 14px">';
     html += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct+'%;background:'+trialColor+';border-radius:3px;transition:width .4s"></div></div>';
     html += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
