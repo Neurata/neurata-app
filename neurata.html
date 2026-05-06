@@ -802,7 +802,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="ob-s">Enter your BCFSA licence number to verify your identity and join your brokerage.</div>
       <div class="al info" style="margin-bottom:14px;font-size:11px">Your licence will be verified against the BCFSA registry.</div>
       <div class="fr" style="margin-bottom:14px">
-        <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.toUpperCase();invCheckBtn()"/></div>
+        <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.replace(/\s/g,'').toUpperCase();invCheckBtn()"/></div>
         <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca" oninput="invCheckBtn()"/></div>
         <div class="fg">
           <label>Password</label>
@@ -811,6 +811,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             <button type="button" class="btn xs" onclick="invTogglePw()" id="inv-pw-toggle" style="flex-shrink:0">Show</button>
           </div>
           <div id="inv-pw-strength" style="font-size:10px;margin-top:4px;color:var(--g4)">Minimum 8 characters</div>
+        </div>
+        <div class="fg">
+          <label>Confirm Password</label>
+          <input type="password" id="inv-pw2" placeholder="Repeat password" oninput="invCheckBtn()"/>
+          <div id="inv-pw2-match" style="font-size:10px;margin-top:4px;color:var(--g4)"></div>
         </div>
       </div>
       
@@ -3675,7 +3680,7 @@ function saveAsst() {
   var email = (document.getElementById('asst-email').value||'').trim();
   if (!name)  { nAlert('Please enter the assistant name.','Missing Name','warn'); return; }
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid email address.','Missing Email','warn'); return; }
-  var inviteUrl = 'https://app.neurata.ai/?asst='+encodeURIComponent(APP.brokerage.lic||'')
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?asst='+encodeURIComponent(APP.brokerage.lic||'')
     +'&sc='+encodeURIComponent(s.plan)
     +'&email='+encodeURIComponent(email);
   fetch(WORKER_URL+'/send-invite', {
@@ -3694,13 +3699,32 @@ function saveAsst() {
 function showInviteScreen() {
   var ctx = window._inviteContext || {};
   if (ctx.type === 'assistant') {
-    // Pre-fill email if provided
     var emailEl = document.getElementById('asst-inv-email');
     if (emailEl && ctx.email) emailEl.value = ctx.email;
     showScr('scr-asst-invite');
   } else if (ctx.type === 'delegate') {
     showScr('scr-delegate-invite');
   } else {
+    // Pre-fill and lock lic + email from invite context
+    var licEl   = document.getElementById('inv-lic');
+    var emailEl2 = document.getElementById('inv-email');
+    if (licEl && ctx.lic) {
+      licEl.value    = ctx.lic.toUpperCase();
+      licEl.readOnly = true;
+      licEl.style.background = 'var(--g1)';
+      licEl.style.color      = 'var(--ch3)';
+      // Remove live oninput to prevent tampering
+      licEl.oninput = null;
+    }
+    if (emailEl2 && ctx.email) {
+      emailEl2.value    = ctx.email;
+      emailEl2.readOnly = true;
+      emailEl2.style.background = 'var(--g1)';
+      emailEl2.style.color      = 'var(--ch3)';
+      emailEl2.oninput = null;
+    }
+    // Enable create button if lic and email are pre-filled
+    invCheckBtn();
     showScr('scr-invited');
   }
 }
@@ -4023,7 +4047,7 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
   var scParam = (allPlans && allPlans.length > 1) ? allPlans.join(',') : (s.plan||scId);
-  var inviteUrl = 'https://app.neurata.ai/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scParam)+'&lic='+encodeURIComponent(lic||'');
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?invite='+encodeURIComponent(APP.brokerage.lic||'')+'&sc='+encodeURIComponent(scParam)+'&lic='+encodeURIComponent(lic||'')+'&email='+encodeURIComponent(email||'');
 
   // Save assignment locally and persist to Supabase
   if (lic && s) {
@@ -4102,7 +4126,7 @@ function sendDelegateInviteEmail(email, name, scId, sl) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
-  var inviteUrl = 'https://app.neurata.ai/?delegate='+encodeURIComponent(scId)+'&sl='+encodeURIComponent(sl||'');
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?delegate='+encodeURIComponent(scId)+'&sl='+encodeURIComponent(sl||'');
 
   fetch(WORKER_URL+'/send-invite', {
     method: 'POST',
@@ -13404,17 +13428,32 @@ function invCheckBtn(){
   var lic   = (document.getElementById('inv-lic')||{}).value||'';
   var email = (document.getElementById('inv-email')||{}).value||'';
   var pw    = (document.getElementById('inv-pw')||{}).value||'';
-  var btn   = document.getElementById('inv-create-btn');
-  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8);
+  var pw2   = (document.getElementById('inv-pw2')||{}).value||'';
+  var matchEl = document.getElementById('inv-pw2-match');
+  if (matchEl && pw2.length > 0) {
+    if (pw === pw2) {
+      matchEl.textContent = '✓ Passwords match';
+      matchEl.style.color = 'var(--grn)';
+    } else {
+      matchEl.textContent = 'Passwords do not match';
+      matchEl.style.color = 'var(--red)';
+    }
+  } else if (matchEl) {
+    matchEl.textContent = '';
+  }
+  var btn = document.getElementById('inv-create-btn');
+  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pw.length >= 8 && pw === pw2);
 }
 
 function obInviteComplete(){
   var lic   = (document.getElementById('inv-lic')||{}).value.trim().toUpperCase();
   var email = (document.getElementById('inv-email')||{}).value.trim();
   var pw    = (document.getElementById('inv-pw')||{}).value.trim();
+  var pw2   = (document.getElementById('inv-pw2')||{}).value.trim();
   if(!lic)  { nAlert('Please enter your BCFSA licence number.'); return; }
   if(!email){ nAlert('Please enter your brokerage email.'); return; }
   if(pw.length<8){ nAlert('Please create a password (minimum 8 characters).'); return; }
+  if(pw !== pw2){ nAlert('Passwords do not match. Please try again.','Password Mismatch','warn'); return; }
 
   // Validate lic matches invitation
   if (window._inviteContext && window._inviteContext.lic) {
