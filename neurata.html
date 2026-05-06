@@ -13563,10 +13563,12 @@ function obComplete(){
 
       // Step 2: Upsert brokerage record
       // Only set trial defaults if brokerage is new — don't reset existing trial state
-      var brkUpsert = { bcfsa_lic: OB.brkLic, name: OB.brkName, address: OB.brkAddr, phone: OB.brkPhone };
+      var brkName = OB.brkName || OB.brkLic; // fallback to lic if name is blank
+      var brkUpsert = { bcfsa_lic: OB.brkLic, name: brkName, address: OB.brkAddr || null, phone: OB.brkPhone || null };
       if (!OB.brkExists) { brkUpsert.subscription_status = 'trial'; brkUpsert.trial_meetings_used = 0; }
       return getSupabase().from('brokerages').upsert(brkUpsert, {onConflict: 'bcfsa_lic'})
-      .then(function() {
+      .then(function(bUpsertRes) {
+        if (bUpsertRes.error) console.error('[obComplete] brokerage upsert error:', bUpsertRes.error);
         // Fetch the actual brokerage row so APP.brokerage has real name/address (esp. if it pre-existed)
         return getSupabase().from('brokerages').select('*').eq('bcfsa_lic', OB.brkLic).single();
       })
