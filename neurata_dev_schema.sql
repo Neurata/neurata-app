@@ -576,19 +576,24 @@ CREATE TRIGGER sync_user_metadata_trigger
 -- They are NOT included in standard pg_dump output — must be run manually.
 
 -- ── neurata-documents ─────────────────────────────────────────
+-- Path structure: sc-docs/EPS-9048/filename.pdf
+-- Policy extracts second segment (EPS-9048) for matching against plan numbers
+
 CREATE POLICY "neurata_documents_insert"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'neurata-documents'
   AND (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Super Admin')
-    OR left(name, position('/' in name) - 1) IN (
-      SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
-      WHERE brokerage_id = jwt_brokerage_id()
-      UNION
-      SELECT replace(sc_id, ' ', '-') FROM public.sc_users
-      WHERE user_id = auth.uid()
-    )
+    OR substring(name from position('/' in name) + 1
+         for position('/' in substring(name from position('/' in name) + 1)) - 1)
+       IN (
+         SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
+         WHERE brokerage_id = jwt_brokerage_id()
+         UNION
+         SELECT replace(sc_id, ' ', '-') FROM public.sc_users
+         WHERE user_id = auth.uid()
+       )
   )
 );
 
@@ -598,14 +603,16 @@ USING (
   bucket_id = 'neurata-documents'
   AND (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Super Admin')
-    OR left(name, position('/' in name) - 1) IN (
-      SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
-      WHERE brokerage_id = jwt_brokerage_id()
-      UNION
-      SELECT replace(sc_id, ' ', '-') FROM public.sc_users
-      WHERE user_id = auth.uid()
-    )
     OR left(name, position('/' in name) - 1) = 'education'
+    OR substring(name from position('/' in name) + 1
+         for position('/' in substring(name from position('/' in name) + 1)) - 1)
+       IN (
+         SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
+         WHERE brokerage_id = jwt_brokerage_id()
+         UNION
+         SELECT replace(sc_id, ' ', '-') FROM public.sc_users
+         WHERE user_id = auth.uid()
+       )
   )
 );
 
@@ -620,10 +627,12 @@ USING (
   bucket_id = 'neurata-documents'
   AND (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Super Admin')
-    OR left(name, position('/' in name) - 1) IN (
-      SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
-      WHERE brokerage_id = jwt_brokerage_id()
-    )
+    OR substring(name from position('/' in name) + 1
+         for position('/' in substring(name from position('/' in name) + 1)) - 1)
+       IN (
+         SELECT replace(plan_number, ' ', '-') FROM public.strata_corps
+         WHERE brokerage_id = jwt_brokerage_id()
+       )
   )
 );
 
