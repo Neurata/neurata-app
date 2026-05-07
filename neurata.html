@@ -13670,11 +13670,12 @@ function obVerifyLicence(){
         : (d.licenceStatus || 'Licensed');
       document.getElementById('ob-brk-exists-warn').style.display = 'none';
 
-      // Check if this brokerage already exists on Neurata
+      // Check if this brokerage already exists on Neurata (via worker — no auth needed)
       if (OB.brkLic) {
-        getSupabase().from('brokerages').select('bcfsa_lic,name').eq('bcfsa_lic', OB.brkLic).maybeSingle()
-        .then(function(bRes) {
-          if (bRes.data) {
+        fetch(WORKER_URL + '/brokerage-exists?lic=' + encodeURIComponent(OB.brkLic))
+        .then(function(r){ return r.json(); })
+        .then(function(d) {
+          if (d.exists) {
             OB.brkExists = true;
             var warn = document.getElementById('ob-brk-exists-warn');
             if (warn) warn.style.display = '';
