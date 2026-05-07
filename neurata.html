@@ -6203,10 +6203,10 @@ function exportAgenda(scId, mtgId) {
     r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;}\\margl1440\\margr1440\\margt1584\\margb1584\\widowctrl}');
     function esc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\{/g,'\\{').replace(/\}/g,'\\}').replace(/[^\x00-\x7F]/g,function(c){return '\\u'+c.charCodeAt(0)+'?';});}
     var SL='\\sl276\\slmult1';
-    function heading(t){return '\\pard\\sb240\\sa40\\keepn\\b\\fs24\\cf1 '+SL+' '+esc(t.toUpperCase())+'\\b0\\cf0\\par'+'\\pard\\sb0\\sa60\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par';}
-    function body(t){return '\\pard\\sb0\\sa100\\fs22 '+SL+' '+esc(t)+'\\par';}
-    function bold(t){return '\\pard\\sb80\\sa40\\b\\fs22 '+SL+' '+esc(t)+'\\b0\\par';}
-    function meta(t){return '\\pard\\sb0\\sa30\\fs20\\cf2 '+SL+' '+esc(t)+'\\cf0\\par';}
+    function heading(t){return '\\pard\\sb240\\sa40\\keepn\\f0\\b\\fs24\\cf1 '+SL+' '+esc(t.toUpperCase())+'\\b0\\cf0\\par'+'\\pard\\sb0\\sa60\\brdrb\\brdrs\\brdrw10\\brdrcf1 \\par';}
+    function body(t){return '\\pard\\sb0\\sa100\\f0\\fs22 '+SL+' '+esc(t)+'\\par';}
+    function bold(t){return '\\pard\\sb80\\sa40\\f0\\b\\fs22 '+SL+' '+esc(t)+'\\b0\\par';}
+    function meta(t){return '\\pard\\sb0\\sa30\\f0\\fs20\\cf2 '+SL+' '+esc(t)+'\\cf0\\par';}
 
     // Logo/letterhead
     if (logoDataUrl && logoDataUrl.indexOf('base64,')>0) {
@@ -6605,7 +6605,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('html,body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000;line-height:1.15}');
   lines.push('body{margin:0;padding:0}');
   // Page setup with footer
-  lines.push('@page{size:letter;margin:1in 1.1in 1.2in 1.1in}');
+  lines.push('@page{size:letter;margin:1in 1.1in 0.85in 1.1in;-webkit-print-color-adjust:exact}');
   lines.push('@media print{');
   lines.push('  body{margin:0}');
   lines.push('  .page-break{page-break-before:always}');
@@ -6635,7 +6635,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('.sig-block{margin-top:48pt}');
   lines.push('.sig-line{display:inline-block;width:44%;margin-right:8%;border-top:1px solid #000;padding-top:4pt;font-size:10pt;color:#595959}');
   // Footer — SC number + Neurata + page number
-  lines.push('.footer{position:fixed;bottom:0.4in;left:1.1in;right:1.1in;display:flex;justify-content:space-between;align-items:center;font-size:8pt;color:#aaa;border-top:1px solid #ddd;padding-top:4pt}');
+  lines.push('.footer{position:fixed;bottom:0;left:0;right:0;padding:4pt 1.1in 0;height:0.75in;display:flex;justify-content:space-between;align-items:flex-start;font-size:8pt;color:#aaa;border-top:1px solid #ddd;background:#fff;box-sizing:border-box}');
   lines.push('.footer-center{text-align:center;flex:1}');
   lines.push('</style></head><body>');
 
@@ -6734,6 +6734,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
 
   lines.push('<script>');
   lines.push('window.onload = function() {');
+  lines.push('  document.title = document.querySelector("title") ? document.querySelector("title").textContent : "Minutes";');
   lines.push('  setTimeout(function(){ window.print(); }, 800);');
   lines.push('};');
   lines.push('<\/script>');
