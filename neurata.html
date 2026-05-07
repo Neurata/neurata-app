@@ -130,14 +130,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .al.warn{background:var(--ambl);border:1px solid #f5c842;color:var(--amb)}
 .al.ok{background:var(--grnl);border:1px solid #8dd4b2;color:var(--grn)}
 .al.red_{background:var(--redl);border:1px solid #f5b0b3;color:var(--red)}
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
 .mo.open{display:flex}
-.mo-box{background:var(--wh);border-radius:10px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22);display:flex;flex-direction:column}
+.mo-box{background:var(--wh);border-radius:14px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.2);display:flex;flex-direction:column;animation:cdlg-in .15s ease}
 .mo-box.wide{max-width:720px}.mo-box.xl{max-width:940px}
-.mo-hd{padding:15px 19px;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.mo-t{font-size:15px;font-weight:700}
-.mo-x{background:none;border:none;cursor:pointer;font-size:20px;color:var(--g4);line-height:1;padding:0 4px}
-.mo-bd{padding:19px;flex:1;overflow-y:auto}.mo-ft{padding:12px 19px;border-top:1px solid var(--g2);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+.mo-hd{padding:18px 20px;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mo-t{font-size:15px;font-weight:700;color:var(--ch)}
+.mo-x{background:none;border:none;cursor:pointer;font-size:20px;color:var(--g4);line-height:1;padding:0 4px;transition:color .15s}.mo-x:hover{color:var(--ch)}
+.mo-bd{padding:20px;flex:1;overflow-y:auto}.mo-ft{padding:14px 20px;border-top:1px solid var(--g2);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
 .upz{border:2px dashed var(--g3);border-radius:8px;padding:26px;text-align:center;cursor:pointer;transition:all .2s;user-select:none}
 .upz:hover{border-color:var(--org);background:var(--orgp)}
 .upz-ic{font-size:28px;margin-bottom:8px}.upz-t{font-size:13px;color:var(--ch3)}.upz-s{font-size:11px;color:var(--g4);margin-top:3px}
@@ -397,21 +397,24 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .cm-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:var(--orgp);color:var(--orgd)}
 
 /* ── CUSTOM DIALOGS (replace alert/confirm/prompt) ── */
-#cdlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px}
+#cdlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
 #cdlg-overlay.open{display:flex}
-#cdlg-box{background:var(--wh);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.25);width:100%;max-width:480px;overflow:hidden}
-#cdlg-hd{padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--g2)}
-#cdlg-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:1px}
-#cdlg-icon.info{background:var(--blu1,#dbeafe);color:#2563eb}
+#cdlg-box{background:var(--wh);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.22);width:100%;max-width:420px;overflow:hidden;animation:cdlg-in .15s ease}
+@keyframes cdlg-in{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
+#cdlg-hd{padding:24px 24px 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+#cdlg-logo{width:36px;height:36px;object-fit:contain}
+#cdlg-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700}
+#cdlg-icon.info{background:var(--orgl);color:var(--org)}
 #cdlg-icon.warn{background:var(--orgl);color:var(--org)}
 #cdlg-icon.danger{background:var(--redl);color:var(--red)}
 #cdlg-icon.success{background:var(--grnl);color:var(--grn)}
-#cdlg-title{font-size:14px;font-weight:700;color:var(--ch);margin-bottom:4px}
-#cdlg-msg{font-size:13px;color:var(--ch2);line-height:1.5;white-space:pre-wrap;padding:16px 20px}
-#cdlg-input-wrap{padding:0 20px 0 64px}
-#cdlg-input{width:100%;border:1px solid var(--g3);border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--ch);box-sizing:border-box}
-#cdlg-input:focus{border-color:var(--org)}
-#cdlg-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:8px}
+#cdlg-icon.question{background:var(--g1);color:var(--g4)}
+#cdlg-title{font-size:16px;font-weight:700;color:var(--ch);line-height:1.3}
+#cdlg-msg{font-size:13px;color:var(--ch2);line-height:1.6;white-space:pre-wrap;padding:14px 24px 4px;text-align:center}
+#cdlg-input-wrap{padding:8px 24px}
+#cdlg-input{width:100%;border:1px solid var(--g3);border-radius:6px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;color:var(--ch);box-sizing:border-box}
+#cdlg-input:focus{border-color:var(--org);box-shadow:0 0 0 2px var(--orgl)}
+#cdlg-ft{padding:16px 24px 24px;display:flex;justify-content:center;gap:8px}
 
 .invite-corp-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--g2);cursor:pointer;user-select:none;transition:background .1s}
 .invite-corp-item:last-child{border-bottom:none}
@@ -13371,12 +13374,14 @@ function _dlgNext() {
   var ft      = document.getElementById('cdlg-ft');
 
   // Icon
-  var iconMap = {info:'ℹ',warn:'⚠',danger:'⚠',success:'✓',question:'?'};
-  iconEl.textContent = o.icon || iconMap[o.type||'info'] || 'ℹ';
-  iconEl.className   = 'cdlg-icon '+(o.type||'info');
-  // Apply id back (className replaced it)
+  var iconMap = {info:'!', warn:'!', danger:'✕', success:'✓', question:'?'};
+  iconEl.textContent = o.icon || iconMap[o.type||'info'] || '!';
   iconEl.id = 'cdlg-icon';
-  iconEl.className   = (o.type||'info');
+  iconEl.className = (o.type||'info');
+
+  // Show logo for info/success/question, hide for warn/danger
+  var logoEl = document.getElementById('cdlg-logo');
+  if (logoEl) logoEl.style.display = (o.type==='warn'||o.type==='danger') ? 'none' : '';
 
   titleEl.textContent = o.title || '';
   titleEl.style.display = o.title ? '' : 'none';
@@ -14136,8 +14141,9 @@ init();
 <div id="cdlg-overlay">
   <div id="cdlg-box">
     <div id="cdlg-hd">
-      <span id="cdlg-icon" class="info"></span>
-      <span id="cdlg-title"></span>
+      <img id="cdlg-logo" src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" alt="Neurata"/>
+      <div id="cdlg-icon" class="info"></div>
+      <div id="cdlg-title"></div>
     </div>
     <div id="cdlg-msg"></div>
     <div id="cdlg-input-wrap" style="display:none">
