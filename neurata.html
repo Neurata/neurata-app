@@ -1504,8 +1504,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
-</div>
-
 <!-- Agenda Item Editor (modal) -->
 <div class="mo" id="mo-edit-item">
   <div class="mo-box" style="max-width:600px">
@@ -8408,7 +8406,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
 
   if (isSetup) {
     // Show saved method summary — don't show blank form again
-    var methodLabel = payMethod === 'card' ? ' Credit Card' : '🏦 Pre-Authorized Debit (ACSS)';
+    var methodLabel = payMethod === 'card' ? ' Credit Card' : 'Pre-Authorized Debit (ACSS)';
     var methodDesc  = payMethod === 'card'
       ? 'Credit card on file. Charges processed automatically each month.'
       : 'Canadian bank account on file. Pre-authorized debit processed on the 1st of each month.';
@@ -8633,12 +8631,6 @@ function approveActivationRequest(reqId, scId, requestType) {
     renderBilling();
     nAlert(label+' approved for '+scId+'.','Approved ✓','success');
   }, 'Approve Request', 'info');
-}
-
-function dismissActivationRequest(reqId) {
-  getSupabase().from('activation_requests').update({status:'dismissed'}).eq('id',reqId).then(function(){});
-  APP.pendingRequests = (APP.pendingRequests||[]).filter(function(r){ return r.id !== reqId; });
-  renderBilling();
 }
 
 function scheduleCancelMM(scId) {
@@ -11969,7 +11961,7 @@ function renderDecisionLedgerTable(decisions) {
       voteStr = d.votes.for+'F / '+d.votes.against+'A / '+d.votes.abstain+'Ab';
     }
     var sourceLabel = (d.source === 'historic-minutes' || d.source === 'historic') ? ' Historic'
-      : d.source === 'meeting-mode' ? '🔴 Live'
+      : d.source === 'meeting-mode' ? 'Live'
       : d.source === 'imported' ? '📥 Imported' : '—';
     var motionText = d.motion && d.motion.trim() ? d.motion : '';
     var moverText  = (d.mover || d.sec) ? 'Moved: '+(d.mover||'—')+' · Sec: '+(d.sec||'—') : '';
@@ -13156,7 +13148,7 @@ function renderMeetingsList(sc, el) {
   ['LIVE','DRAFT','ADJOURNED'].forEach(function(status) {
     var group = mtgs.filter(function(m){return m.status===status;});
     if (!group.length) return;
-    var label = {LIVE:'🔴 Live',DRAFT:' Upcoming / Draft',ADJOURNED:'✓ Past'}[status];
+    var label = {LIVE:'Live',DRAFT:'Upcoming / Draft',ADJOURNED:'Past'}[status];
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px;margin-top:4px">'+label+'</div>';
     group.forEach(function(m) {
       var mmActive  = scMmActive(sc);
