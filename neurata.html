@@ -1358,7 +1358,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <span class="mm-lbl" data-motion="1">Decision Result</span><span id="mm-outcome" data-motion="1" style="flex-shrink:0;font-weight:600;color:var(--g4);white-space:nowrap">—</span>
       <div class="mm-bdiv"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
-        <button class="btn sm" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Continue →</button>
+        <button class="btn sm pri" id="mm-next-btn" onclick="mmNextItem()" style="display:none">Continue →</button>
         <button class="mm-conf" id="mm-confbtn" onclick="confirmDecision()" disabled style="display:none">Confirm Decision</button>
       </div>
     </div>
@@ -5211,7 +5211,15 @@ function adjustVote(id, t, delta) {
 
 // Keep addVote for backward compat (called from voteSection buttons in centre panel)
 function addVote(id, t) { adjustVote(id, t, 1); }
-function saveNote(id,v){var it=MM.agenda.find(function(a){return a.id===id;});if(it)it.notes=v;}
+function saveNote(id, v) {
+  var it = MM.agenda.find(function(a){ return a.id===id; });
+  if (!it) return;
+  it.notes = v;
+  // Persist to DB — notes are stored in the agenda JSON, excluded from minutes AI prompt
+  if (MM.mtgId && APP.currentScId) {
+    getSupabase().from('meetings').update({ agenda: MM.agenda }).eq('id', MM.mtgId).then(function(){});
+  }
+}
 function saveMotion(id,v){var it=MM.agenda.find(function(a){return a.id===id;});if(it&&it.motion)it.motion.text=v;}
 function updOutcome(it){
   var m = it.motion;
