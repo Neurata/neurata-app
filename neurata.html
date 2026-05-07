@@ -1782,8 +1782,11 @@ function submitActivationRequest(scId, requestType) {
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
   var user = APP.currentUser;
   var brkLic = APP.brokerage.lic || user.brkLic;
-  var typeLabel = requestType==='ss_global' ? 'Global StrataSphere'
-    : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
+  var typeLabel = requestType==='ss_global'   ? 'Global StrataSphere'
+    : requestType==='ss_local'               ? 'Downgrade to Meeting Mode'
+    : requestType==='cancel'                 ? 'Cancellation'
+    : requestType==='undo_cancel'            ? 'Undo Cancellation'
+    : 'Meeting Mode';
 
   // Leave blank — SM will enter their Managing Broker's email manually
   var suggestedEmail = '';
@@ -1813,8 +1816,17 @@ function submitActivationRequest(scId, requestType) {
   // Store context on window for _submitARConfirm
   window._arContext = { scId: scId, sc_: sc_, requestType: requestType, typeLabel: typeLabel, brkLic: brkLic, user: user };
 
-  document.getElementById('mo-ar-title').textContent = 'Request ' + typeLabel + ' Activation';
-  document.getElementById('mo-ar-desc').textContent = sc_.plan + (sc_.name ? ' \u2014 ' + sc_.name : '') + ' \u00b7 ' + typeLabel;
+  var moTitle = requestType === 'cancel'      ? 'Request Subscription Cancellation'
+    : requestType === 'undo_cancel'           ? 'Request Undo Cancellation'
+    : 'Request ' + typeLabel + ' Activation';
+
+  var moDesc = requestType === 'cancel'
+    ? 'Cancel subscription for ' + sc_.plan + (sc_.name ? ' \u2014 ' + sc_.name : '')
+    : requestType === 'undo_cancel'
+    ? 'Undo pending cancellation for ' + sc_.plan + (sc_.name ? ' \u2014 ' + sc_.name : '')
+    : sc_.plan + (sc_.name ? ' \u2014 ' + sc_.name : '') + ' \u00b7 ' + typeLabel;
+  document.getElementById('mo-ar-title').textContent = moTitle;
+  document.getElementById('mo-ar-desc').textContent  = moDesc;
   document.getElementById('mo-ar-email').value = suggestedEmail;
   openMo('mo-activation-request');
   setTimeout(function(){ document.getElementById('mo-ar-email').focus(); }, 200);
@@ -1893,6 +1905,42 @@ function dismissActivationRequest(id) {
 function activateFromRequest(id, scId, requestType) {
   var sc_ = APP.sc.find(function(s){return s.plan===scId||s.id===scId;});
   if (!sc_) { nAlert('SC not found.','','warn'); return; }
+
+  // Handle cancellation approval
+  if (requestType === 'cancel') {
+    var annexStr_ = scAnniversaryStr(sc_.mmActivatedAt || sc_.ssGlobalActivatedAt);
+    nConfirm(
+      'Approve cancellation for ' + scId + '?\n\n'
+      + 'Service will remain active until ' + annexStr_ + ', then cancel automatically.\n\n'
+      + 'This cannot be undone once the term ends.',
+      function(ok) {
+        if (!ok) return;
+        sc_.mmPendingCancel = true;
+        getSupabase().from('strata_corps').update({mm_pending_cancel: true}).eq('plan_number', sc_.plan).then(function(){});
+        getSupabase().from('activation_requests').update({status:'approved'}).eq('id', id).then(function(){});
+        APP.pendingRequests = undefined;
+        renderBilling(); renderSCDetail(sc_.id);
+        nAlert('Cancellation approved. Service ends ' + annexStr_ + '.', 'Cancellation Approved', 'success');
+      }, 'Approve Cancellation', 'danger');
+    return;
+  }
+
+  // Handle undo cancellation approval
+  if (requestType === 'undo_cancel') {
+    nConfirm(
+      'Approve undo cancellation for ' + scId + '?\n\nThe subscription will continue renewing as normal.',
+      function(ok) {
+        if (!ok) return;
+        sc_.mmPendingCancel = false;
+        getSupabase().from('strata_corps').update({mm_pending_cancel: false}).eq('plan_number', sc_.plan).then(function(){});
+        getSupabase().from('activation_requests').update({status:'approved'}).eq('id', id).then(function(){});
+        APP.pendingRequests = undefined;
+        renderBilling(); renderSCDetail(sc_.id);
+        nAlert('Cancellation reversed. Subscription will continue.', 'Undo Approved', 'success');
+      }, 'Approve Undo Cancellation', 'info');
+    return;
+  }
+
   var lots = parseInt(sc_.lots) || 0;
   var label = requestType==='ss_global' ? 'Global StrataSphere'
     : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode + Local StrataSphere';
@@ -8420,24 +8468,55 @@ function renderBilling() {
     var requests = APP.pendingRequests || [];
     var reqEl = document.getElementById('billing-requests');
     if (reqEl && requests.length) {
-      var typeLabel = function(t){ return t==='ss_global'?'Global StrataSphere':t==='ss_local'?'Local StrataSphere':'Meeting Mode'; };
-      var rhtml = '<div class="card" style="margin-bottom:14px;border:2px solid var(--org)">'
-        +'<div class="ch_"><div class="ct">Pending Activation Requests</div>'
-        +'<span class="tag amb">'+requests.length+' pending</span></div>'
-        +'<div class="cb">';
-      requests.forEach(function(r) {
-        rhtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--g2)">'
-          +'<div style="flex:1">'
-          +'<div style="font-size:13px;font-weight:600">'+escHtml(r.sc_id)+' &mdash; '+typeLabel(r.request_type)+'</div>'
-          +'<div style="font-size:11px;color:var(--g4)">Requested by '+escHtml(r.requester_name||'team member')
-          +' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString()+'</div>'
-          +'</div>'
-          +'<button class="btn sm pri" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">Activate</button>'
-          +'<button class="btn sm" onclick="dismissActivationRequest(\''+r.id+'\')">Dismiss</button>'
-          +'</div>';
+      var reqTypeLabel = function(t){
+        return t==='ss_global'   ? 'Upgrade to Global StrataSphere'
+             : t==='ss_local'    ? 'Downgrade to Meeting Mode'
+             : t==='cancel'      ? 'Cancellation Request'
+             : t==='undo_cancel' ? 'Undo Cancellation Request'
+             : 'Meeting Mode Activation';
+      };
+      var reqBorderColor = function(t){
+        return (t==='cancel') ? 'var(--red)' : (t==='undo_cancel') ? 'var(--amb)' : 'var(--org)';
+      };
+      var reqApproveLabel = function(t){
+        return t==='cancel' ? 'Approve Cancellation' : t==='undo_cancel' ? 'Approve Undo' : 'Activate';
+      };
+      var reqApproveStyle = function(t){
+        return t==='cancel' ? 'btn sm red' : 'btn sm pri';
+      };
+
+      // Group by type for visual distinction
+      var activations = requests.filter(function(r){ return r.request_type==='mm'||r.request_type==='ss_global'||r.request_type==='ss_local'; });
+      var cancellations = requests.filter(function(r){ return r.request_type==='cancel'; });
+      var undos = requests.filter(function(r){ return r.request_type==='undo_cancel'; });
+      var allGroups = [
+        {label:'Activation Requests', items:activations, border:'var(--org)', tag:'amb'},
+        {label:'Cancellation Requests', items:cancellations, border:'var(--red)', tag:'red'},
+        {label:'Undo Cancellation Requests', items:undos, border:'var(--amb)', tag:'amb'}
+      ].filter(function(g){ return g.items.length > 0; });
+
+      var rhtml = '';
+      allGroups.forEach(function(group) {
+        rhtml += '<div class="card" style="margin-bottom:14px;border:2px solid '+group.border+'">'
+          +'<div class="ch_"><div class="ct">'+group.label+'</div>'
+          +'<span class="tag '+group.tag+'">'+group.items.length+' pending</span></div>'
+          +'<div class="cb">';
+        group.items.forEach(function(r) {
+          rhtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--g2)">'
+            +'<div style="flex:1">'
+            +'<div style="font-size:13px;font-weight:600">'+escHtml(r.sc_id)+' &mdash; '+reqTypeLabel(r.request_type)+'</div>'
+            +'<div style="font-size:11px;color:var(--g4)">Requested by '+escHtml(r.requester_name||'team member')
+            +' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString('en-CA')+'</div>'
+            +'</div>'
+            +'<button class="'+reqApproveStyle(r.request_type)+'" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">'+reqApproveLabel(r.request_type)+'</button>'
+            +'<button class="btn sm" onclick="dismissActivationRequest(\''+r.id+'\')">Deny</button>'
+            +'</div>';
+        });
+        rhtml += '</div></div>';
       });
-      rhtml += '</div></div>';
       reqEl.innerHTML = rhtml;
+    } else if (reqEl) {
+      reqEl.innerHTML = '';
     }
   }
 }
@@ -10783,6 +10862,14 @@ function requestSCDowngrade(scId) {
   submitActivationRequest(scId, 'ss_local');
 }
 
+function requestSCCancel(scId) {
+  submitActivationRequest(scId, 'cancel');
+}
+
+function requestSCUndoCancel(scId) {
+  submitActivationRequest(scId, 'undo_cancel');
+}
+
 function cancelSCSubscription(scId) {
   // Route to the same proper flow
   scheduleCancelMM(scId);
@@ -10838,6 +10925,23 @@ function reactivateSCSubscription(scId) {
   );
 }
 
+// Returns last day of anniversary month (e.g. activated May 7 2026 → May 31 2027)
+function scAnniversaryDate(activatedAt) {
+  if (!activatedAt) return null;
+  var d = new Date(activatedAt);
+  // One year later, last day of that month
+  var yr = d.getFullYear() + 1;
+  var mo = d.getMonth(); // 0-indexed, same month
+  var lastDay = new Date(yr, mo + 1, 0); // day 0 of next month = last day of this month
+  return lastDay;
+}
+
+function scAnniversaryStr(activatedAt) {
+  var d = scAnniversaryDate(activatedAt);
+  if (!d) return 'end of annual term';
+  return d.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'});
+}
+
 function renderSCSubscription(s) {
   var isPaidSub  = !!(s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId); // actually paid via Stripe
   var mmOn       = isPaidSub;
@@ -10857,20 +10961,105 @@ function renderSCSubscription(s) {
   var trialUsed = APP.brokerage && APP.brokerage.trialMeetingsUsed || 0;
   var trialDone = trialUsed >= PRICING.trialMeetings;
 
-  // Pre-build onclick strings
-  var _act = needsApproval
-    ? 'onclick="requestSCActivation(\'' + scIdSafe + '\')"'
-    : 'onclick="activateSCMeetingMode(\'' + scIdSafe + '\')"';
-  var _upg = needsApproval
-    ? 'onclick="requestSCUpgrade(\'' + scIdSafe + '\')"'
-    : 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"';
-  var _can = 'onclick="cancelSCSubscription(\'' + scIdSafe + '\')"';
-  var _dwn = needsApproval
-    ? 'onclick="requestSCDowngrade(\'' + scIdSafe + '\')"'
-    : 'onclick="downgradeSCStrataSphere(\'' + scIdSafe + '\')"';
+  // Anniversary/cancellation date
+  var activatedAt = s.mmActivatedAt || s.ssGlobalActivatedAt || null;
+  var annexStr    = scAnniversaryStr(activatedAt);
+
+  // Roles
+  var isMB_ = role === 'Managing Broker';
+
+  // Pending requests for this SC
+  var pendingReqs   = (APP.pendingRequests || []).filter(function(r){ return r.sc_id === s.plan && r.status === 'pending'; });
+  var pendingMM     = pendingReqs.some(function(r){ return r.request_type === 'mm'; });
+  var pendingGlobal = pendingReqs.some(function(r){ return r.request_type === 'ss_global'; });
+  var pendingCancel = pendingReqs.some(function(r){ return r.request_type === 'cancel'; });
+  var pendingUndo   = pendingReqs.some(function(r){ return r.request_type === 'undo_cancel'; });
+  var pendingDwn    = pendingReqs.some(function(r){ return r.request_type === 'ss_local'; });
+
+  // onclick handlers
+  var _actMM  = isMB_ ? 'onclick="activateSCMeetingMode(\'' + scIdSafe + '\')"'  : 'onclick="requestSCActivation(\'' + scIdSafe + '\')"';
+  var _actGSS = isMB_ ? 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"'  : 'onclick="requestSCUpgrade(\'' + scIdSafe + '\')"';
+  var _canSub = isMB_ ? 'onclick="scheduleCancelMM(\'' + scIdSafe + '\')"'        : 'onclick="requestSCCancel(\'' + scIdSafe + '\')"';
+  var _dwn    = isMB_ ? 'onclick="downgradeSCStrataSphere(\'' + scIdSafe + '\')"' : 'onclick="requestSCDowngrade(\'' + scIdSafe + '\')"';
+  var _undo   = isMB_ ? 'onclick="undoSsDowngrade(\'' + scIdSafe + '\')"'         : 'onclick="requestSCUndoCancel(\'' + scIdSafe + '\')"';
 
   function btn(label, type, action) {
-    return '<button class="btn'+(type==='pri'?' pri':'')+'" style="width:100%;font-size:12px;text-align:center" '+action+'>'+label+'</button>';
+    var cls = 'btn' + (type === 'pri' ? ' pri' : type === 'red' ? ' red' : '');
+    return '<button class="' + cls + '" style="width:100%;font-size:12px;text-align:center;margin-top:6px" ' + action + '>' + label + '</button>';
+  }
+
+  // ── Trial card ──
+  var trialTag = currentPlan !== 'trial' ? '<span class="tag gy">Inactive</span>'
+    : trialDone ? '<span class="tag red">Expired</span>'
+    : '<span class="tag amb">Active</span>';
+  var trialFeatures = [
+    PRICING.trialMeetings + ' complimentary meetings',
+    'Full Meeting Mode experience',
+    'Historical minutes upload'
+  ];
+  var trialAction = '';
+
+  // ── Meeting Mode card ──
+  var mmTag = currentPlan === 'local' ? (s.mmPendingCancel || pendingCancel ? '<span class="tag red">Cancellation Pending</span>' : '<span class="tag grn">Active</span>')
+    : pendingMM ? '<span class="tag amb">Activation Requested</span>' : '';
+  var mmFeatures = [
+    'Unlimited strata meetings',
+    'Agenda uploads &amp; AI parsing',
+    'Real-time Decision Ledger',
+    'Instant AI-generated minutes',
+    'Historical minutes upload',
+    'Council &amp; strata lot management',
+    'Local StrataSphere — AI governance intelligence for your strata corporation'
+  ];
+  var mmPrice  = 'CA$39/mo. + CA$1.49/strata lot';
+  var mmCommit = 'Annual commitment, billed monthly';
+  var mmAction = '';
+  if (currentPlan === 'trial') {
+    if (!pendingMM) mmAction = btn(isMB_ ? 'Activate Subscription' : 'Request Activation', 'pri', _actMM);
+    else mmAction = '<div style="font-size:11px;color:var(--amb);text-align:center;padding:6px 0">Activation requested — awaiting MB approval</div>';
+  } else if (currentPlan === 'local') {
+    if (s.mmPendingCancel || pendingCancel) {
+      mmAction = '<div style="font-size:11px;color:var(--red);text-align:center;padding:4px 0;font-weight:600">Cancels ' + annexStr + '</div>';
+      if (isMB_) mmAction += btn('Undo Cancellation', '', _undo);
+      else if (!pendingUndo) mmAction += btn('Request Undo Cancellation', '', _undo);
+      else mmAction += '<div style="font-size:11px;color:var(--amb);text-align:center;padding:4px 0">Undo requested — awaiting MB approval</div>';
+    } else {
+      mmAction = btn(isMB_ ? 'Cancel Subscription' : 'Request Cancellation', 'red', _canSub);
+    }
+  } else if (currentPlan === 'global') {
+    if (pendingDwn) mmAction = '<div style="font-size:11px;color:var(--amb);text-align:center;padding:6px 0">Downgrade requested — awaiting MB approval</div>';
+    else {
+      mmAction = btn(isMB_ ? 'Downgrade to Meeting Mode' : 'Request Downgrade', '', _dwn);
+      mmAction += '<div style="font-size:10px;color:var(--g4);text-align:center;padding:2px 0">Effective ' + annexStr + '</div>';
+    }
+  }
+
+  // ── Global StrataSphere card ──
+  var gssTag = currentPlan === 'global' ? (s.mmPendingCancel || pendingCancel ? '<span class="tag red">Cancellation Pending</span>' : '<span class="tag grn">Active</span>')
+    : pendingGlobal ? '<span class="tag amb">Upgrade Requested</span>' : '';
+  var gssFeatures = [
+    'Everything in Meeting Mode',
+    'Answer questions across hundreds of strata corporations simultaneously',
+    'Unlock precedents and patterns',
+    'Gain insight into similar buildings and geographic regions',
+    'PII-stripped and PIPA-compliant data',
+    'Global StrataSphere — AI governance intelligence across the entire platform'
+  ];
+  var gssPrice  = 'CA$39/mo. + CA$2.49/strata lot';
+  var gssCommit = 'Annual commitment, billed monthly';
+  var gssAction = '';
+  if (currentPlan === 'trial' || currentPlan === 'local') {
+    if (!pendingGlobal) gssAction = btn(isMB_ ? 'Upgrade to Global StrataSphere' : 'Request Access to Global StrataSphere', 'pri', _actGSS);
+    else gssAction = '<div style="font-size:11px;color:var(--amb);text-align:center;padding:6px 0">Upgrade requested — awaiting MB approval</div>';
+  } else if (currentPlan === 'global') {
+    if (s.mmPendingCancel || pendingCancel) {
+      gssAction = '<div style="font-size:11px;color:var(--red);text-align:center;padding:4px 0;font-weight:600">Cancels ' + annexStr + '</div>';
+      if (isMB_) gssAction += btn('Undo Cancellation', '', _undo);
+      else if (!pendingUndo) gssAction += btn('Request Undo Cancellation', '', _undo);
+      else gssAction += '<div style="font-size:11px;color:var(--amb);text-align:center;padding:4px 0">Undo requested — awaiting MB approval</div>';
+    } else {
+      gssAction = btn(isMB_ ? 'Cancel Subscription' : 'Request Cancellation', 'red', _canSub);
+    }
   }
 
   function planCard(id, label, features, price, commitment, tag, action) {
