@@ -1785,8 +1785,8 @@ function submitActivationRequest(scId, requestType) {
   var typeLabel = requestType==='ss_global' ? 'Global StrataSphere'
     : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
 
-  // Auto-populate MB email from billing setup if available
-  var suggestedEmail = APP.brokerage.email || '';
+  // Leave blank — SM will enter their Managing Broker's email manually
+  var suggestedEmail = '';
 
   // Show request modal with email field
   var mo = document.getElementById('mo-activation-request');
@@ -10835,7 +10835,7 @@ function renderSCSubscription(s) {
   var _can = 'onclick="cancelSCSubscription(\'' + scIdSafe + '\')"';
   var _dwn = needsApproval
     ? 'onclick="requestSCDowngrade(\'' + scIdSafe + '\')"'
-    : 'onclick="upgradeSCStrataSphere(\'' + scIdSafe + '\')"';
+    : 'onclick="downgradeSCStrataSphere(\'' + scIdSafe + '\')"';
 
   function btn(label, type, action) {
     return '<button class="btn'+(type==='pri'?' pri':'')+'" style="width:100%;font-size:12px;text-align:center" '+action+'>'+label+'</button>';
