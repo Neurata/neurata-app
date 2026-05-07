@@ -1784,12 +1784,11 @@ function submitActivationRequest(scId, requestType) {
   var typeLabel = requestType==='ss_global' ? 'Global StrataSphere'
     : requestType==='ss_local' ? 'Local StrataSphere' : 'Meeting Mode';
 
-  nPrompt(
-    'Enter your Managing Broker\'s email address to send them an activation request for ' + sc_.plan + ':',
-    function(mbEmail) {
-      if (!mbEmail || mbEmail.indexOf('@') < 0) { nAlert('Please enter a valid email address.','','warn'); return; }
+  nConfirm(
+    'Send a request to your Managing Broker to activate ' + typeLabel + ' for ' + sc_.plan + ' \u2014 ' + (sc_.name||'') + '?',
+    function(ok) {
+      if (!ok) return;
 
-      // Write to Supabase
       getSupabase().from('activation_requests').insert({
         brokerage_id:   brkLic,
         sc_id:          sc_.plan,
@@ -1798,29 +1797,39 @@ function submitActivationRequest(scId, requestType) {
         request_type:   requestType,
         status:         'pending'
       }).then(function(r) {
-        if (r.error) console.error('Could not save request:', r.error);
+        if (r.error) { console.error('Could not save request:', r.error); return; }
       });
 
-      // Email the MB
-      fetch(WORKER_URL+'/send-invite', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          type:        'activation_request',
-          to:          mbEmail,
-          toName:      'Managing Broker',
-          fromName:    user.name,
-          brokerage:   APP.brokerage.name || '',
-          scPlan:      sc_.plan,
-          scName:      sc_.name || '',
-          requestType: typeLabel
-        })
-      }).catch(function(){});
+      // Look up MB email and send notification
+      getSupabase().from('users')
+        .select('email,full_name')
+        .eq('brokerage_id', brkLic)
+        .eq('role', 'Managing Broker')
+        .limit(1)
+        .then(function(r) {
+          var mbEmail = r.data && r.data[0] && r.data[0].email;
+          if (mbEmail) {
+            fetch(WORKER_URL+'/send-invite', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({
+                type:        'activation_request',
+                to:          mbEmail,
+                toName:      (r.data[0].full_name || 'Managing Broker'),
+                fromName:    user.name,
+                brokerage:   APP.brokerage.name || '',
+                scPlan:      sc_.plan,
+                scName:      sc_.name || '',
+                requestType: typeLabel
+              })
+            }).catch(function(){});
+          }
+        }).catch(function(){});
 
       markSubRequestDone();
-      nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. Your Managing Broker has been notified at ' + mbEmail + '.', 'Request Sent', 'success');
+      nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. Your Managing Broker has been notified.', 'Request Sent \u2713', 'success');
     },
-    APP.brokerage.email || '',
-    'Notify Managing Broker'
+    '',
+    'Send Request'
   );
 }
 
@@ -8355,7 +8364,7 @@ function renderBilling() {
     if (reqEl && requests.length) {
       var typeLabel = function(t){ return t==='ss_global'?'Global StrataSphere':t==='ss_local'?'Local StrataSphere':'Meeting Mode'; };
       var rhtml = '<div class="card" style="margin-bottom:14px;border:2px solid var(--org)">'
-        +'<div class="ch_"><div class="ct">&#128276; Pending Activation Requests</div>'
+        +'<div class="ch_"><div class="ct">Pending Activation Requests</div>'
         +'<span class="tag amb">'+requests.length+' pending</span></div>'
         +'<div class="cb">';
       requests.forEach(function(r) {
