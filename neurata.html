@@ -13772,40 +13772,27 @@ function obComplete(){
         return;
       }
 
-      // Step 2: Upsert brokerage record
-      // Only set trial defaults if brokerage is new — don't reset existing trial state
-      var brkName = OB.brkName || OB.brkLic; // fallback to lic if name is blank
-      var brkUpsert = { bcfsa_lic: OB.brkLic, name: brkName, address: OB.brkAddr || null, phone: OB.brkPhone || null };
-      if (!OB.brkExists) { brkUpsert.subscription_status = 'trial'; brkUpsert.trial_meetings_used = 0; }
-      return getSupabase().from('brokerages').upsert(brkUpsert, {onConflict: 'bcfsa_lic'})
-      .then(function(bUpsertRes) {
-        if (bUpsertRes.error) console.error('[obComplete] brokerage upsert error:', bUpsertRes.error);
-        // Fetch the actual brokerage row so APP.brokerage has real name/address (esp. if it pre-existed)
-        return getSupabase().from('brokerages').select('*').eq('bcfsa_lic', OB.brkLic).single();
+      // Steps 2-4: Use worker to upsert brokerage + user with service key
+      // (new user JWT may not be fully provisioned for direct DB writes)
+      return fetch(WORKER_URL + '/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId:    userId,
+          email:     email,
+          fullName:  OB.repName,
+          bcfsaLic:  OB.lic,
+          role:      OB.repRole || 'Managing Broker',
+          brkLic:    OB.brkLic,
+          brkName:   OB.brkName || OB.brkLic,
+          brkAddr:   OB.brkAddr || null,
+          brkPhone:  OB.brkPhone || null,
+          brkExists: OB.brkExists || false
+        })
       })
-      .then(function(bRes) {
-        if (bRes.data) {
-          OB.brkName = bRes.data.name || OB.brkName;
-          OB.brkAddr = bRes.data.address || OB.brkAddr;
-          OB.brkPhone = bRes.data.phone || OB.brkPhone;
-        }
-        // Step 3: Create user profile (upsert in case of prior orphaned row)
-        var initials = OB.repName.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-        return getSupabase().from('users').upsert({
-          id:           userId,
-          brokerage_id: OB.brkLic,
-          full_name:    OB.repName,
-          email:        email,
-          bcfsa_lic:    OB.lic,
-          role:         OB.repRole || 'Managing Broker'
-        }, {onConflict: 'id'});
-      })
-      .then(function() {
-        // Step 4: Write brokerage_id to JWT app_metadata
-        // This is critical — RLS policies read brokerage_id from the JWT token
-        return getSupabase().auth.updateUser({
-          data: { brokerage_id: OB.brkLic }
-        });
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.error) throw new Error(d.error);
       })
       .then(function() {
         // Step 5: Set local APP state and show confirmation
