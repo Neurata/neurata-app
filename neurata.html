@@ -113,6 +113,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .btn:hover{background:var(--g1)}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.pri{background:var(--org);color:#fff;border-color:var(--org);text-align:center}.btn.pri:hover{background:var(--orgd)}
 .btn.red{background:var(--red);color:#fff;border-color:var(--red)}.btn.red:hover{background:var(--redd)}
+.btn.amb{background:var(--amb);color:#fff;border-color:var(--amb)}.btn.amb:hover{filter:brightness(.92)}
 .btn.grn{background:var(--grn);color:#fff;border-color:var(--grn)}
 .btn.ghost{background:none;border-color:transparent;color:var(--ch3)}.btn.ghost:hover{background:var(--g1);border-color:var(--g2)}
 .btn.sm{padding:4px 10px;font-size:11px}.btn.xs{padding:2px 7px;font-size:10px}.btn.full{width:100%;justify-content:center}
@@ -8478,37 +8479,34 @@ function renderBilling() {
       var reqBorderColor = function(t){
         return (t==='cancel') ? 'var(--red)' : (t==='undo_cancel') ? 'var(--amb)' : 'var(--org)';
       };
-      var reqApproveLabel = function(t){
-        return t==='cancel' ? 'Approve Cancellation' : t==='undo_cancel' ? 'Approve Undo' : 'Activate';
-      };
-      var reqApproveStyle = function(t){
-        return t==='cancel' ? 'btn sm red' : 'btn sm pri';
-      };
 
       // Group by type for visual distinction
       var activations = requests.filter(function(r){ return r.request_type==='mm'||r.request_type==='ss_global'||r.request_type==='ss_local'; });
       var cancellations = requests.filter(function(r){ return r.request_type==='cancel'; });
       var undos = requests.filter(function(r){ return r.request_type==='undo_cancel'; });
       var allGroups = [
-        {label:'Activation Requests', items:activations, border:'var(--org)', tag:'amb'},
-        {label:'Cancellation Requests', items:cancellations, border:'var(--red)', tag:'red'},
-        {label:'Undo Cancellation Requests', items:undos, border:'var(--amb)', tag:'amb'}
+        {label:'Subscription Requests', items:activations, border:'var(--org)', tag:'amb'},
+        {label:'Subscription Requests', items:cancellations, border:'var(--red)', tag:'red'},
+        {label:'Subscription Requests', items:undos, border:'var(--amb)', tag:'amb'}
       ].filter(function(g){ return g.items.length > 0; });
 
       var rhtml = '';
       allGroups.forEach(function(group) {
         rhtml += '<div class="card" style="margin-bottom:14px;border:2px solid '+group.border+'">'
-          +'<div class="ch_"><div class="ct">'+group.label+'</div>'
+          +'<div class="ch_"><div class="ct">Subscription Requests</div>'
           +'<span class="tag '+group.tag+'">'+group.items.length+' pending</span></div>'
           +'<div class="cb">';
         group.items.forEach(function(r) {
+          var isCancel = r.request_type === 'cancel';
+          var isUndo   = r.request_type === 'undo_cancel';
+          var approveClass = isCancel ? 'btn sm red' : isUndo ? 'btn sm amb' : 'btn sm pri';
           rhtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--g2)">'
             +'<div style="flex:1">'
             +'<div style="font-size:13px;font-weight:600">'+escHtml(r.sc_id)+' &mdash; '+reqTypeLabel(r.request_type)+'</div>'
             +'<div style="font-size:11px;color:var(--g4)">Requested by '+escHtml(r.requester_name||'team member')
             +' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString('en-CA')+'</div>'
             +'</div>'
-            +'<button class="'+reqApproveStyle(r.request_type)+'" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">'+reqApproveLabel(r.request_type)+'</button>'
+            +'<button class="'+approveClass+'" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">Approve</button>'
             +'<button class="btn sm" onclick="dismissActivationRequest(\''+r.id+'\')">Deny</button>'
             +'</div>';
         });
