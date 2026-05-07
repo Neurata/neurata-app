@@ -1872,9 +1872,22 @@ function activateFromRequest(id, scId, requestType) {
     ? 'CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+(PRICING.perLotLocal*lots).toFixed(2)+'/month'
     : 'CA$'+mmMonthly+'/month (MM) + CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+totalMonthly+'/month total';
 
-  nConfirm(
-    'Approve ' + label + ' for ' + scId + '?\n\n' + pricing + '\n\nAnnual commitment, billed monthly.',
-    function(ok) {
+  var annualMonthly = requestType==='ss_global'
+    ? (PRICING.perLotGlobal*lots).toFixed(2)
+    : requestType==='ss_local'
+    ? (PRICING.perLotLocal*lots).toFixed(2)
+    : totalMonthly;
+  var annualTotal = 'CA$'+(parseFloat(annualMonthly)*12).toFixed(2);
+  var confirmMsg = 'APPROVE ' + label.toUpperCase() + ' FOR ' + scId + '\n\n'
+    + 'Monthly charge: CA$' + annualMonthly + '/month\n'
+    + 'Annual total: ' + annualTotal + '\n'
+    + 'Commitment: 12-month annual term, billed monthly\n'
+    + 'First charge: Prorated for remainder of current month\n'
+    + 'Cancellation: Effective at end of annual term\n'
+    + 'Renewal: Automatically renews annually\n\n'
+    + 'By approving you agree to this annual commitment on behalf of your brokerage.';
+
+  nConfirm(confirmMsg, function(ok) {
       if (!ok) return;
 
       // Remove from local pending list immediately — no flicker
