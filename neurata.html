@@ -6605,7 +6605,7 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('html,body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000;line-height:1.15}');
   lines.push('body{margin:0;padding:0}');
   // Page setup with footer
-  lines.push('@page{size:letter;margin:1in 1.1in 0.85in 1.1in;-webkit-print-color-adjust:exact}');
+  lines.push('@page{size:letter;margin:1in 1.1in 0.75in 1.1in}@page{@top-left{content:""}@top-center{content:""}@top-right{content:""}}');
   lines.push('@media print{');
   lines.push('  body{margin:0}');
   lines.push('  .page-break{page-break-before:always}');
@@ -6635,16 +6635,11 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('.sig-block{margin-top:48pt}');
   lines.push('.sig-line{display:inline-block;width:44%;margin-right:8%;border-top:1px solid #000;padding-top:4pt;font-size:10pt;color:#595959}');
   // Footer — SC number + Neurata + page number
-  lines.push('.footer{position:fixed;bottom:0;left:0;right:0;padding:4pt 1.1in 0;height:0.75in;display:flex;justify-content:space-between;align-items:flex-start;font-size:8pt;color:#aaa;border-top:1px solid #ddd;background:#fff;box-sizing:border-box}');
-  lines.push('.footer-center{text-align:center;flex:1}');
+  lines.push('@page{@bottom-left{content:"'+scPlan+'";font-family:Arial,sans-serif;font-size:8pt;color:#aaa;border-top:1px solid #ddd;padding-top:4pt} @bottom-center{content:"Minutes created with Neurata.ai";font-family:Arial,sans-serif;font-size:8pt;color:#aaa;border-top:1px solid #ddd;padding-top:4pt} @bottom-right{content:"Page " counter(page) " of " counter(pages);font-family:Arial,sans-serif;font-size:8pt;color:#aaa;border-top:1px solid #ddd;padding-top:4pt}}');
+  // footer-center removed — using @page margin boxes instead
   lines.push('</style></head><body>');
 
-  // Footer (fixed, appears on every page)
-  lines.push('<div class="footer">');
-  lines.push('<span>' + (scPlan || '') + '</span>');
-  lines.push('<span class="footer-center">Minutes created with Neurata.ai</span>');
-  lines.push('<span>Page <span class="page-num"></span></span>');
-  lines.push('</div>');
+  // Footer handled by @page margin boxes above
 
   // Letterhead
   lines.push('<div class="letterhead">');
