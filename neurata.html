@@ -1875,7 +1875,22 @@ function _submitARConfirm() {
   }).catch(function(){});
 
   markSubRequestDone();
-  APP.pendingRequests = undefined;
+  // Add to local pending requests immediately so card updates without reload
+  if (!APP.pendingRequests) APP.pendingRequests = [];
+  APP.pendingRequests.push({
+    id: 'pending_' + Date.now(),
+    brokerage_id: brkLic,
+    sc_id: sc_.plan,
+    requested_by: user.id,
+    requester_name: user.name,
+    request_type: requestType,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  });
+  // Re-render SC detail subscription tab if visible
+  if (APP.currentScId === ctx.scId || APP.sc.some(function(s){ return s.id === ctx.scId && s.plan === sc_.plan; })) {
+    renderSCDetail(ctx.scId);
+  }
   nAlert(typeLabel + ' activation requested for ' + sc_.plan + '. An email has been sent to ' + mbEmail + ' with instructions to log in and approve.', 'Request Sent \u2713', 'success');
 }
 
