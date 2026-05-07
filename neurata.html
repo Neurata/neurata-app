@@ -9942,8 +9942,7 @@ function markSubRequestDone() {
 
 // ── Welcome Onboarding (Path A: new REP, no SCs) ──────────────────
 
-var _obWelcomeSlide = 1;
-var _obTotalSlides  = 2;
+// Welcome onboarding overlay
 
 function checkOnboardingNudges() {
   var u    = APP.currentUser;
@@ -9957,8 +9956,6 @@ function checkOnboardingNudges() {
     var firstName = (u.name || '').split(' ')[0] || 'there';
     var el = document.getElementById('ob-welcome-name');
     if (el) el.textContent = 'Welcome, ' + firstName + '!';
-    _obWelcomeSlide = 1;
-    _obSetSlide(1);
     openMo('mo-welcome-onboard');
     return;
   }
@@ -9992,36 +9989,6 @@ function checkOnboardingNudges() {
       }
       openMo('mo-billing-nudge');
     }
-  }
-}
-
-function _obSetSlide(n) {
-  for (var i = 1; i <= _obTotalSlides; i++) {
-    var slide = document.getElementById('ob-slide-' + i);
-    var dot   = document.getElementById('ob-dot-' + i);
-    if (slide) slide.classList.toggle('on', i === n);
-    if (dot)   dot.classList.toggle('on', i === n);
-  }
-  var skipBtn = document.getElementById('ob-skip-btn');
-  var nextBtn = document.getElementById('ob-next-btn');
-  if (n === _obTotalSlides) {
-    if (nextBtn) nextBtn.textContent = '+ Create First SC';
-    if (skipBtn) skipBtn.textContent = 'Skip for now';
-  } else {
-    if (nextBtn) nextBtn.textContent = 'Continue →';
-    if (skipBtn) skipBtn.textContent = 'Skip for now';
-  }
-}
-
-function obWelcomeNext() {
-  if (_obWelcomeSlide < _obTotalSlides) {
-    _obWelcomeSlide++;
-    _obSetSlide(_obWelcomeSlide);
-  } else {
-    // Last slide — dismiss and open add-SC modal
-    _markOnboardingSeen();
-    closeMo('mo-welcome-onboard');
-    setTimeout(function() { openAddSC(); }, 200);
   }
 }
 
