@@ -2169,6 +2169,38 @@ function upgradeSCStrataSphere(scId) {
     }, 'Upgrade to Global StrataSphere', 'info');
 }
 
+function downgradeSCStrataSphere(scId) {
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if(!sc_) return;
+  var lots = parseInt(sc_.lots) || 0;
+  var total = (PRICING.perBuilding + PRICING.perLotLocal * lots).toFixed(2);
+  nConfirm(
+    'Downgrade '+sc_.plan+' from Global to Local StrataSphere?\n\n'
+    + 'New monthly charge: CA$'+PRICING.perBuilding+' (MM) + CA$'+PRICING.perLotLocal+'/lot × '+lots+' lots = CA$'+total+'/month\n\n'
+    + 'Downgrade takes effect at the end of your current annual term. You will continue to have Global StrataSphere access until then.',
+    function(ok) {
+      if (!ok) return;
+      // Schedule downgrade via Stripe — takes effect at period end
+      fetch(WORKER_URL + '/stripe/schedule-downgrade', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          subscriptionId: sc_.stripeSubscriptionId,
+          scPlan: sc_.plan,
+          brkLic: APP.brokerage.lic,
+          newTier: 'local'
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) { nAlert('Could not schedule downgrade: ' + d.error, 'Error', 'warn'); return; }
+        sc_.ssPendingDowngrade = 'local';
+        getSupabase().from('strata_corps').update({ ss_pending_downgrade: 'local' }).eq('plan_number', sc_.plan).then(function(){});
+        renderSCDetail(scId);
+        nAlert('Downgrade to Local StrataSphere scheduled for end of annual term.', 'Downgrade Scheduled', 'success');
+      })
+      .catch(function(e){ nAlert('Downgrade failed: ' + e.message, 'Error', 'warn'); });
+    }, 'Downgrade to Local StrataSphere', 'warn');
+}
+
 // Shared Stripe activation helper — calls worker to create subscription + prorated invoice
 function _callActivateSC(sc_, tier, onSuccess) {
   var loadingAlert = nAlert('Processing payment…', 'One moment', 'info');
@@ -7249,7 +7281,7 @@ function setSS(m){
         + 'Price: $2.50 per strata lot per month\n'
         + 'Your portfolio: ' + totalLots + ' lots = $' + monthlyCost + '/month\n\n'
         + 'Contact your Managing Broker to activate Global StrataSphere.',
-        function(ok){ /* MB would trigger billing flow here */ },
+        function(ok){ if (ok && APP.currentScId) upgradeSCStrataSphere(APP.currentScId); },
         'Upgrade to Global StrataSphere',
         'info'
       );
