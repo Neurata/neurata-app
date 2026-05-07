@@ -10920,13 +10920,6 @@ function renderSCSubscription(s) {
     'Historical minutes upload'
   ];
   var trialAction = '';
-  if (canSee) {
-    if (mmOn && !s.mmPendingCancel) {
-      trialAction = btn('Cancel Subscription', '', 'onclick="scheduleCancelMM(\''+scIdSafe+'\')"');
-    } else if (mmOn && s.mmPendingCancel) {
-      trialAction = '<div style="text-align:center;font-size:11px;color:var(--red);font-weight:600;padding:8px 0">Cancellation scheduled</div>';
-    }
-  }
 
   // ── Meeting Mode ──
   var mmTag = currentPlan === 'local' ? '<span class="tag grn">Active</span>'
@@ -10943,11 +10936,20 @@ function renderSCSubscription(s) {
   var mmPrice = 'CA$39/mo. + CA$1.49/strata lot';
   var mmCommit = 'Annual commitment, billed monthly';
   var mmAction = '';
-  if (canSee && currentPlan !== 'local') {
+  if (canManage && currentPlan === 'local') {
+    // Active MM plan — show upgrade and cancel
+    if (!s.mmPendingCancel) {
+      mmAction = btn('Upgrade to Global StrataSphere', 'pri', _upg)
+        + btn('Cancel Subscription', '', _can);
+    } else {
+      mmAction = '<div style="text-align:center;font-size:11px;color:var(--red);font-weight:600;padding:8px 0">Cancellation scheduled for end of term</div>'
+        + btn('Undo Cancellation', '', 'onclick="undoSsDowngrade(\''+scIdSafe+'\')"');
+    }
+  } else if (canSee && currentPlan !== 'local') {
     if (currentPlan === 'trial' && !pendingMM) {
-      mmAction = btn(needsApproval ? 'Request Activation' : 'Upgrade Subscription', 'pri', _act);
+      mmAction = btn(needsApproval ? 'Request Activation' : 'Activate Meeting Mode', 'pri', _act);
     } else if (currentPlan === 'global') {
-      mmAction = btn(needsApproval ? 'Request Downgrade' : 'Downgrade Subscription', '', _dwn);
+      mmAction = btn(needsApproval ? 'Request Downgrade' : 'Downgrade to Meeting Mode', '', _dwn);
     }
   }
 
@@ -10965,9 +10967,18 @@ function renderSCSubscription(s) {
   var gssPrice = 'CA$39/mo. + CA$2.49/strata lot';
   var gssCommit = 'Annual commitment, billed monthly';
   var gssAction = '';
-  if (canSee && currentPlan !== 'global') {
+  if (canManage && currentPlan === 'global') {
+    // Active GSS plan — show downgrade and cancel
+    if (!s.mmPendingCancel) {
+      gssAction = btn('Downgrade to Meeting Mode', '', _dwn)
+        + btn('Cancel Subscription', '', _can);
+    } else {
+      gssAction = '<div style="text-align:center;font-size:11px;color:var(--red);font-weight:600;padding:8px 0">Cancellation scheduled for end of term</div>'
+        + btn('Undo Cancellation', '', 'onclick="undoSsDowngrade(\''+scIdSafe+'\')"');
+    }
+  } else if (canSee && currentPlan !== 'global') {
     if ((currentPlan === 'local' || currentPlan === 'trial') && !pendingGlobal) {
-      gssAction = btn(needsApproval ? 'Request Upgrade' : 'Upgrade Subscription', 'pri', _upg);
+      gssAction = btn(needsApproval ? 'Request Upgrade' : 'Upgrade to Global StrataSphere', 'pri', _upg);
     }
   }
 
