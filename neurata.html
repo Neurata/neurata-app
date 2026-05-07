@@ -10802,11 +10802,14 @@ function reactivateSCSubscription(scId) {
 }
 
 function renderSCSubscription(s) {
-  var isPaidSub  = !!(s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId); // actually paid, not just trial
+  var isPaidSub  = !!(s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId); // actually paid via Stripe
   var mmOn       = isPaidSub;
   var ssTier     = scSsTier(s);
   var trialActive = scMmActive(s) && !isPaidSub;
-  var currentPlan = isPaidSub ? (ssTier === 'global' ? 'global' : 'local') : 'trial';
+  // currentPlan reflects actual tier regardless of payment status
+  var currentPlan = (s.ssTier === 'global') ? 'global'
+    : isPaidSub ? 'local'
+    : 'trial';
   var role      = APP.currentUser && APP.currentUser.role || '';
   var isMB      = role === 'Managing Broker';
   var canSee    = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
