@@ -8026,6 +8026,8 @@ function renderAdminKB() {
       var ext = (doc.name||'').split('.').pop().toLowerCase();
       var hasText = doc.document_text && doc.document_text.trim().length > 0;
       var wordCount = hasText ? doc.document_text.trim().split(/\s+/).length : 0;
+      var uploadedDate = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-CA', {year:'numeric',month:'short',day:'numeric'}) : '—';
+      var indexedDate = doc.indexed_at ? ' · Indexed '+new Date(doc.indexed_at).toLocaleDateString('en-CA', {year:'numeric',month:'short',day:'numeric'}) : '';
       var statusPill = hasText
         ? '<span class="tag grn" style="font-size:10px">Indexed · '+wordCount.toLocaleString()+' words</span>'
         : '<span class="tag gy" style="font-size:10px">Not Indexed</span>';
@@ -8033,7 +8035,7 @@ function renderAdminKB() {
       html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_">'
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:13px;font-weight:600">'+escHtml(doc.name)+'</div>'
-        + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(doc.source_label||'Educational')+'</div>'
+        + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(doc.source_label||'Educational')+' · Uploaded '+uploadedDate+indexedDate+'</div>'
         + '</div>'
         + statusPill
         + '<div class="br">'
@@ -8103,7 +8105,7 @@ function indexGlobalDoc(btn) {
   .then(function(texts) {
     var fullText = texts.join('\n\n').trim();
     if (!fullText) throw new Error('No text extracted — PDF may be image-only');
-    return getSupabase().from('documents').update({document_text: fullText}).eq('id', docId);
+    return getSupabase().from('documents').update({document_text: fullText, indexed_at: new Date().toISOString()}).eq('id', docId);
   })
   .then(function(r) {
     if (r.error) throw new Error(r.error.message);
