@@ -8497,9 +8497,10 @@ function renderBilling() {
           +'<span class="tag '+group.tag+'">'+group.items.length+' pending</span></div>'
           +'<div class="cb">';
         group.items.forEach(function(r) {
-          var isCancel = r.request_type === 'cancel';
+          var isCancel = r.request_type === 'cancel' || r.request_type === 'ss_local';
           var isUndo   = r.request_type === 'undo_cancel';
-          var approveClass = isCancel ? 'btn sm red' : isUndo ? 'btn sm amb' : 'btn sm pri';
+          var approveClass = isCancel ? 'btn sm' : isUndo ? 'btn sm amb' : 'btn sm pri';
+          var denyClass    = isCancel ? 'btn sm red' : 'btn sm';
           rhtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--g2)">'
             +'<div style="flex:1">'
             +'<div style="font-size:13px;font-weight:600">'+escHtml(r.sc_id)+' &mdash; '+reqTypeLabel(r.request_type)+'</div>'
@@ -8507,7 +8508,7 @@ function renderBilling() {
             +' &nbsp;&middot;&nbsp; '+new Date(r.created_at).toLocaleDateString('en-CA')+'</div>'
             +'</div>'
             +'<button class="'+approveClass+'" onclick="activateFromRequest(\''+r.id+'\',\''+r.sc_id+'\',\''+r.request_type+'\')">Approve</button>'
-            +'<button class="btn sm" onclick="dismissActivationRequest(\''+r.id+'\')">Deny</button>'
+            +'<button class="'+denyClass+'" onclick="dismissActivationRequest(\''+r.id+'\')">Deny</button>'
             +'</div>';
         });
         rhtml += '</div></div>';
