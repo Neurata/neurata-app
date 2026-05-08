@@ -8582,32 +8582,6 @@ function adminEnterBrokerage(brkLic) {
         return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
       });
 
-      // Resolve smName for each SC using the loaded reps or repUserIds
-      // Also do a direct lookup for any smLic not found in reps
-      var unresolvedSmLics = [];
-      scList.forEach(function(sc_) {
-        if (sc_.smLic) {
-          var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
-          if (smRep) { sc_.smName = smRep.name; return; }
-          unresolvedSmLics.push(sc_.smLic);
-        }
-      });
-      // Fetch names for unresolved smLics directly from users table
-      if (unresolvedSmLics.length) {
-        db.from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', unresolvedSmLics)
-        .then(function(ur) {
-          var nameMap = {};
-          (ur.data||[]).forEach(function(u){ nameMap[u.bcfsa_lic] = u.full_name; });
-          scList.forEach(function(sc_) {
-            if (sc_.smLic && !sc_.smName && nameMap[sc_.smLic]) {
-              sc_.smName = nameMap[sc_.smLic];
-            }
-          });
-          APP.sc = scList;
-          renderStrata();
-          if (APP.currentScId) renderSCDetail(APP.currentScId);
-        }).catch(function(){});
-      }
 
       // Restore repIds from sc_users, and get full_name (Known As) from users table
       if (scUsers.length) {
@@ -9702,16 +9676,29 @@ function loadUserSCs(userId) {
     var planNumbers = scList.map(function(s){return s.plan;});
 
     // Step 2: Load meetings, decisions, council members in parallel
+    var smLics = scList.map(function(s){ return s.smLic; }).filter(function(l){ return l && l.trim(); });
     Promise.all([
       db.from('meetings').select('*').in('sc_id', planNumbers).order('date', {ascending: false}),
       db.from('decisions').select('*').in('sc_id', planNumbers).order('recorded_at', {ascending: false}),
       db.from('council_members').select('*').in('sc_id', planNumbers),
-      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type,storage_path').in('sc_id', planNumbers)
+      db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type,storage_path').in('sc_id', planNumbers),
+      smLics.length ? db.from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', smLics) : Promise.resolve({data:[]})
     ]).then(function(results) {
       var meetings   = (results[0].data || []);
       var decisions  = (results[1].data || []);
       var council    = (results[2].data || []);
       var documents  = (results[3].data || []);
+      var smUsers    = (results[4].data || []);
+
+      // Resolve smName synchronously from users table
+      var smNameMap = {};
+      smUsers.forEach(function(u){ smNameMap[u.bcfsa_lic] = u.full_name; });
+      scList.forEach(function(sc) {
+        if (sc.smLic) {
+          var fromReps = APP.reps.find(function(r){ return r.lic === sc.smLic; });
+          sc.smName = (fromReps && fromReps.name) || smNameMap[sc.smLic] || '';
+        }
+      });
 
       // Map everything back onto the SC objects
       scList.forEach(function(sc) {
