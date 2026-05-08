@@ -10559,14 +10559,47 @@ function renderDash() {
   if (sub) sub.textContent = (APP.brokerage.name||APP.currentUser.brkName||'—') + (APP.brokerage.lic?' · BCFSA '+APP.brokerage.lic:'');
   if (!el) return;
   var sc = getVisibleSCs();
+  var adjCount  = APP.brokerage.trialMeetingsUsed || 0;
+
   if (!sc||sc.length===0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div><div class="empty-h">Add your first Strata Corporation</div><div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div><button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button></div>';
+    // Still show Trial + GS cards even with no SCs
+    var gsTasks0  = getGSTasks();
+    var gsDone0   = gsTasks0.filter(function(t){return t.done;}).length;
+    var gsTotal0  = gsTasks0.length;
+    var gsAllDone0 = gsDone0 === gsTotal0;
+    var isActive0 = APP.brokerage.subscriptionStatus === 'active';
+    var topHtml = '';
+    if (!isActive0 || !gsAllDone0) {
+      topHtml += '<div style="display:grid;grid-template-columns:' + (!isActive0 && !gsAllDone0 ? '1fr 1fr' : '1fr') + ';gap:14px;margin-bottom:14px">';
+      if (!isActive0) {
+        var trialPct0 = Math.min((adjCount/PRICING.trialMeetings)*100,100);
+        var trialColor0 = adjCount >= PRICING.trialMeetings ? 'var(--red)' : 'var(--org)';
+        topHtml += '<div class="card"><div class="ch_"><div class="ct">Trial</div>';
+        topHtml += adjCount >= PRICING.trialMeetings ? '<span class="tag red">Trial complete</span>' : '<span class="tag amb">'+adjCount+' of '+PRICING.trialMeetings+' meetings used</span>';
+        if (APP.currentUser && APP.currentUser.role === 'Managing Broker') topHtml += '<button class="btn sm" onclick="showPg(\'billing\')" style="margin-left:auto">Set up billing →</button>';
+        topHtml += '</div><div class="cb" style="padding:10px 14px">';
+        topHtml += '<div style="height:5px;background:var(--g2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+trialPct0+'%;background:'+trialColor0+';border-radius:3px;transition:width .4s"></div></div>';
+        topHtml += '<div style="font-size:11px;color:var(--g4);margin-top:6px">'+PRICING.trialMeetings+' free meetings per brokerage · $'+PRICING.perBuilding+'/SC/mo after trial</div>';
+        topHtml += '</div></div>';
+      }
+      if (!gsAllDone0) {
+        topHtml += '<div class="card"><div class="ch_"><div class="ct">Getting Started</div>';
+        topHtml += '<span class="gs-progress">'+gsDone0+' of '+gsTotal0+' complete</span>';
+        topHtml += '</div><div class="cb" style="padding:4px 14px 8px">';
+        gsTasks0.forEach(function(t) {
+          topHtml += '<div class="gs-task'+(t.done?' done':'')+'" onclick="'+(t.done?'':t.action)+'">';
+          topHtml += '<div class="gs-check">'+(t.done?'✓':'')+'</div>';
+          topHtml += '<div class="gs-task-lbl">'+escHtml(t.label)+'</div>';
+          if (!t.done) topHtml += '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5L8 6L4.5 9.5" stroke="var(--g3)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+          topHtml += '</div>';
+        });
+        topHtml += '</div></div>';
+      }
+      topHtml += '</div>';
+    }
+    el.innerHTML = topHtml + '<div class="empty-state"><div class="empty-ic">&#128101;</div><div class="empty-h">Add your first Strata Corporation</div><div class="empty-s">Each strata corporation you manage gets its own entity on Neurata — with its own meetings, minutes, documents, and decision ledger.</div><button class="btn pri" onclick="showPg(\'strata\');openMo(\'mo-add-sc\')">+ Add Strata Corporation</button></div>';
     return;
   }
-
-  var totalLots = sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0);
-  var totalMtgs = sc.reduce(function(a,s){return a+(s.meetings?s.meetings.length:0);},0);
-  var adjCount  = APP.brokerage.trialMeetingsUsed || 0;
 
   // Upcoming meetings (future dates across all SCs)
   var today = new Date().toISOString().slice(0,10);
