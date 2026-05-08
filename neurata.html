@@ -4203,6 +4203,32 @@ function saveSCInviteRep(scId) {
   }
 }
 
+function assignRepToSCFromBrokerage(lic, name) {
+  // If only one SC, assign directly. If multiple, let MB pick.
+  var scs = (APP.sc||[]).filter(function(s){ return s.plan; });
+  if (!scs.length) { nAlert('No strata corporations found.', '', 'warn'); return; }
+
+  if (scs.length === 1) {
+    assignRepToSC(scs[0].id, lic, name);
+    return;
+  }
+
+  // Multiple SCs — show picker
+  var opts = scs.map(function(s){
+    var alreadyAssigned = s.repUserIds && s.repUserIds.some(function(u){ return u.lic === lic; });
+    return s.plan + (s.name ? ' — ' + s.name : '') + (alreadyAssigned ? ' ✓' : '');
+  });
+  nPrompt(
+    'Select a strata corporation to assign ' + name + ' to:',
+    function(choice) {
+      if (!choice) return;
+      var sc_ = scs.find(function(s){ return choice.indexOf(s.plan) === 0; });
+      if (sc_) assignRepToSC(sc_.id, lic, name);
+    },
+    opts[0], 'Assign to SC'
+  );
+}
+
 function assignRepToSC(scId, lic, name) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var brkLic = APP.brokerage.lic;
@@ -7836,6 +7862,20 @@ function renderBrokerageRepList() {
 
   // Sort: MB first, then AB, then others alphabetically by title then name
   var titleOrder = {'Managing Broker':0,'Associate Broker':1,'Representative':2,'Strata Manager':2,'Property Manager':2,'Assistant':3,'Council Delegate':4};
+  // Fetch which reps have active accounts (cached)
+  var activeLicSet = APP.brokerage._activeLics || null;
+  if (!activeLicSet) {
+    var repLics = reps.map(function(r){ return r.lic; }).filter(Boolean);
+    if (repLics.length) {
+      getSupabase().from('users').select('bcfsa_lic').in('bcfsa_lic', repLics).eq('brokerage_id', APP.brokerage.lic)
+      .then(function(res) {
+        APP.brokerage._activeLics = (res.data||[]).map(function(u){ return u.bcfsa_lic; });
+        renderBrokerage();
+      }).catch(function(){});
+    }
+    activeLicSet = [];
+  }
+
   var sorted = reps.slice().sort(function(a,b){
     var ta = titleOrder[a.title] !== undefined ? titleOrder[a.title] : 5;
     var tb = titleOrder[b.title] !== undefined ? titleOrder[b.title] : 5;
@@ -7878,12 +7918,12 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:13px;font-weight:600;border-bottom:1px solid var(--g2)">'+escHtml(r.name||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--ch3);border-bottom:1px solid var(--g2)">'+escHtml(r.title||'—')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+escHtml(r.lic||'')+'</td>'
-        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)"><span class="tag '+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'gy':'grn')+'" style="font-size:10px">'+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'Inactive':'Active')+'</span></td>'
+        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0||r.title==='Managing Broker'||r.title==='Associate Broker'?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
         +(isBrokerageWide?'':
           '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
-          +' <button class="btn xs" data-lic="'+escHtml(r.lic||'')+'" data-active="'+(r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'0':'1')+'" onclick="toggleRepActive(this.dataset.lic,this.dataset.active===\'1\')">'+( r.status&&r.status.toLowerCase().indexOf('inactive')>=0?'Reactivate':'Deactivate')+'</button>'
+          +(activeLicSet.indexOf(r.lic)>=0?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>':'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
         )
         +'</td></tr>';
     }).join('')+'</tbody></table></div></div></div>';
@@ -8063,6 +8103,7 @@ function saveInviteCorps() {
 
 
 function syncBrokerageReps() {
+  APP.brokerage._activeLics = null; // force re-fetch of account status
   var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
   if (!brkLic) { nAlert('No brokerage licence found.'); return; }
   var btn = document.querySelector('[onclick="syncBrokerageReps()"]');
