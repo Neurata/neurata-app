@@ -8517,8 +8517,11 @@ function adminEnterBrokerage(brkLic) {
             }
           });
           renderStrata(); renderDash();
-          // Re-render SC detail if it's currently open
-          if (APP.currentScId) renderSCDetail(APP.currentScId);
+          // Re-render SC detail if it's currently open so manager name and reps update
+          if (APP.currentScId) {
+            var openTab = document.querySelector('.sc-tab.on');
+            renderSCDetail(APP.currentScId);
+          }
         }).catch(function(){});
       }
 
@@ -8559,17 +8562,31 @@ function adminEnterBrokerage(brkLic) {
       });
 
       // Resolve smName for each SC using the loaded reps or repUserIds
+      // Also do a direct lookup for any smLic not found in reps
+      var unresolvedSmLics = [];
       scList.forEach(function(sc_) {
         if (sc_.smLic) {
           var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
           if (smRep) { sc_.smName = smRep.name; return; }
-          // Fallback: check repUserIds (e.g. SM who created the SC)
-          if (sc_.repUserIds) {
-            var smUser = sc_.repUserIds.find(function(u){ return u.lic === sc_.smLic; });
-            if (smUser) sc_.smName = smUser.name;
-          }
+          unresolvedSmLics.push(sc_.smLic);
         }
       });
+      // Fetch names for unresolved smLics directly from users table
+      if (unresolvedSmLics.length) {
+        db.from('users').select('bcfsa_lic,full_name').in('bcfsa_lic', unresolvedSmLics)
+        .then(function(ur) {
+          var nameMap = {};
+          (ur.data||[]).forEach(function(u){ nameMap[u.bcfsa_lic] = u.full_name; });
+          scList.forEach(function(sc_) {
+            if (sc_.smLic && !sc_.smName && nameMap[sc_.smLic]) {
+              sc_.smName = nameMap[sc_.smLic];
+            }
+          });
+          APP.sc = scList;
+          renderStrata();
+          if (APP.currentScId) renderSCDetail(APP.currentScId);
+        }).catch(function(){});
+      }
 
       // Restore repIds from sc_users, and get full_name (Known As) from users table
       if (scUsers.length) {
