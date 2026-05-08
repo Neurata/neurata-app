@@ -14093,57 +14093,57 @@ function obInviteComplete(){
         return;
       }
 
-      // Step 3: Metadata + profile + SC connection (fire and forget)
-      getSupabase().auth.updateUser({data:{brokerage_id:brkLic}});
-      getSupabase().from('users').upsert({
-        id:userId, full_name:dn, email:email,
-        bcfsa_lic:lic, role:rep.licensedAs||'Representative', brokerage_id:brkLic
-      },{onConflict:'id'});
-      if(ctx && ctx.scId){
-        // Write sc_users rows for ALL assigned SCs (not just the first one)
-        var allPlans = (ctx.scPlans && ctx.scPlans.length) ? ctx.scPlans : [ctx.scId];
-        allPlans.forEach(function(plan) {
-          getSupabase().from('sc_users').upsert({sc_id:plan, user_id:userId, access_type:'rep'},{onConflict:'sc_id,user_id'}).then(function(){});
+      // Step 3: Use worker to create user row, SC connection, and set JWT metadata
+      return fetch(WORKER_URL + '/register', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          userId:    userId,
+          email:     email,
+          fullName:  dn,
+          bcfsaLic:  lic,
+          role:      rep.licensedAs || 'Representative',
+          brkLic:    brkLic,
+          brkName:   rep.businessName || brkLic,
+          brkAddr:   rep.businessAddress || null,
+          brkPhone:  rep.businessPhone || null,
+          brkExists: true, // brokerage already exists — don't reset trial
+          scPlans:   (ctx && ctx.scPlans && ctx.scPlans.length) ? ctx.scPlans : (ctx && ctx.scId ? [ctx.scId] : [])
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) throw new Error(d.error);
+      })
+      .then(function(){
+        APP.currentUser = {
+          id:userId, name:dn, legalName:rep.name, lic:lic, email:email,
+          role:rep.licensedAs||'Representative', licFor:rep.licensedFor||'',
+          initials:initials, brkLic:brkLic, brkName:rep.businessName||''
+        };
+        APP.brokerage = {
+          name:rep.brkName||rep.businessName||'', lic:brkLic,
+          addr:rep.brkAddress||rep.businessAddress||'',
+          phone:rep.brkPhone||rep.businessPhone||''
+        };
+        window._inviteContext = null;
+        APP._postSignupScId = (ctx && ctx.scPlans && ctx.scPlans[0]) ? ctx.scPlans[0] : (ctx && ctx.scId ? ctx.scId : null);
+        // Refresh session so JWT picks up new brokerage_id/role
+        getSupabase().auth.refreshSession().then(function() {
+          fetch(WORKER_URL + '/send-welcome', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              to:        email,
+              name:      rep.knownAs || rep.name || '',
+              role:      rep.role || 'Representative',
+              brokerage: rep.brkName || ''
+    })
+            })
+          }).catch(function(){});
+          refreshAndLoad(userId);
+        }).catch(function() {
+          refreshAndLoad(userId);
         });
-        // Merge all plans into reps.sc_ids
-        getSupabase().from('reps').select('sc_ids').eq('brokerage_id',brkLic).eq('bcfsa_lic',lic).maybeSingle()
-        .then(function(ex) {
-          var ids = [];
-          if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
-          allPlans.forEach(function(p){ if (ids.indexOf(p) < 0) ids.push(p); });
-          return getSupabase().from('reps').upsert({brokerage_id:brkLic,bcfsa_lic:lic,name:dn,sc_ids:JSON.stringify(ids)},{onConflict:'brokerage_id,bcfsa_lic'});
-        });
-      }
-
-      // Step 4: Set APP state and launch
-      APP.currentUser = {
-        id:userId, name:dn, legalName:rep.name, lic:lic, email:email,
-        role:rep.licensedAs||'Representative', licFor:rep.licensedFor||'',
-        initials:initials, brkLic:brkLic, brkName:rep.businessName||''
-      };
-      APP.brokerage = {
-        name:rep.brkName||rep.businessName||'', lic:brkLic,
-        addr:rep.brkAddress||rep.businessAddress||'',
-        phone:rep.brkPhone||rep.businessPhone||''
-      };
-      window._inviteContext = null;
-      APP._postSignupScId = (ctx && ctx.scId) ? ctx.scId : null; // stash for launchPlatform
-      // Refresh session so JWT picks up new brokerage_id/role from trigger
-      getSupabase().auth.refreshSession().then(function() {
-        fetch(WORKER_URL + '/send-welcome', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            to:        email,
-            name:      rep.knownAs || rep.name || '',
-            role:      rep.role || 'Representative',
-            brokerage: rep.brkName || ''
-          })
-        }).catch(function(){});
-        refreshAndLoad(userId);
-      }).catch(function() {
-        refreshAndLoad(userId);
       });
-    });
   })
   .catch(function(e){
     if(e === 'not_found') return;
