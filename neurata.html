@@ -9618,9 +9618,9 @@ function loadUserSCs(userId) {
           }
         }).catch(function(){});
       }
-      // Reset currentScId to first SC if previous value no longer valid
-      if (scList.length && (!APP.currentScId || !scList.find(function(s){return s.id===APP.currentScId;}))) {
-        APP.currentScId = scList[0].id;
+      // Only set currentScId if it's not already valid
+      if (scList.length && APP.currentScId && !scList.find(function(s){return s.id===APP.currentScId;})) {
+        APP.currentScId = null;
       }
       launchPlatform();
       // Load SS conversations after SC list is ready
@@ -10622,6 +10622,8 @@ function renderDash() {
   }
 
   // Upcoming meetings (future dates across all SCs)
+  var totalLots = sc.reduce(function(a,s){return a+(parseInt(s.lots)||0);},0);
+  var totalMtgs = sc.reduce(function(a,s){return a+(s.meetings?s.meetings.length:0);},0);
   var today = new Date().toISOString().slice(0,10);
   var upcoming = [];
   sc.forEach(function(s){
