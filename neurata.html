@@ -7944,13 +7944,14 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:13px;font-weight:600;border-bottom:1px solid var(--g2)">'+escHtml(r.name||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--ch3);border-bottom:1px solid var(--g2)">'+escHtml(r.title||'—')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+escHtml(r.lic||'')+'</td>'
-        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0||r.title==='Managing Broker'||r.title==='Associate Broker'?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
+        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
-        +(isBrokerageWide?'':
-          '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
-          +(activeLicSet.indexOf(r.lic)>=0?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>':'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
-        )
+        +(isBrokerageWide?'':(
+          activeLicSet.indexOf(r.lic)>=0
+          ?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+ '" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>'
+          :'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+ '" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
+        ))
         +'</td></tr>';
     }).join('')+'</tbody></table></div></div></div>';
 }
