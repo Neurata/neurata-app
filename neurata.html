@@ -4003,12 +4003,19 @@ function renderSCReps(s) {
     }
   });
 
-  // Also include any users directly connected via sc_users (e.g. SM who created the SC)
-  var scUserIds = s.repUserIds || []; // array of {userId, lic, name, role} loaded from sc_users
+  // Also include any users directly connected via sc_users (managers and reps)
+  var scUserIds = s.repUserIds || [];
   scUserIds.forEach(function(u) {
     var alreadyIn = rows.find(function(r){ return r.lic === u.lic || r.uid === u.userId; });
     if (!alreadyIn && u.lic) {
-      rows.push({name:u.name||u.lic, lic:u.lic, title:u.role||'Representative', scope:'Assigned', status:'Active', uid:u.userId});
+      rows.push({
+        name: u.name||u.lic,
+        lic: u.lic,
+        title: u.role||'Representative',
+        scope: u.accessType === 'manager' ? 'Assigned' : 'Assigned',
+        status: 'Active',
+        uid: u.userId
+      });
     }
   });
   var delegates = s.delegates || [];
@@ -9661,13 +9668,15 @@ function loadUserSCs(userId) {
           }
         }).catch(function(){});
       }
-      // Load manager-type sc_users to show SM in reps tab and list view
+      // Load all sc_users (manager + rep) to show full reps list on SC detail
       if (planNumbers.length) {
-        getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type','manager')
+        getSupabase().from('sc_users').select('sc_id,user_id,access_type').in('sc_id', planNumbers)
         .then(function(mgr) {
           if (!mgr.data || !mgr.data.length) return;
-          var mgrIds = mgr.data.map(function(r){ return r.user_id; });
-          getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', mgrIds)
+          var allIds = mgr.data.map(function(r){ return r.user_id; });
+          // Deduplicate
+          allIds = allIds.filter(function(v,i,a){ return a.indexOf(v)===i; });
+          getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', allIds)
           .then(function(ur) {
             var userMap = {};
             (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
@@ -9677,10 +9686,10 @@ function loadUserSCs(userId) {
               if (sc_) {
                 if (!sc_.repUserIds) sc_.repUserIds = [];
                 if (!sc_.repUserIds.find(function(x){ return x.userId === row.user_id; })) {
-                  sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role });
+                  sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
                 }
-                // Also set smName if this user's lic matches smLic
-                if (sc_.smLic && sc_.smLic === u.bcfsa_lic && !sc_.smName) {
+                // Set smName if this user's lic matches smLic
+                if (row.access_type === 'manager' && sc_.smLic && sc_.smLic === u.bcfsa_lic && !sc_.smName) {
                   sc_.smName = u.full_name;
                 }
               }
