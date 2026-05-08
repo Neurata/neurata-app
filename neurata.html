@@ -4003,7 +4003,14 @@ function renderSCReps(s) {
     }
   });
 
-  // Council delegates from sc.delegateIds + sc.delegates[]
+  // Also include any users directly connected via sc_users (e.g. SM who created the SC)
+  var scUserIds = s.repUserIds || []; // array of {userId, lic, name, role} loaded from sc_users
+  scUserIds.forEach(function(u) {
+    var alreadyIn = rows.find(function(r){ return r.lic === u.lic || r.uid === u.userId; });
+    if (!alreadyIn && u.lic) {
+      rows.push({name:u.name||u.lic, lic:u.lic, title:u.role||'Representative', scope:'Assigned', status:'Active', uid:u.userId});
+    }
+  });
   var delegates = s.delegates || [];
   // Also add any raw delegateIds not in delegates array (legacy)
   (s.delegateIds || []).forEach(function(uid) {
@@ -7674,12 +7681,14 @@ function renderBrokerage() {
     html+='<div style="font-size:12px;color:var(--g4)">'+(canUploadDocs?'Upload standard forms for your team (Form B, Form K, bylaws, etc.).':'No documents uploaded yet.')+'</div>';
   } else {
     html+='<table class="tbl"><thead><tr><th>Name</th><th>Date</th><th></th></tr></thead><tbody>';
-    brkDocs.forEach(function(d){
+    brkDocs.forEach(function(d, idx){
+      var docId = d.id || ('bd_' + idx);
       html+='<tr>'
         +'<td style="font-size:13px">'+escHtml(d.name||'')+'</td>'
         +'<td style="font-size:11px;color:var(--g4)">'+escHtml(d.date||'')+'</td>'
-        +'<td>'+(d.url||d.data?'<a href="'+escHtml(d.url||d.data||'')+'" target="_blank" class="btn xs">Download</a>':'<span style="color:var(--g4);font-size:11px">No link</span>')+
-        +(canUploadDocs?'<button class="btn xs" style="color:var(--red);margin-left:4px" data-id="'+escHtml(d.id)+'" onclick="deleteBrkDocById(this.dataset.id)">✕</button>':'')
+        +'<td style="display:flex;gap:4px;align-items:center">'
+        +(d.url||d.data?'<a href="'+escHtml(d.url||d.data||'')+'" target="_blank" class="btn xs">Download</a>':'<span style="color:var(--g4);font-size:11px">No link</span>')
+        +(canUploadDocs?'<button class="btn xs red" data-idx="'+idx+'" onclick="deleteBrkDocByIdx(parseInt(this.dataset.idx))">Delete</button>':'')
         +'</td></tr>';
     });
     html+='</tbody></table>';
@@ -7814,6 +7823,17 @@ function uploadBrkDoc() {
       });
   };
   inp.click();
+}
+
+function deleteBrkDocByIdx(idx) {
+  if (!APP.brokerage.docs || idx < 0 || idx >= APP.brokerage.docs.length) return;
+  var doc = APP.brokerage.docs[idx];
+  nConfirm('Delete "' + (doc.name||'this document') + '"?', function(ok) {
+    if (!ok) return;
+    APP.brokerage.docs.splice(idx, 1);
+    getSupabase().from('brokerages').update({ docs: APP.brokerage.docs }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+    renderBrokerage();
+  }, 'Delete Document', 'danger');
 }
 
 function deleteBrkDocById(id){ deleteBrkDoc(id); }
@@ -9618,6 +9638,30 @@ function loadUserSCs(userId) {
           }
         }).catch(function(){});
       }
+      // Load manager-type sc_users to show SM in reps tab
+      if (planNumbers.length) {
+        getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type','manager')
+        .then(function(mgr) {
+          if (!mgr.data || !mgr.data.length) return;
+          var mgrIds = mgr.data.map(function(r){ return r.user_id; });
+          getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', mgrIds)
+          .then(function(ur) {
+            var userMap = {};
+            (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
+            mgr.data.forEach(function(row) {
+              var u = userMap[row.user_id]; if (!u) return;
+              var sc_ = APP.sc.find(function(s){ return s.plan === row.sc_id; });
+              if (sc_) {
+                if (!sc_.repUserIds) sc_.repUserIds = [];
+                if (!sc_.repUserIds.find(function(x){ return x.userId === row.user_id; })) {
+                  sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role });
+                }
+              }
+            });
+          });
+        }).catch(function(){});
+      }
+
       // Only set currentScId if it's not already valid
       if (scList.length && APP.currentScId && !scList.find(function(s){return s.id===APP.currentScId;})) {
         APP.currentScId = null;
@@ -12897,9 +12941,17 @@ function createSC() {
     APP.sc.push(newSC);
     APP.currentScId = newSC.id;
 
+    // Insert sc_users row for creator as manager
     getSupabase().from('sc_users').insert({
       sc_id: plan, user_id: APP.currentUser.id, access_type: 'manager'
     }).then(function(){});
+
+    // If creator is a Representative/SM, set them as the SM for this SC
+    if (APP.currentUser.role === 'Representative' || APP.currentUser.role === 'Strata Manager') {
+      getSupabase().from('strata_corps').update({ sm_lic: APP.currentUser.lic })
+        .eq('plan_number', plan).then(function(){});
+      newSC.smLic = APP.currentUser.lic;
+    }
 
     if (_scPlanPdfFile) {
       var pdfFile = _scPlanPdfFile;
