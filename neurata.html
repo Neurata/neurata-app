@@ -4272,7 +4272,7 @@ function assignRepToSC(scId, lic, name) {
         brokerage: APP.brokerage.name || '',
         scPlan:    s.plan,
         scName:    s.name || '',
-        appUrl:    appUrl + '/?sc=' + encodeURIComponent(s.plan)
+        appUrl:    appUrl  // plain URL — no token, goes to login screen
       })
     }).catch(function(){});
 
@@ -8517,6 +8517,8 @@ function adminEnterBrokerage(brkLic) {
             }
           });
           renderStrata(); renderDash();
+          // Re-render SC detail if it's currently open
+          if (APP.currentScId) renderSCDetail(APP.currentScId);
         }).catch(function(){});
       }
 
@@ -11413,18 +11415,22 @@ function renderSCOverview(s) {
   var ssTier = scSsTier(s);
   var trialExhausted = scTrialExhausted();
 
-  // Manager name
-  var mgrNames = (s.repIds||[]).map(function(lic){
-    if (APP.currentUser && APP.currentUser.lic === lic) return APP.currentUser.name;
-    var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
-    return rep ? rep.name : lic;
-  });
-  if (!mgrNames.length && APP.currentUser && (APP.currentUser.role==='Managing Broker'||APP.currentUser.role==='Associate Broker')) {
-    mgrNames = [APP.currentUser.name];
+  // Manager name — smName takes priority (designated SM), then repUserIds managers, then repIds
+  var mgrDisplay = '\u2014';
+  if (s.smName) {
+    mgrDisplay = s.smName;
+  } else if (s.repUserIds && s.repUserIds.length) {
+    var mgrs = s.repUserIds.filter(function(u){ return u.accessType === 'manager'; });
+    if (mgrs.length) mgrDisplay = mgrs.map(function(u){ return u.name; }).join(', ');
   }
-  var mgrDisplay = mgrNames.length ? mgrNames.join(', ') : '—';
-  if (s.smName) mgrDisplay = s.smName; // designated SM takes priority
-
+  if (mgrDisplay === '\u2014' && s.repIds && s.repIds.length) {
+    var mgrNames = s.repIds.map(function(lic){
+      if (APP.currentUser && APP.currentUser.lic === lic) return APP.currentUser.name;
+      var rep = (APP.reps||[]).find(function(r){return r.lic===lic;});
+      return rep ? rep.name : lic;
+    });
+    if (mgrNames.length) mgrDisplay = mgrNames.join(', ');
+  }
   var html = '<div class="card"><div class="cb">';
 
   // ── Subscription status bar ─────────────────────────────────────────
