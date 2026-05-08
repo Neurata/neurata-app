@@ -3992,14 +3992,18 @@ function renderSCReps(s) {
     return false;
   }
 
-  // MB and AB — from APP.brokerage context (they see all SCs)
-  // We flag them as brokerage-level rather than SC-specific
+  // MB, AB, and the designated SM all see everyone connected to this SC
+  var isSMofThisSC = APP.currentUser && s.smLic && APP.currentUser.lic === s.smLic;
   var brokerageRoles = ['Managing Broker','Associate Broker'];
   allReps.forEach(function(r) {
     if (brokerageRoles.indexOf(r.title) >= 0) {
       rows.push({name:r.name, lic:r.lic, title:r.title, scope:'Brokerage', status:r.status||'Active'});
     } else if (isConnected(r.lic)) {
       rows.push({name:r.name, lic:r.lic, title:r.title||'Representative', scope:'Assigned', status:r.status||'Active'});
+    } else if (isSMofThisSC && r.lic !== APP.currentUser.lic) {
+      // SM sees other reps who are in sc_users for this SC — check repUserIds
+      var inSC = s.repUserIds && s.repUserIds.some(function(u){ return u.lic === r.lic; });
+      if (inSC) rows.push({name:r.name, lic:r.lic, title:r.title||'Representative', scope:'Assigned', status:r.status||'Active'});
     }
   });
 
