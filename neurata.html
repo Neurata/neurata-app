@@ -4004,7 +4004,33 @@ function renderSCReps(s) {
   });
 
   // Also include any users directly connected via sc_users (managers and reps)
+  // If repUserIds not yet loaded, fetch them now
   var scUserIds = s.repUserIds || [];
+  if (!scUserIds.length && s.plan) {
+    getSupabase().from('sc_users').select('sc_id,user_id,access_type').eq('sc_id', s.plan)
+    .then(function(res) {
+      if (!res.data || !res.data.length) return;
+      var ids = res.data.map(function(r){ return r.user_id; }).filter(function(v,i,a){ return a.indexOf(v)===i; });
+      getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', ids)
+      .then(function(ur) {
+        var umap = {};
+        (ur.data||[]).forEach(function(u){ umap[u.id] = u; });
+        s.repUserIds = [];
+        res.data.forEach(function(row) {
+          var u = umap[row.user_id]; if (!u) return;
+          if (!s.repUserIds.find(function(x){ return x.userId === row.user_id; })) {
+            s.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
+          }
+          if (row.access_type === 'manager' && s.smLic === u.bcfsa_lic && !s.smName) {
+            s.smName = u.full_name;
+          }
+        });
+        // Re-render now that we have the data
+        renderSCDetail(s.id);
+        renderStrata();
+      });
+    }).catch(function(){});
+  }
   scUserIds.forEach(function(u) {
     var alreadyIn = rows.find(function(r){ return r.lic === u.lic || r.uid === u.userId; });
     if (!alreadyIn && u.lic) {
@@ -8517,9 +8543,8 @@ function adminEnterBrokerage(brkLic) {
             }
           });
           renderStrata(); renderDash();
-          // Re-render SC detail if it's currently open so manager name and reps update
+          // Re-render SC detail if it's currently open
           if (APP.currentScId) {
-            var openTab = document.querySelector('.sc-tab.on');
             renderSCDetail(APP.currentScId);
           }
         }).catch(function(){});
