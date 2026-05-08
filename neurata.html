@@ -4060,6 +4060,7 @@ function renderSCReps(s) {
   var scopeLabels = {Brokerage:'Brokerage Access', Assigned:'Assigned', Council:'Council Delegate'};
 
   html += '<table class="cm-table"><thead><tr>'
+  var activeLics = (s.repUserIds||[]).map(function(u){ return u.lic; });
     +'<th>Name</th><th>Title</th><th>Licence</th><th>Access</th><th>Status</th><th></th>'
     +'</tr></thead><tbody>';
 
@@ -4074,7 +4075,7 @@ function renderSCReps(s) {
       +'<td style="color:var(--ch3)">'+escHtml(r.title||'—')+'</td>'
       +'<td style="color:var(--g4);font-size:11px">'+escHtml(r.scope==='Council'?'Council Portal':r.lic||'—')+'</td>'
       +'<td><span style="background:'+scopeBg+';padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">'+scopeLabel+'</span></td>'
-      +'<td><span class="tag '+(r.status.toLowerCase().indexOf('active')>=0?'grn':'gy')+'" style="font-size:10px">'+escHtml(r.status)+'</span></td>'
+      +'<td>'+(activeLics.indexOf(r.lic)>=0||r.scope==="Council"?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
       +'<td style="white-space:nowrap">'
       +(canSetSM && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
         ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Set as SM</button> '
@@ -4134,39 +4135,44 @@ function removeRepFromSC(scId, lic) {
 
 function openSCInviteRep(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
-  // Reuse the brokerage invite modal but scoped to this one SC
   var allReps = APP.reps || [];
-  if (!allReps.length) {
-    // No reps — go straight to email invite silently
-    openEmailInvite(scId, null, null);
-    return;
-  }
-  // Pre-select only this SC in the invite modal
+  if (!allReps.length) { openEmailInvite(scId, null, null); return; }
+
   _inviteRepLic  = '';
   _inviteRepName = '';
-  _inviteSingleScId = scId; // restrict to single SC
-  // Build a rep picker
-  var html = '';
-  allReps.forEach(function(r) {
-    var assigned = s.mgrLic===r.lic || (s.repIds&&s.repIds.indexOf(r.lic)>=0);
-    html += '<div class="invite-corp-item'+(assigned?' selected':'')+'" data-lic="'+escHtml(r.lic)+'" data-name="'+escHtml(r.name)+'" onclick="scInviteToggleRep(this)">'
-      +'<div class="invite-corp-check">'+(assigned?'✓':'')+'</div>'
-      +'<div class="invite-corp-info">'
-      +'<div class="invite-corp-plan">'+escHtml(r.name)+'</div>'
-      +'<div class="invite-corp-name">'+escHtml(r.title||'Representative')+' · '+escHtml(r.lic)+'</div>'
-      +'</div>'
-      +'</div>';
-  });
-  document.getElementById('invite-modal-title').textContent = 'Invite Representative to '+s.plan;
-  document.getElementById('invite-modal-sub').textContent   = 'Select a representative to assign to this corporation';
-  document.getElementById('invite-corps-list').innerHTML    = html;
-  inviteUpdateCount();
-  // Override save button to use SC-scoped save
-  var saveBtn = document.getElementById('invite-corps-save-btn'); if(saveBtn) saveBtn.setAttribute('onclick','saveSCInviteRep(\''+scId+'\')');
-  openMo('mo-invite-rep-corps');
-}
+  _inviteSingleScId = scId;
 
-var _inviteSingleScId = null;
+  // Check which reps already have accounts
+  var repLics = allReps.map(function(r){ return r.lic; });
+  getSupabase().from('users').select('bcfsa_lic').in('bcfsa_lic', repLics).eq('brokerage_id', APP.brokerage.lic)
+  .then(function(res) {
+    var activeLics = (res.data||[]).map(function(u){ return u.bcfsa_lic; });
+    var html = '';
+    allReps.forEach(function(r) {
+      var assigned = s.mgrLic===r.lic || (s.repIds&&s.repIds.indexOf(r.lic)>=0)
+        || (s.repUserIds&&s.repUserIds.some(function(u){ return u.lic===r.lic; }));
+      var isActive = activeLics.indexOf(r.lic) >= 0;
+      var pill = isActive
+        ? '<span class="tag grn" style="font-size:10px;padding:1px 6px;margin-left:4px">Active</span>'
+        : '<span class="tag gy" style="font-size:10px;padding:1px 6px;margin-left:4px">Inactive</span>';
+      html += '<div class="invite-corp-item'+(assigned?' selected':'')
+        +'" data-lic="'+escHtml(r.lic)+'" data-name="'+escHtml(r.name)
+        +'" data-active="'+(isActive?'1':'0')+'" onclick="scInviteToggleRep(this)">'
+        +'<div class="invite-corp-check">'+(assigned?'\u2713':'')+'</div>'
+        +'<div class="invite-corp-info">'
+        +'<div class="invite-corp-plan">'+escHtml(r.name)+pill+'</div>'
+        +'<div class="invite-corp-name">'+escHtml(r.title||'Representative')+' \u00b7 '+escHtml(r.lic)+'</div>'
+        +'</div></div>';
+    });
+    document.getElementById('invite-modal-title').textContent = 'Add Representative to '+s.plan;
+    document.getElementById('invite-modal-sub').textContent   = 'Active reps will be assigned immediately. Inactive reps will receive an email invitation.';
+    document.getElementById('invite-corps-list').innerHTML    = html;
+    inviteUpdateCount();
+    var saveBtn = document.getElementById('invite-corps-save-btn');
+    if (saveBtn) { saveBtn.textContent = 'Continue \u2192'; saveBtn.setAttribute('onclick','saveSCInviteRep(\''+scId+'\')'); }
+    openMo('mo-invite-rep-corps');
+  }).catch(function(){ openEmailInvite(scId, null, null); });
+}
 
 function scInviteToggleRep(el) {
   // Single-select for SC rep invite — deselect all others first
@@ -4183,10 +4189,70 @@ function saveSCInviteRep(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var selected = document.querySelector('#invite-corps-list .invite-corp-item.selected');
   if (!selected) { nAlert('Please select a representative.','No Selection','warn'); return; }
-  var lic  = selected.dataset.lic;
-  var name = selected.dataset.name;
-  // Prompt for email
-  openEmailInvite(scId, lic, name);
+  var lic      = selected.dataset.lic;
+  var name     = selected.dataset.name;
+  var isActive = selected.dataset.active === '1';
+  closeMo('mo-invite-rep-corps');
+
+  if (isActive) {
+    // Rep has an account — assign directly via worker, no email prompt
+    assignRepToSC(scId, lic, name);
+  } else {
+    // Rep has no account — send invite email
+    openEmailInvite(scId, lic, name);
+  }
+}
+
+function assignRepToSC(scId, lic, name) {
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  var brkLic = APP.brokerage.lic;
+  var appUrl = (typeof ENV !== 'undefined' && ENV === 'production') ? 'https://app.neurata.ai' : 'https://appdev.neurata.ai';
+
+  // Get the user's ID and email so we can write sc_users and send notification
+  getSupabase().from('users').select('id,email').eq('bcfsa_lic', lic).eq('brokerage_id', brkLic).maybeSingle()
+  .then(function(res) {
+    if (!res.data) { nAlert('Could not find user record. Please try the email invite instead.','Error','warn'); return; }
+    var userId = res.data.id;
+    var email  = res.data.email;
+
+    // Write sc_users row
+    getSupabase().from('sc_users').upsert({ sc_id: s.plan, user_id: userId, access_type: 'rep' }, { onConflict: 'sc_id,user_id' }).then(function(){});
+
+    // Update reps.sc_ids
+    getSupabase().from('reps').select('sc_ids').eq('brokerage_id', brkLic).eq('bcfsa_lic', lic).maybeSingle()
+    .then(function(ex) {
+      var ids = [];
+      if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
+      if (ids.indexOf(s.plan) < 0) ids.push(s.plan);
+      getSupabase().from('reps').upsert({ brokerage_id: brkLic, bcfsa_lic: lic, name: name, sc_ids: JSON.stringify(ids) }, { onConflict: 'brokerage_id,bcfsa_lic' }).then(function(){});
+    });
+
+    // Update local state
+    if (!s.repIds) s.repIds = [];
+    if (s.repIds.indexOf(lic) < 0) s.repIds.push(lic);
+    if (!s.repUserIds) s.repUserIds = [];
+    if (!s.repUserIds.find(function(u){ return u.lic === lic; })) {
+      s.repUserIds.push({ userId: userId, lic: lic, name: name, role: 'Representative', accessType: 'rep' });
+    }
+
+    // Send notification email
+    fetch(WORKER_URL + '/send-invite', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type:      'rep_assigned',
+        to:        email,
+        toName:    name,
+        fromName:  APP.currentUser.name,
+        brokerage: APP.brokerage.name || '',
+        scPlan:    s.plan,
+        scName:    s.name || '',
+        appUrl:    appUrl + '/?sc=' + encodeURIComponent(s.plan)
+      })
+    }).catch(function(){});
+
+    renderSCDetail(scId);
+    nAlert(name + ' has been assigned to ' + s.plan + '. They will receive a notification email.', 'Assigned \u2713', 'success');
+  }).catch(function(e){ nAlert('Assignment failed: ' + e.message, 'Error', 'warn'); });
 }
 
 function openEmailInvite(scId, lic, name) {
@@ -9862,12 +9928,28 @@ function launchPlatform(){
 
   renderNav();
   showScr('scr-platform');
+
+  // Check for ?sc= deep link (from rep_assigned notification email)
+  var deepLinkSc = (function(){
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var sc = p.get('sc');
+      if (sc) { window.history.replaceState({}, document.title, window.location.pathname); }
+      return sc;
+    } catch(e) { return null; }
+  })();
+
   if (isDelegate) {
     showPg('strata');
-    // Auto-navigate to meetings page for the delegate's SC
-    setTimeout(function() {
-      selectSC(APP.sc[0] && APP.sc[0].id);
-    }, 100);
+    setTimeout(function() { selectSC(APP.sc[0] && APP.sc[0].id); }, 100);
+  } else if (deepLinkSc) {
+    var dlSc = APP.sc.find(function(s){ return s.plan === deepLinkSc || s.id === deepLinkSc; });
+    if (dlSc) {
+      showPg('strata');
+      setTimeout(function(){ openSCDetail(dlSc.id); }, 100);
+    } else {
+      showPg('dashboard');
+    }
   } else {
     showPg('dashboard');
   }
@@ -14390,16 +14472,51 @@ async function init(){
 
     if (hasInvite) {
       if (session) {
-        nConfirm(
-          'You are signed in to another account. Sign out to accept this invitation?',
-          function(ok) {
-            if (ok) { getSupabase().auth.signOut().then(function(){ showInviteScreen(); }); }
-            else { window._inviteContext = null; loadUserProfile(session.user.id); }
-          },
-          'Invitation Link', 'info'
-        );
+        var ctx = window._inviteContext;
+        // If rep invite and user is already logged in — just connect the SC and proceed
+        if (ctx && ctx.type === 'rep' && ctx.scPlans && ctx.scPlans.length) {
+          // Write sc_users rows via worker
+          fetch(WORKER_URL + '/register', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              userId:    session.user.id,
+              email:     session.user.email,
+              fullName:  session.user.user_metadata && session.user.user_metadata.full_name || '',
+              bcfsaLic:  ctx.lic || '',
+              role:      'Representative',
+              brkLic:    ctx.brkLic,
+              brkExists: true,
+              scPlans:   ctx.scPlans
+            })
+          }).catch(function(){});
+          window._inviteContext = null;
+          loadUserProfile(session.user.id);
+        } else {
+          nConfirm(
+            'You are signed in to another account. Sign out to accept this invitation?',
+            function(ok) {
+              if (ok) { getSupabase().auth.signOut().then(function(){ showInviteScreen(); }); }
+              else { window._inviteContext = null; loadUserProfile(session.user.id); }
+            },
+            'Invitation Link', 'info'
+          );
+        }
       } else {
-        showInviteScreen();
+        // Check if an account exists for this lic — if so show login, not signup
+        if (window._inviteContext && window._inviteContext.lic) {
+          getSupabase().from('users').select('id').eq('bcfsa_lic', window._inviteContext.lic).maybeSingle()
+          .then(function(res) {
+            if (res.data) {
+              // Account exists — show login screen with a hint
+              nAlert('An account already exists for this licence. Please log in to connect to the strata corporation.', 'Account Found', 'info');
+              showScr('scr-login');
+            } else {
+              showInviteScreen();
+            }
+          }).catch(function(){ showInviteScreen(); });
+        } else {
+          showInviteScreen();
+        }
       }
       return;
     }
