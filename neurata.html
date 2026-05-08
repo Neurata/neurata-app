@@ -5471,7 +5471,7 @@ function renderAI(it){
     var hint = (it && it.atts && it.atts.length)
       ? ' I can see the attachments for this item. Ask me anything about them, or about BC strata law, bylaws, past decisions, or meeting procedure.'
       : ' Ask me anything about BC strata law, bylaws, past decisions, or meeting procedure.';
-    el.innerHTML = '<div class="mm-aimsg pro fi">'+hint+'</div>';
+    el.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,.4);padding:8px 10px;line-height:1.5">'+hint+'</div>';
   }
   el.scrollTop=el.scrollHeight;
 }
@@ -8404,11 +8404,16 @@ function adminEnterBrokerage(brkLic) {
         return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
       });
 
-      // Resolve smName for each SC using the loaded reps
+      // Resolve smName for each SC using the loaded reps or repUserIds
       scList.forEach(function(sc_) {
         if (sc_.smLic) {
           var smRep = APP.reps.find(function(r){ return r.lic === sc_.smLic; });
-          if (smRep) sc_.smName = smRep.name;
+          if (smRep) { sc_.smName = smRep.name; return; }
+          // Fallback: check repUserIds (e.g. SM who created the SC)
+          if (sc_.repUserIds) {
+            var smUser = sc_.repUserIds.find(function(u){ return u.lic === sc_.smLic; });
+            if (smUser) sc_.smName = smUser.name;
+          }
         }
       });
 
@@ -9641,7 +9646,7 @@ function loadUserSCs(userId) {
           }
         }).catch(function(){});
       }
-      // Load manager-type sc_users to show SM in reps tab
+      // Load manager-type sc_users to show SM in reps tab and list view
       if (planNumbers.length) {
         getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type','manager')
         .then(function(mgr) {
@@ -9659,8 +9664,14 @@ function loadUserSCs(userId) {
                 if (!sc_.repUserIds.find(function(x){ return x.userId === row.user_id; })) {
                   sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role });
                 }
+                // Also set smName if this user's lic matches smLic
+                if (sc_.smLic && sc_.smLic === u.bcfsa_lic && !sc_.smName) {
+                  sc_.smName = u.full_name;
+                }
               }
             });
+            renderStrata();
+            renderDash();
           });
         }).catch(function(){});
       }
