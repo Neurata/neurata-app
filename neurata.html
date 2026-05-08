@@ -4072,7 +4072,7 @@ function renderSCReps(s) {
       +(canSetSM && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
         ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Set as SM</button> '
         : (isSM && canSetSM ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\'\')">Remove SM</button> ' : ''))
-      +(canManage?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')
+      +(canManage && r.lic !== APP.currentUser.lic ?(r.scope==='Assigned'?'<button class="btn xs" onclick="removeRepFromSC(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Remove</button>':(r.scope==='Council'?'<button class="btn xs" onclick="removeDelegate(\''+s.id+'\',\''+escHtml(r.uid||r.lic)+'\')">Remove</button>':'')):'')
       +'</td>'
       +'</tr>';
   });
@@ -7769,8 +7769,10 @@ function renderBrokerageRepList() {
       var assigned = (APP.sc||[]).filter(function(s){
         return s.mgrLic===r.lic
           || s.mgr===r.name
+          || s.smLic===r.lic
           || (s.repIds&&s.repIds.indexOf(r.lic)>=0)
-          || (s.delegateIds&&s.delegateIds.indexOf(r.lic)>=0);
+          || (s.delegateIds&&s.delegateIds.indexOf(r.lic)>=0)
+          || (s.repUserIds&&s.repUserIds.some(function(u){return u.lic===r.lic;}));
       });
       // MB/AB have brokerage-wide access even if not explicitly in repIds
       var corpsHtml;
