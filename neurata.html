@@ -8380,7 +8380,7 @@ function adminEnterBrokerage(brkLic) {
       db.from('council_members').select('*').in('sc_id', planNumbers),
       db.from('documents').select('id,name,source_label,source,mime_type,uploaded_at,sc_id,document_text,doc_type,storage_path').in('sc_id', planNumbers),
       db.from('reps').select('*').eq('brokerage_id', brkLic),
-      db.from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type', 'rep')
+      db.from('sc_users').select('sc_id,user_id,access_type').in('sc_id', planNumbers)
     ]).then(function(results) {
       var meetings   = results[0].data || [];
       var decisions  = results[1].data || [];
@@ -8390,6 +8390,29 @@ function adminEnterBrokerage(brkLic) {
       var scUsers    = results[5].data || [];
 
       // Map onto SC objects
+      // Populate repUserIds from all sc_users rows
+      if (scUsers.length) {
+        var allUids = scUsers.map(function(r){ return r.user_id; }).filter(function(v,i,a){ return a.indexOf(v)===i; });
+        db.from('users').select('id,bcfsa_lic,full_name,role').in('id', allUids).then(function(ur){
+          var userMap = {};
+          (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
+          scUsers.forEach(function(row) {
+            var u = userMap[row.user_id]; if (!u) return;
+            var sc_ = APP.sc.find(function(s){ return s.plan === row.sc_id; });
+            if (sc_) {
+              if (!sc_.repUserIds) sc_.repUserIds = [];
+              if (!sc_.repUserIds.find(function(x){ return x.userId === row.user_id; })) {
+                sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
+              }
+              if (row.access_type === 'manager' && sc_.smLic === u.bcfsa_lic && !sc_.smName) {
+                sc_.smName = u.full_name;
+              }
+            }
+          });
+          renderStrata(); renderDash();
+        }).catch(function(){});
+      }
+
       scList.forEach(function(sc) {
         sc.meetings = meetings.filter(function(m){ return m.sc_id === sc.plan; }).map(function(m){
           return { id:m.id, scId:m.sc_id, type:m.type, date:m.date, time:m.time||'',
