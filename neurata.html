@@ -650,7 +650,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   <script src="https://js.stripe.com/v3/"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -7011,41 +7010,12 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('<div class="sig-line">Strata Manager</div>');
   lines.push('</div>');
 
-  // Use html2pdf.js for direct download if available, else fall back to print dialog
   var htmlContent = lines.join('\n');
-  if (typeof html2pdf !== 'undefined') {
-    var container = document.createElement('div');
-    container.innerHTML = htmlContent;
-    // Extract just the body content
-    var bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    if (bodyMatch) container.innerHTML = bodyMatch[1];
-    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;font-family:Arial,Helvetica,sans-serif';
-    document.body.appendChild(container);
-    // Apply the inline styles from the HTML
-    var styleMatch = htmlContent.match(/<style>([\s\S]*?)<\/style>/i);
-    if (styleMatch) {
-      var styleEl = document.createElement('style');
-      styleEl.textContent = styleMatch[1];
-      container.prepend(styleEl);
-    }
-    html2pdf().set({
-      margin: [25.4, 28, 25.4, 28], // mm: top, right, bottom, left
-      filename: fname + '.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: 'avoid-all' }
-    }).from(container).save().then(function() {
-      document.body.removeChild(container);
-    });
-  } else {
-    // Fallback: print dialog
-    var w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) { nAlert('Please allow pop-ups for this site to export PDF.', 'Pop-up Blocked', 'warn'); return; }
-    w.document.write(htmlContent);
-    w.document.close();
-    w.focus();
-  }
+  var w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { nAlert('Please allow pop-ups for this site to export PDF.', 'Pop-up Blocked', 'warn'); return; }
+  w.document.write(htmlContent);
+  w.document.close();
+  w.focus();
 }
 
 
