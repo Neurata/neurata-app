@@ -4085,7 +4085,11 @@ function renderSCReps(s) {
 
   html += '<table class="cm-table"><thead><tr>'
   var activeLics = (s.repUserIds||[]).map(function(u){ return u.lic; });
-  // SM and current user always count as Active
+  // Also include any brokerage-level reps with accounts (from cached _activeLics)
+  if (APP.brokerage._activeLics) {
+    APP.brokerage._activeLics.forEach(function(lic){ if (activeLics.indexOf(lic) < 0) activeLics.push(lic); });
+  }
+  // SM and current user always Active
   if (s.smLic) activeLics.push(s.smLic);
   if (APP.currentUser && APP.currentUser.lic) activeLics.push(APP.currentUser.lic);
     +'<th>Name</th><th>Title</th><th>Licence</th><th>Access</th><th>Status</th><th></th>'
@@ -9860,6 +9864,16 @@ function loadUserSCs(userId) {
             renderStrata();
             renderDash();
           });
+        }).catch(function(){});
+      }
+
+      // Cache active lics for reps tab status display
+      var allRepLics = APP.reps.map(function(r){ return r.lic; }).filter(Boolean);
+      if (allRepLics.length && !APP.brokerage._activeLics) {
+        db.from('users').select('bcfsa_lic').in('bcfsa_lic', allRepLics).eq('brokerage_id', APP.brokerage.lic)
+        .then(function(res) {
+          APP.brokerage._activeLics = (res.data||[]).map(function(u){ return u.bcfsa_lic; });
+          if (APP.currentScId) renderSCDetail(APP.currentScId);
         }).catch(function(){});
       }
 
