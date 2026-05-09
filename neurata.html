@@ -6516,7 +6516,7 @@ function exportAgenda(scId, mtgId) {
     r.push('\\pard\\sb0\\sa80\\fs20\\cf2 Strata Manager\\cf0\\par');
 
     r.push('}');
-    var blob = new Blob([r.join('\n')], {type:'application/rtf'});
+    var blob = new Blob([r.join('\r\n')], {type:'application/rtf'});
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = fname+'.rtf'; a.click();
   }
@@ -6587,7 +6587,9 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // RTF header — style guide: Helvetica/Arial, 11pt body, 12pt headings
   // Margins: 1" sides (1440 twips), 1.1" top/bottom (1584 twips)
   // Line spacing: 1.15 (276 twips = 1.15 * 240)
-  r.push('{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}{\\f1\\fswiss\\fcharset0 Helvetica;}}{\\colortbl;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1584\\margr1584\\margt1584\\margb1584\\widowctrl\\ftnbj\\f0}');
+  r.push('{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1033{\\fonttbl{\\f0\\fswiss\\fprq2\\fcharset0 Arial;}}'
+    +'{\\colortbl ;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}'
+    +'\\margl1584\\margr1584\\margt1440\\margb1440\\widowctrl\\f0\\fs22');
 
   function esc(s) {
     return String(s||'')
