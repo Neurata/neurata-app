@@ -6747,7 +6747,8 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
           bold: !!opts.bold,
           italics: !!opts.italic,
           color: opts.color || '000000',
-          size: opts.size || 22
+          size: opts.size || 22,
+          font: 'Arial'
         })]
       });
     }
@@ -6795,7 +6796,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       paras.push(new Para({
         heading: Head.HEADING_2,
         spacing: {before:240, after:80},
-        children: [new Run({text: cat.name.toUpperCase(), bold:true, color:'2E75B6', size:24})]
+        children: [new Run({text: cat.name.toUpperCase(), bold:true, color:'2E75B6', size:24, font:'Arial'})]
       }));
       cat.items.forEach(function(it) {
         if ((it.text||'').toLowerCase().indexOf('call to order') >= 0) {
@@ -6819,7 +6820,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
         if (it.deferred) paras.push(dPara('Deferred to a future meeting.', {color:'595959', after:60}));
       });
     });
-    paras.push(new Para({heading: Head.HEADING_2, spacing:{before:240,after:80}, children:[new Run({text:'ADJOURNMENT', bold:true, color:'2E75B6', size:24})]}));
+    paras.push(new Para({heading: Head.HEADING_2, spacing:{before:240,after:80}, children:[new Run({text:'ADJOURNMENT', bold:true, color:'2E75B6', size:24, font:'Arial'})]}));
     paras.push(dPara('There being no further business, the meeting was adjourned at '+fmt12hr(mtg.adjTime)+'.', {after:120}));
     // Signatures
     paras.push(dPara('_________________________        _________________________', {color:'595959', size:20, before:480, after:20}));
@@ -6831,7 +6832,16 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       border: {top: {style: docx.BorderStyle.SINGLE, size:4, color:'CCCCCC'}},
       children: [new Run({text: 'Minutes prepared by Neurata.ai  ·  neurata.ai', color:'999999', size:16})]
     }));
-    var doc = new DocDoc({sections:[{properties:{}, children:paras}]});
+    var doc = new DocDoc({
+      styles: {
+        default: {
+          document: {
+            run: { font: 'Arial', size: 22 }
+          }
+        }
+      },
+      sections:[{properties:{}, children:paras}]
+    });
     Packer.toBlob(doc).then(function(blob) {
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -11004,7 +11014,7 @@ function renderDash() {
         +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+escHtml(m.scPlan)+' — '+escHtml(m.scName||'')+'</div>'
         +'<div style="font-size:11px;color:var(--g4)">'+m.date+'</div></div>'
         +'<span class="tag '+(isFinal?'grn':'amb')+'" style="font-size:10px">'+(isFinal?'Final':'Draft')+'</span>'
-        +'<button class="btn xs" onclick="viewMinutes(\''+m.scId+'\',\''+m.id+'\')" >View</button>'
+        +''
         +'</div>';
     });
   } else {
@@ -12180,10 +12190,10 @@ function renderMinutesList(sc, el) {
       +statusTag
       +'<div class="br" style="flex-shrink:0">'
       +(isFinal
-        ? '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View</button>'
+        ? ''
         : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Edit Minutes</button>')
-      +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>'
-      +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">PDF</button>':'')
+      +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export .docx</button>'
+      +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">Export .pdf</button>':'')
       +(!isFinal?'<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>':'')
       +'</div></div></div>';
   });
@@ -13695,8 +13705,8 @@ function renderMeetingsList(sc, el) {
       }
       if (m.status === 'ADJOURNED') {
         var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
-        html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Minutes</button>';
-        html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export</button>';
+        html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View Summary</button>';
+        
         if (!isFinal) html += '<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>';
       }
       html += '</div></div></div>';
