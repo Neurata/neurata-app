@@ -6792,12 +6792,20 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
     paras.push(dPara('Strata Manager: '+mgr+(mgrLic?' — '+mgrLic:''), {color:'595959', size:20, after:40}));
     // Agenda sections
     cats.forEach(function(cat) {
+      var catLower2 = (cat.name||'').toLowerCase();
+      if (catLower2.indexOf('adjourn') >= 0) return; // handled separately
+      // Skip categories where all items are call-to-order or adjournment
+      var visibleItems2 = cat.items.filter(function(it) {
+        var tl = (it.text||'').toLowerCase();
+        return tl.indexOf('adjourn') < 0;
+      });
+      if (!visibleItems2.length) return;
       paras.push(new Para({
         heading: Head.HEADING_2,
         spacing: {before:240, after:80},
         children: [new Run({text: cat.name.toUpperCase(), bold:true, color:'2E75B6', size:24, font:'Arial'})]
       }));
-      cat.items.forEach(function(it) {
+      visibleItems2.forEach(function(it) {
         if ((it.text||'').toLowerCase().indexOf('call to order') >= 0) {
           var ctoS = it.minutesSummary || ('The meeting was called to order at '+actualStart2+'. Quorum confirmed.');
           paras.push(dPara(ctoS, {after:80}));
@@ -6975,11 +6983,17 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   cats.forEach(function(cat) {
     var catLower = (cat.name||'').toLowerCase();
     if (catLower.indexOf('call to order') >= 0) return; // already handled
-    lines.push('<h1>' + (cat.name||'').toUpperCase() + '</h1>');
-    cat.items.forEach(function(it) {
+    if (catLower.indexOf('adjourn') >= 0) return; // handled after loop
+
+    // Skip category if all its items are skipped
+    var visibleItems = cat.items.filter(function(it) {
       var itemLower = (it.text||'').toLowerCase();
-      if (itemLower.indexOf('call to order') >= 0) return;
-      if (itemLower.indexOf('adjourn') >= 0) return; // handled after loop
+      return itemLower.indexOf('call to order') < 0 && itemLower.indexOf('adjourn') < 0;
+    });
+    if (!visibleItems.length) return; // skip empty categories like OPENING
+
+    lines.push('<h1>' + (cat.name||'').toUpperCase() + '</h1>');
+    visibleItems.forEach(function(it) {
 
       lines.push('<h2>' + it.text + '</h2>');
       var summary = it.minutesSummary || it.aiSummary || '';
