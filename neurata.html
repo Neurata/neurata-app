@@ -6838,10 +6838,12 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
           default: new docx.Footer({
             children: [new Para({
               alignment: Align.CENTER,
-              children: [new Run({
-                text: (sc_ ? sc_.plan : '') + '  \u00b7  Minutes prepared with Neurata.ai  \u00b7  neurata.ai',
-                color:'999999', size:16, font:'Arial'
-              })]
+              children: [
+                new Run({ text: (sc_ ? sc_.plan : '') + '  \u00b7  Minutes prepared instantly with Neurata.ai  \u00b7  Page ', color:'999999', size:16, font:'Arial' }),
+                new docx.TextRun({ children: [docx.PageNumber.CURRENT], color:'999999', size:16, font:'Arial' }),
+                new Run({ text: ' of ', color:'999999', size:16, font:'Arial' }),
+                new docx.TextRun({ children: [docx.PageNumber.TOTAL_PAGES], color:'999999', size:16, font:'Arial' })
+              ]
             })]
           })
         },
