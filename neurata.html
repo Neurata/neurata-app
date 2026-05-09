@@ -1615,7 +1615,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div class="mo-t" id="min-title">Draft Minutes</div>
       <div class="br" style="gap:5px">
         <span class="tag amb" id="min-status-tag">DRAFT</span>
-        <button class="btn sm grn" onclick="exportMin('docx')">Export Word (.rtf)</button>
+        <button class="btn sm grn" onclick="exportMin('docx')">Export Word (.docx)</button>
         <button class="btn sm" onclick="exportMin('pdf')" id="min-pdf-btn" disabled title="Finalize to export PDF">Export PDF</button>
         <button class="btn sm pri" onclick="finalizeMinutes()" id="min-finalize-btn">Finalize Minutes</button>
         <button class="mo-x" onclick="closeMo('mo-minutes')">×</button>
@@ -6587,9 +6587,7 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
   // RTF header — style guide: Helvetica/Arial, 11pt body, 12pt headings
   // Margins: 1" sides (1440 twips), 1.1" top/bottom (1584 twips)
   // Line spacing: 1.15 (276 twips = 1.15 * 240)
-  r.push('{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1033{\\fonttbl{\\f0\\fswiss\\fprq2\\fcharset0 Arial;}}'
-    +'{\\colortbl ;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}'
-    +'\\margl1584\\margr1584\\margt1440\\margb1440\\widowctrl\\f0\\fs22');
+  r.push('{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1033{\\fonttbl{\\f0\\fswiss\\fcharset0;}}{\\colortbl ;\\red46\\green117\\blue182;\\red89\\green89\\blue89;\\red21\\green87\\blue36;\\red176\\green42\\blue55;\\red133\\green100\\blue4;}\\margl1584\\margr1584\\margt1440\\margb1440\\widowctrl\\f0\\fs22');
 
   function esc(s) {
     return String(s||'')
@@ -6841,6 +6839,9 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       document.body.appendChild(a);
       a.click();
       setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+    }).catch(function(e) {
+      console.error('[docx] Packer.toBlob failed:', e);
+      nAlert('Word export failed: ' + (e.message||e) + '. Please try the PDF export instead.', 'Export Error', 'warn');
     });
   } else {
     // Fallback to RTF
