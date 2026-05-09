@@ -11026,15 +11026,18 @@ function renderDash() {
   // ── Recent minutes ─────────────────────────────────────────────────
   html += '<div class="card"><div class="ch_"><div class="ct">Recent Minutes</div><button class="btn sm" onclick="showPg(\'meetings\');switchMtgTab(\'minutes\',document.getElementById(\'mtgtab-minutes\'))">All Minutes →</button></div><div class="cb" style="padding:8px">';
   if (recentMins.length) {
-    recentMins.slice(0,5).forEach(function(m) {
-      var isFinal = m.minutes && m.minutes.status === 'FINAL';
-      html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2)">'
-        +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+escHtml(m.scPlan)+' — '+escHtml(m.scName||'')+'</div>'
-        +'<div style="font-size:11px;color:var(--g4)">'+m.date+'</div></div>'
-        +'<span class="tag '+(isFinal?'grn':'amb')+'" style="font-size:10px">'+(isFinal?'Final':'Draft')+'</span>'
-        +''
-        +'</div>';
-    });
+    var finalMins = recentMins.filter(function(m){ return m.minutes && m.minutes.status === 'FINAL'; });
+    if (finalMins.length) {
+      finalMins.slice(0,5).forEach(function(m) {
+        html += '<div class="di fi" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g2)">'
+          +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+escHtml(m.scPlan)+' — '+escHtml(m.scName||'')+'</div>'
+          +'<div style="font-size:11px;color:var(--g4)">'+m.date+'</div></div>'
+          +'<span class="tag grn" style="font-size:10px">Final</span>'
+          +'</div>';
+      });
+    } else {
+      html += '<div style="font-size:12px;color:var(--g4);padding:8px 0">No finalized minutes yet.</div>';
+    }
   } else {
     html += '<div style="font-size:12px;color:var(--g4);padding:8px 0">No minutes yet. Run your first meeting to generate minutes automatically.</div>';
   }
@@ -12196,25 +12199,24 @@ function renderMinutesList(sc, el) {
   var html = '';
   adjourned.forEach(function(m) {
     var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
+    if (!isFinal) return; // drafts live on the Meetings tab only
     var typeMap  = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
     var typeLabel = typeMap[m.type] || m.type || 'Meeting';
-    var statusTag = isFinal ? '<span class="tag grn" style="white-space:nowrap">Final</span>' : '<span class="tag amb" style="white-space:nowrap">Draft</span>';
     html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="font-size:13px;font-weight:600">'+escHtml(typeLabel)+' &mdash; '+escHtml(m.date)+'</div>'
       +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(sc.plan)+'</div>'
-      +(!isFinal ? '<div style="font-size:11px;color:var(--amb);margin-top:4px">Export and share with council for edits. Only the minutes summaries are editable. Paste any changes back into the draft before finalizing.</div>' : '')
       +'</div>'
-      +statusTag
+      +'<span class="tag grn" style="white-space:nowrap">Final</span>'
       +'<div class="br" style="flex-shrink:0">'
-      +(isFinal
-        ? ''
-        : '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Edit Minutes</button>')
       +'<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export .docx</button>'
-      +(isFinal?'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">Export .pdf</button>':'')
-      +(!isFinal?'<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>':'')
+      +'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">Export .pdf</button>'
       +'</div></div></div>';
   });
+  if (!html) {
+    html = '<div style="font-size:12px;color:var(--g4);padding:12px 0">No finalized minutes yet. Run a meeting and finalize the minutes to see them here.</div>'
+      + '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>';
+  }
   el.innerHTML = html;
 }
 
@@ -13723,9 +13725,13 @@ function renderMeetingsList(sc, el) {
       }
       if (m.status === 'ADJOURNED') {
         var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
-        html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">View Summary</button>';
-        
-        if (!isFinal) html += '<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>';
+        if (!isFinal) {
+          // Draft minutes — show edit/export draft/finalize
+          html += '<button class="btn sm" onclick="viewMinutes(\''+sc.id+'\',\''+m.id+'\')">Edit Minutes</button>';
+          html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\')">Export Draft</button>';
+          html += '<button class="btn sm pri" onclick="finalizeMinutesFromCard(\''+sc.id+'\',\''+m.id+'\')">Finalize</button>';
+        }
+        // Final minutes — no buttons on meetings tab (they live on Minutes tab)
       }
       html += '</div></div></div>';
     });
