@@ -7009,6 +7009,8 @@ function exportMinPdf(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, fname, logoD
   lines.push('<div class="sig-line">Strata Council Secretary</div>');
   lines.push('<div class="sig-line">Strata Manager</div>');
   lines.push('</div>');
+  lines.push('<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script>');
+  lines.push('</body></html>');
 
   var htmlContent = lines.join('\n');
   var w = window.open('', '_blank', 'width=900,height=700');
