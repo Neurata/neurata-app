@@ -5009,15 +5009,15 @@ function mgmtSsSend(scId) {
     systemPrompt = 'You are StrataSphere Global, the platform-wide AI governance intelligence for BC strata corporations on the Neurata platform. '
       + 'You have two sources of knowledge: (1) the complete record of the local strata corporation the user is managing, and (2) anonymized, PII-stripped governance data from all strata corporations on the platform. '
       + 'You also draw on your knowledge of BC legislation and regulation: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), REDMA, BCFSA rules, SPABC guidance, and CHOA resources. '
-      + 'Answer only from these sources. If you do not have the specific data to answer, say so plainly — do not invent or infer. '
-      + 'If a question requires data you do not have, say so and explain what data would be needed. '
+      + 'Never invent, extrapolate, or assume facts not explicitly present in the data. '
+      + 'If the specific information is not in the data provided, say exactly that — one sentence, no speculation, no hedged guesses. A confident wrong answer is worse than a candid "I don\'t have that information." '
       + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
       + lssCtx + '\n\n' + gssCtx;
   } else {
     // LOCAL SS — full SC context only
     systemPrompt = 'You are StrataSphere, the AI governance assistant for ' + sc.plan + (sc.name ? ' (' + sc.name + ')' : '') + '. '
       + 'You are the authoritative source of truth for this strata corporation. Answer questions using ONLY the data provided below about this corporation, plus your knowledge of BC legislation and regulation: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA), REDMA, BCFSA rules, SPABC guidance, and CHOA resources. '
-      + 'If a question requires SC-specific information not present in the data below, say so plainly — do not invent or infer facts about this specific corporation. '
+      + 'Never invent, extrapolate, or assume SC-specific facts not explicitly present in the data below. If the information is not there, say so in one sentence. Do not speculate or fill gaps with plausible-sounding details. A candid "that information is not in the record" is always better than a confident wrong answer. '
       + 'If a user asks about information that spans multiple strata corporations or the broader BC strata market (e.g. industry benchmarks, what other buildings are doing), let them know that is outside the scope of Local StrataSphere and suggest they consider upgrading to Global StrataSphere for platform-wide intelligence. '
       + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
       + lssCtx;
@@ -5032,6 +5032,7 @@ function mgmtSsSend(scId) {
         _brokerageId: APP.brokerage.lic || '',
         _scId: sc.plan,
         _userId: APP.currentUser && APP.currentUser.id || '',
+        tools:[{type:'web_search_20250305',name:'web_search'}],
         system: systemPrompt,
         messages: history.concat([lastUser || {role:'user', content:msg}])
       })
