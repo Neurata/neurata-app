@@ -10049,6 +10049,16 @@ function launchPlatform(){
   renderNav();
   showScr('scr-platform');
 
+  // Check for ?billing_setup=complete (return from Stripe ACSS microdeposit redirect)
+  var billingSetupReturn = (function(){
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var v = p.get('billing_setup');
+      if (v === 'complete') { window.history.replaceState({}, document.title, window.location.pathname); return true; }
+      return false;
+    } catch(e) { return false; }
+  })();
+
   // Check for ?sc= deep link (from rep_assigned notification email)
   var deepLinkSc = (function(){
     try {
@@ -10062,6 +10072,11 @@ function launchPlatform(){
   if (isDelegate) {
     showPg('strata');
     setTimeout(function() { selectSC(APP.sc[0] && APP.sc[0].id); }, 100);
+  } else if (billingSetupReturn) {
+    showPg('billing');
+    setTimeout(function() {
+      nAlert('Your bank account has been submitted for verification. You will receive two small microdeposits within 1–3 business days. Once verified, your payment method will be confirmed and you can activate subscriptions.', 'Bank Account Submitted ⏳', 'info');
+    }, 300);
   } else if (deepLinkSc) {
     var dlSc = APP.sc.find(function(s){ return s.plan === deepLinkSc || s.id === deepLinkSc; });
     if (dlSc) {
