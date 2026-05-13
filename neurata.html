@@ -7865,7 +7865,7 @@ function renderBrokerage() {
         +'<td style="font-size:13px">'+escHtml(d.name||'')+'</td>'
         +'<td style="font-size:11px;color:var(--g4)">'+escHtml(d.date||'')+'</td>'
         +'<td style="display:flex;gap:4px;align-items:center">'
-        +(d.url||d.data?'<a href="'+escHtml(d.url||d.data||'')+'" target="_blank" class="btn xs" style="text-decoration:none">Download</a>':'<span style="color:var(--g4);font-size:11px">No link</span>')
+        +(d.path?'<button class="btn xs" data-path="'+escHtml(d.path)+'" data-name="'+escHtml(d.name||'')+'" onclick="downloadDocSigned(this)">Download</button>':'<span style="color:var(--g4);font-size:11px">No link</span>')
         +(canUploadDocs?'<button class="btn xs red" data-idx="'+idx+'" onclick="deleteBrkDocByIdx(parseInt(this.dataset.idx))">Delete</button>':'')
         +'</td></tr>';
     });
@@ -8002,12 +8002,12 @@ function uploadBrkDoc() {
     var file = inp.files[0]; if (!file) return;
     if (file.size > 20 * 1024 * 1024) { nAlert('File must be under 20MB.', 'Too Large', 'warn'); return; }
     var path = 'brokerage-docs/' + APP.brokerage.lic + '/' + Date.now() + '_' + file.name;
-    getSupabase().storage.from('public-assets').upload(path, file, { upsert: false })
+    getSupabase().storage.from('neurata-documents').upload(path, file, { upsert: false })
       .then(function(r) {
         if (r.error) { nAlert('Upload failed: ' + (r.error.message||'unknown'), 'Error', 'warn'); return; }
-        var url = getSupabase().storage.from('public-assets').getPublicUrl(path).data.publicUrl;
+        // Store path only — downloads use signed URLs (private bucket)
         if (!APP.brokerage.docs) APP.brokerage.docs = [];
-        var doc = { id: 'bd_' + Date.now(), name: file.name, url: url, date: new Date().toLocaleDateString('en-CA'), path: path };
+        var doc = { id: 'bd_' + Date.now(), name: file.name, path: path, date: new Date().toLocaleDateString('en-CA') };
         APP.brokerage.docs.push(doc);
         // Save to brokerages table
         getSupabase().from('brokerages').update({ docs: APP.brokerage.docs }).eq('bcfsa_lic', APP.brokerage.lic)
