@@ -14825,7 +14825,6 @@ if (typeof pdfjsLib !== 'undefined') {
 <script>
 // ══════════════════════════════════════════════════════
 // DEMO CONTROLLER — injected for demo.html only
-// DO NOT commit to main or development branches
 // ══════════════════════════════════════════════════════
 // demo-controller.js
 // Injected into neurata-demo.html only. Patches specific app functions
@@ -15466,6 +15465,56 @@ function injectDemoBar() {
   document.body.appendChild(label);
 }
 
+// ── PATCH 11: After BCFSA scrape, skip signup and auto-login ─────────────────
+function patchBCFSALogin() {
+  var orig = window.obVerifyLicence;
+  window.obVerifyLicence = function() {
+    var lic = (document.getElementById('ob-lic') || {}).value || '';
+    var btn = document.getElementById('ob-verify-btn');
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin spin-wh"></span> Verifying…'; }
+
+    fetch(window.WORKER_URL + '/?lic=' + encodeURIComponent(lic.trim().toUpperCase()))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Verify with BCFSA →'; }
+        if (d.error || d.notFound) {
+          if (window.obVerifyError) obVerifyError(btn, d.notFound ? 'Licence not found.' : 'Lookup failed.');
+          return;
+        }
+
+        // Show the BCFSA data briefly so the audience sees it populate
+        var repName = d.knownAs || d.name || '';
+        var brkName = d.brkName || d.businessName || '';
+        _showDemoHint(repName + ' · ' + brkName + ' — verified. Logging in…');
+
+        // Skip signup — log straight in with demo credentials
+        setTimeout(function() {
+          getSupabase().auth.signInWithPassword({
+            email: 'demo@neurata.ai',
+            password: 'Demo1234!'
+          }).then(function(result) {
+            if (result.error) {
+              _showDemoHint('Login failed: ' + result.error.message);
+              if (btn) { btn.disabled = false; }
+              return;
+            }
+            // Refresh session so JWT has brokerage_id in app_metadata
+            getSupabase().auth.refreshSession().then(function() {
+              if (window.refreshAndLoad) refreshAndLoad(result.data.user.id);
+              else if (window.launchPlatform) launchPlatform();
+            });
+          });
+        }, 1200); // brief pause so audience sees the BCFSA data
+      })
+      .catch(function() {
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Verify with BCFSA →'; }
+        if (window.obVerifyError) obVerifyError(btn, 'Verification failed.');
+      });
+  };
+  console.log('[DEMO] obVerifyLicence patched for auto-login');
+}
+
 // ── INITIALISE ────────────────────────────────────────────────────────────────
 injectDemoBar();
 
@@ -15479,6 +15528,7 @@ whenReady(function() {
   patchAgendaBuilder();
   patchMeetingMode();
   patchSCDetailTabObserver();
+  patchBCFSALogin();
   console.log('[DEMO] All patches applied');
   _showDemoHint('Demo mode active. Purple ⚡ buttons will appear as you progress through the checklist.');
 });
