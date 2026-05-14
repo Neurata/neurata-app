@@ -2312,14 +2312,14 @@ function _callActivateSC(sc_, tier, onSuccess) {
 // ══════════════════════════════════════════
 // ENVIRONMENT — switch to 'development' for the dev build
 // ══════════════════════════════════════════
-var ENV = 'production';
+var ENV = 'development';
 
 var WORKER_URL = ENV === 'development'
   ? 'https://api-dev.neurata.ai'
   : 'https://api.neurata.ai';
 
 var SUPABASE_URL = ENV === 'development'
-  ? 'https://sozghbobflcjrfsmewxv.supabase.co'
+  ? 'https://dzurctohotgtummajgiw.supabase.co'
   : 'https://sozghbobflcjrfsmewxv.supabase.co';
 
 var SUPABASE_ANON_KEY = ENV === 'development'
@@ -4543,7 +4543,7 @@ function renderMgmtStrataSphere(sc, el) {
     + '<div style="width:240px;flex-shrink:0;background:var(--ch);display:flex;flex-direction:column;overflow:hidden">'
     // Logo
     + '<div style="padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-    + '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/StrataSphereLogoBlueWhite.svg" alt="StrataSphere" style="height:28px;display:block"/>'
+    + '<img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/StrataSphereLogoBlueWhite.svg" alt="StrataSphere" style="height:28px;display:block"/>'
     + '</div>'
     // + New Conversation button
     + '<div style="padding:10px 10px 4px;flex-shrink:0">'
@@ -10311,7 +10311,7 @@ function checkOnboardingNudges() {
       var titleEl = document.getElementById('bn-title');
       var bodyEl  = document.getElementById('bn-body');
       var ctaEl   = document.getElementById('bn-cta');
-      var logoImg = '<img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/>';
+      var logoImg = '<img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/>';
       if (isMB || isAB) {
         if (iconEl)  { iconEl.innerHTML = logoImg; iconEl.style.background='none'; iconEl.style.border='none'; }
         if (titleEl) titleEl.textContent = 'Set Up Your Payment Method';
@@ -14723,7 +14723,7 @@ init();
 <div id="cdlg-overlay">
   <div id="cdlg-box">
     <div id="cdlg-hd">
-      <img id="cdlg-logo" src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" alt="Neurata"/>
+      <img id="cdlg-logo" src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" alt="Neurata"/>
       <div id="cdlg-icon" class="info"></div>
       <div id="cdlg-title"></div>
     </div>
@@ -14776,15 +14776,15 @@ if (typeof pdfjsLib !== 'undefined') {
 
       <!-- Single welcome slide -->
       <div class="ob-slide on" id="ob-slide-1">
-        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+        <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
         <div class="ob-nudge-h" id="ob-welcome-name">Welcome to Neurata!</div>
         <div class="ob-nudge-s">Neurata helps strata managers run compliant, paperless meetings — with AI-powered minutes, decision tracking, and document Q&amp;A built in.</div>
         <div class="ob-feature">
-          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/MM.png" style="width:24px;height:24px;object-fit:contain"/></div>
+          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/MM.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">Meeting Mode</div><div class="ob-feature-s">Run AGMs, SGMs, and council meetings with a live agenda, motions, and automated minutes.</div></div>
         </div>
         <div class="ob-feature">
-          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" style="width:24px;height:24px;object-fit:contain"/></div>
+          <div class="ob-feature-ic" style="background:var(--orgl)"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/SS.png" style="width:24px;height:24px;object-fit:contain"/></div>
           <div><div class="ob-feature-t">StrataSphere AI</div><div class="ob-feature-s">Ask plain-English questions about bylaws, minutes, and strata documents — get instant answers.</div></div>
         </div>
         <div style="background:var(--orgl);border:1px solid var(--org);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--orgd);line-height:1.5;margin-top:8px">
@@ -14808,7 +14808,7 @@ if (typeof pdfjsLib !== 'undefined') {
 <div class="mo" id="mo-first-meeting-prompt">
   <div class="mo-box" style="max-width:440px">
     <div class="mo-bd" style="padding:28px 28px 20px;text-align:center">
-      <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+      <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
       <div class="ob-nudge-h" id="fmp-sc-name">Strata Corporation Added!</div>
       <div class="ob-nudge-s">Your strata corporation is ready. Would you like to create your first meeting now? You can set the type, date, location, and agenda — then launch Meeting Mode when council is ready.</div>
       <div style="display:flex;gap:10px;justify-content:center">
@@ -14827,7 +14827,7 @@ if (typeof pdfjsLib !== 'undefined') {
 <div class="mo" id="mo-billing-nudge">
   <div class="mo-box" style="max-width:440px">
     <div class="mo-bd" style="padding:28px 28px 20px;text-align:center">
-      <div class="ob-nudge-icon" id="bn-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
+      <div class="ob-nudge-icon" id="bn-icon" style="background:none;border:none"><img src="https://dzurctohotgtummajgiw.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
       <div class="ob-nudge-h" id="bn-title">Set Up Your Payment Method</div>
       <div class="ob-nudge-s" id="bn-body">Your free trial has been used. To continue running meetings and using StrataSphere, set up a payment method in the Billing tab.</div>
       <div style="display:flex;gap:10px;justify-content:center">
