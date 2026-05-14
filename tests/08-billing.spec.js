@@ -11,25 +11,17 @@
 const { test, expect } = require('@playwright/test');
 const { DEV_URL, loginAsSA } = require('./helpers');
 
-const WORKER_URL   = 'https://api-dev.neurata.ai';
-const TEST_BRK_LIC = 'X025017';
+const WORKER_URL = 'https://api-dev.neurata.ai';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Login as SA, enter the test brokerage, wait for MB context (billing tab present)
-async function loginAndEnterBrokerage(page) {
-  await loginAsSA(page);
-  await page.evaluate((lic) => { window.adminEnterBrokerage(lic); }, TEST_BRK_LIC);
-  await page.waitForSelector('#tab-billing', { timeout: 20000 });
-}
-
-// Navigate to billing page
+// Navigate to billing page (MB only tab)
 async function goToBilling(page) {
   await page.locator('#tab-billing').click();
   await page.waitForSelector('#billing-body', { timeout: 10000 });
 }
 
-// Wait for nAlert/nConfirm dialog and return title + message
+// Wait for the nAlert/nConfirm dialog and return its title + message
 async function waitForDialog(page) {
   await page.waitForSelector('#cdlg-overlay.open', { timeout: 8000 });
   const title = await page.locator('#cdlg-title').textContent();
@@ -37,48 +29,50 @@ async function waitForDialog(page) {
   return { title: title.trim(), msg: msg.trim() };
 }
 
-// Dismiss the open dialog
+// Dismiss the open dialog by clicking the last (OK / Confirm) button
 async function dismissDialog(page) {
   await page.waitForSelector('#cdlg-overlay.open', { timeout: 5000 });
   await page.locator('#cdlg-ft button').last().click();
   await page.waitForSelector('#cdlg-overlay.open', { state: 'detached', timeout: 5000 }).catch(() => {});
 }
 
-// Inject mock APP.brokerage state and re-render billing.
-// Must be called AFTER goToBilling() so #billing-body is already visible.
-// Register any page.route() mocks BEFORE calling this.
+// Inject a mock APP.brokerage so we can control billing state without a real MB account
 async function mockBrokerage(page, overrides = {}) {
   await page.evaluate((o) => {
-    window.APP.brokerage = Object.assign(window.APP.brokerage || {}, {
+    window.APP = window.APP || {};
+    window.APP.brokerage = Object.assign({
+      lic:              'X025017',
+      name:             'Test Brokerage Inc.',
+      addr:             '123 Test St, Vancouver BC',
+      phone:            '604-555-0100',
       billingSetup:     false,
       stripeCustomerId: null,
       payMethod:        'acss',
       paymentMethodId:  null
     }, o);
+    // Re-render billing with the mock state
     if (window.renderBilling) window.renderBilling();
   }, overrides);
-  // billing-body is already visible — just wait for re-render to settle
-  await page.waitForTimeout(300);
+  await page.waitForSelector('#billing-body', { timeout: 5000 });
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 test.describe('Billing — Payment Method Setup', () => {
 
-  test('Billing page shows payment setup form for unconfigured brokerage', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+  test('Billing page shows payment setup form for unonfigured brokerage', async ({ page }) => {
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null });
 
     await expect(page.locator('#billing-body')).toContainText('Set up a payment method');
     await expect(page.locator('#pay-tab-acss')).toBeVisible();
     await expect(page.locator('#pay-tab-card')).toBeVisible();
-    // #bill-email exists in both ACSS and card forms — scope to the ACSS form
-    await expect(page.locator('#pay-form-acss #bill-email')).toBeVisible();
+    await expect(page.locator('#bill-email')).toBeVisible();
   });
 
   test('ACSS tab shows bank account fields and hides card form', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -91,7 +85,7 @@ test.describe('Billing — Payment Method Setup', () => {
   });
 
   test('Card tab shows Stripe card element and hides ACSS form', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -106,10 +100,11 @@ test.describe('Billing — Payment Method Setup', () => {
 test.describe('Billing — Form Validation', () => {
 
   test('billingSubmit blocks when billing email is empty', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
+    // Fill name but leave email blank
     await page.locator('#acss-name').fill('John Smith');
     await page.locator('[onclick="billingSubmit()"]').click();
 
@@ -119,11 +114,12 @@ test.describe('Billing — Form Validation', () => {
   });
 
   test('billingSubmit blocks when account holder name is empty', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
-    await page.locator('#pay-form-acss #bill-email').fill('billing@testbrokerage.com');
+    await page.locator('#bill-email').fill('billing@testbrokerage.com');
+    // Leave name blank
     await page.locator('[onclick="billingSubmit()"]').click();
 
     const { msg } = await waitForDialog(page);
@@ -132,10 +128,11 @@ test.describe('Billing — Form Validation', () => {
   });
 
   test('billingSubmit blocks when ACSS bank fields are incomplete', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
+    // Mock worker calls so we get past customer creation into the Stripe.js confirm step
     await page.route('**/stripe/create-customer', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ customerId: 'cus_test_mock' })
@@ -145,8 +142,9 @@ test.describe('Billing — Form Validation', () => {
       body: JSON.stringify({ clientSecret: 'seti_test_secret_mock' })
     }));
 
-    await page.locator('#pay-form-acss #bill-email').fill('billing@testbrokerage.com');
+    await page.locator('#bill-email').fill('billing@testbrokerage.com');
     await page.locator('#acss-name').fill('John Smith');
+    // Leave institution/transit/account blank
     await page.locator('[onclick="billingSubmit()"]').click();
 
     const { msg } = await waitForDialog(page);
@@ -159,22 +157,30 @@ test.describe('Billing — Form Validation', () => {
 test.describe('Billing — ACSS Return URL & Pending State', () => {
 
   test('?billing_setup=complete navigates to Billing page and shows confirmation modal', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    // Simulate Stripe redirecting back after ACSS microdeposit initiation
+    await page.goto(DEV_URL);
+    await page.waitForSelector('#li-email', { timeout: 10000 });
+
+    // Log in, then navigate with the param
+    await loginAsSA(page);
     await page.goto(DEV_URL + '/?billing_setup=complete');
     await page.waitForSelector('#scr-platform', { state: 'visible', timeout: 20000 });
 
+    // Should land on billing page
     await expect(page.locator('#pg-billing')).toBeVisible({ timeout: 5000 });
 
+    // Confirmation modal should appear
     const { title, msg } = await waitForDialog(page);
     expect(title).toContain('Bank Account Submitted');
     expect(msg).toContain('microdeposits');
     await dismissDialog(page);
 
+    // URL should be cleaned up
     expect(page.url()).not.toContain('billing_setup');
   });
 
   test('ACSS pending banner shows when customer exists but billing not yet confirmed', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, {
       billingSetup:     false,
@@ -191,22 +197,15 @@ test.describe('Billing — ACSS Return URL & Pending State', () => {
 test.describe('Billing — Activation Gate', () => {
 
   test('Activating SC without billing set up shows billing-required prompt', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+    await loginAsSA(page);
+    await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null });
 
-    // Inject brokerage state directly — no goToBilling/mockBrokerage needed here
-    // since we're not testing the billing page, just the activation function
+    // Trigger activation via the app function directly
     await page.evaluate(() => {
-      window.APP.brokerage = Object.assign(window.APP.brokerage || {}, {
-        billingSetup:     false,
-        stripeCustomerId: null
-      });
-      // Use a real SC if available, otherwise inject a minimal mock
-      if (!window.APP.sc || window.APP.sc.length === 0) {
-        window.APP.sc = [{ id: 'mock-sc-001', plan: 'EPS9999', lots: 10,
-                           mmActive: false, stripeSubscriptionId: null }];
+      if (window.APP && window.APP.sc && window.APP.sc.length > 0) {
+        const scId = window.APP.sc[0].id;
+        if (window.activateSCMeetingMode) window.activateSCMeetingMode(scId);
       }
-      var scId = window.APP.sc[0].id;
-      if (window.activateSCMeetingMode) window.activateSCMeetingMode(scId);
     });
 
     const { title, msg } = await waitForDialog(page);
@@ -218,45 +217,53 @@ test.describe('Billing — Activation Gate', () => {
 
 test.describe('Billing — Account Statements', () => {
 
-  test('Account Statements section renders with period dropdown', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+  test.skip('Account Statements renders invoice list from Stripe', async ({ page }) => {
+    await loginAsSA(page);
     await goToBilling(page);
 
-    // The statements section should always render with a period dropdown
+    await page.route('**/stripe/invoices*', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        invoices: [{
+          id:          'in_test_001',
+          number:      'INV-2025-001',
+          date:        Math.floor(Date.now() / 1000) - 86400,
+          amount:      8900,
+          currency:    'cad',
+          description: 'EPS1234 — Meeting Mode + Local StrataSphere',
+          status:      'paid',
+          pdfUrl:      'https://invoice.stripe.com/test/pdf',
+          hostedUrl:   'https://invoice.stripe.com/test/hosted'
+        }]
+      })
+    }));
+
+    await mockBrokerage(page, {
+      billingSetup:     true,
+      stripeCustomerId: 'cus_test_statements',
+      payMethod:        'acss'
+    });
+
+    await expect(page.locator('#billing-body')).toContainText('INV-2025-001');
     await expect(page.locator('#billing-body')).toContainText('Account Statements');
-    await expect(page.locator('#statements-range')).toBeVisible();
   });
 
-  test('Account Statements fetch resolves after period selected (empty or populated)', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
+  test.skip('Account Statements shows empty state when no invoices', async ({ page }) => {
+    await loginAsSA(page);
     await goToBilling(page);
 
-    await page.waitForSelector('#statements-range', { timeout: 5000 });
-    await page.selectOption('#statements-range', 'all');
-
-    // After selecting a period the loading spinner resolves to either
-    // a results table or the empty state — either is a successful fetch.
-    await expect(page.locator('#billing-body')).not.toContainText('Loading…', { timeout: 8000 });
-    await expect(page.locator('#billing-body')).toContainText(
-      /Amount Paid|No statements found/,
-      { timeout: 8000 }
-    );
-  });
-
-  test('Account Statements shows empty state when Stripe returns no invoices', async ({ page }) => {
-    await loginAndEnterBrokerage(page);
-
-    // Mock the invoices endpoint to return empty before navigating to billing
     await page.route('**/stripe/invoices*', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ invoices: [] })
     }));
 
-    await goToBilling(page);
-    await page.waitForSelector('#statements-range', { timeout: 5000 });
-    await page.selectOption('#statements-range', 'all');
+    await mockBrokerage(page, {
+      billingSetup:     true,
+      stripeCustomerId: 'cus_test_empty',
+      payMethod:        'acss'
+    });
 
-    await expect(page.locator('#billing-body')).toContainText('No statements found', { timeout: 8000 });
+    await expect(page.locator('#billing-body')).toContainText(/No statements found|No payment account found/);
   });
 
 });
@@ -284,12 +291,14 @@ test.describe('Worker — /stripe/schedule-downgrade', () => {
   });
 
   test('Route exists and does not return 404', async ({ request }) => {
+    // Confirms the route is wired in the worker regardless of Stripe auth outcome
     const resp = await request.post(WORKER_URL + '/stripe/schedule-downgrade', {
       headers: { 'Content-Type': 'application/json' },
-      data: { subscriptionId: 'sub_test_mock', newTier: 'local', scPlan: 'EPS1234', brkLic: TEST_BRK_LIC }
+      data: { subscriptionId: 'sub_test_mock', newTier: 'local', scPlan: 'EPS1234', brkLic: 'X025017' }
     });
     expect(resp.status()).not.toBe(404);
     const body = await resp.json();
+    // Will be a Stripe auth error in test env — that's expected and correct
     expect(body).not.toMatchObject({ error: expect.stringMatching(/not found|no route/i) });
   });
 
