@@ -14279,7 +14279,7 @@ function obComplete(){
       // (new user JWT may not be fully provisioned for direct DB writes)
       return fetch(WORKER_URL + '/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.access_token || '') },
         body: JSON.stringify({
           userId:    userId,
           email:     email,
@@ -14454,7 +14454,7 @@ function obInviteComplete(){
 
       // Step 3: Use worker to create user row, SC connection, and set JWT metadata
       return fetch(WORKER_URL + '/register', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json', 'Authorization': 'Bearer ' + (session.access_token || '')},
         body: JSON.stringify({
           userId:    userId,
           email:     email,
@@ -14721,8 +14721,9 @@ async function init(){
         // If rep invite and user is already logged in — just connect the SC and proceed
         if (ctx && ctx.type === 'rep' && ctx.scPlans && ctx.scPlans.length) {
           // Write sc_users rows via worker
+          var _inviteToken = session && session.access_token || '';
           fetch(WORKER_URL + '/register', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
+            method: 'POST', headers: {'Content-Type':'application/json', 'Authorization': 'Bearer ' + _inviteToken},
             body: JSON.stringify({
               userId:    session.user.id,
               email:     session.user.email,
