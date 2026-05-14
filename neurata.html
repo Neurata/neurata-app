@@ -10737,14 +10737,18 @@ function renderSuperAdminDashboard(el) {
   // Get current month for usage query
   var now = new Date();
   var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  var today = new Date(); today.setHours(0,0,0,0);
+  var upcoming = new Date(today); upcoming.setDate(upcoming.getDate() + 30);
   Promise.all([
     db.from('brokerages').select('*').neq('bcfsa_lic','ADMIN'),
-    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier'),
-    db.from('ai_usage').select('brokerage_id,usage_type').gte('created_at', monthStart)
+    db.from('strata_corps').select('plan_number,brokerage_id,lots,is_subscribed,ss_tier,name'),
+    db.from('ai_usage').select('brokerage_id,usage_type').gte('created_at', monthStart),
+    db.from('meetings').select('id,sc_id,type,date,time,status,format,location').gte('date', today.toISOString().slice(0,10)).lte('date', upcoming.toISOString().slice(0,10)).neq('status','CANCELLED').order('date',{ascending:true})
   ]).then(function(results) {
     var brokerages = results[0].data || [];
     var corps      = results[1].data || [];
     var aiUsage    = results[2].data || [];
+    var meetings   = results[3].data || [];
     APP._allBrokerages = brokerages; // make available for adminEnterBrokerage
 
     // Stats
@@ -10790,6 +10794,35 @@ function renderSuperAdminDashboard(el) {
         + '</div>';
     });
     html += '</div>';
+
+    // ── Upcoming meetings ──
+    var todayStr = new Date().toISOString().slice(0,10);
+    if (meetings.length > 0) {
+      html += '<div style="margin-bottom:24px">';
+      html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:10px">Upcoming Meetings — Next 30 Days</div>';
+      html += '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>'
+        + '<th>Date</th><th>Time</th><th>Type</th><th>Strata Corp</th><th>Brokerage</th><th>Format</th><th>Status</th>'
+        + '</tr></thead><tbody>';
+      meetings.forEach(function(m) {
+        var sc_ = corps.find(function(s){ return s.plan_number === m.sc_id; });
+        var brk = sc_ ? brokerages.find(function(b){ return b.bcfsa_lic === sc_.brokerage_id; }) : null;
+        var isToday = m.date === todayStr;
+        var rowStyle = isToday ? 'background:rgba(249,115,22,.06);' : '';
+        var dateStyle = isToday ? 'color:var(--org);font-weight:700' : 'color:var(--ch)';
+        var mtgDate = m.date ? new Date(m.date + 'T12:00:00').toLocaleDateString('en-CA', {weekday:'short', month:'short', day:'numeric'}) : '—';
+        var mtgType = (m.type||'').replace(/_/g,' ').replace(/\w/g,function(c){return c.toUpperCase();});
+        var statusTag = m.status === 'LIVE' ? '<span class="tag red">● Live</span>'
+          : m.status === 'FINAL' ? '<span class="tag grn">Final</span>'
+          : '<span class="tag" style="background:var(--g1);color:var(--g4)">Draft</span>';
+        html += '<tr style="cursor:pointer;' + rowStyle + '" onclick="adminEnterBrokerage(\'' + escHtml(sc_ ? sc_.brokerage_id : '') + '\')"'
+          + ' onmouseover="this.style.background=\'var(--g1)\'" onmouseout="this.style.background=\'' + (isToday ? 'rgba(249,115,22,.06)' : '') + '\'">'          + '<td style="' + dateStyle + '">' + (isToday ? '⬤ ' : '') + escHtml(mtgDate) + '</td>'          + '<td style="font-size:12px;color:var(--g4)">' + escHtml(m.time || '—') + '</td>'          + '<td style="font-size:12px">' + escHtml(mtgType) + '</td>'          + '<td style="font-size:12px"><strong>' + escHtml(m.sc_id || '—') + '</strong>' + (sc_ && sc_.name ? ' <span style="color:var(--g4)">' + escHtml(sc_.name) + '</span>' : '') + '</td>'          + '<td style="font-size:12px;color:var(--g4)">' + escHtml(brk ? brk.name : (sc_ ? sc_.brokerage_id : '—')) + '</td>'          + '<td style="font-size:12px;color:var(--g4)">' + escHtml(m.format || '—') + '</td>'          + '<td>' + statusTag + '</td>'          + '</tr>';
+      });
+      html += '</tbody></table></div>';
+      html += '</div>';
+    } else {
+      html += '<div style="margin-bottom:24px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g4);margin-bottom:10px">Upcoming Meetings — Next 30 Days</div>'
+        + '<div class="card"><div class="cb" style="color:var(--g4);font-size:13px;text-align:center;padding:16px">No meetings scheduled in the next 30 days.</div></div></div>';
+    }
 
     // ── Brokerage cards (full width) ──
     html += '<div>';
