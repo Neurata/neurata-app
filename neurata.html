@@ -1134,19 +1134,29 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div style="margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px">Trial Status</div>
         <select class="cm-select" id="sa-trial-status" style="width:100%" onchange="saTrialStatusChange(this.value)">
-          <option value="trial">Trial (standard — 2 free meetings)</option>
+          <option value="trial">Trial (standard — uses per-brokerage limit)</option>
           <option value="active">Unlimited Trial (no charge until switched off)</option>
         </select>
       </div>
       <div id="sa-trial-reset-row" style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px">Trial Meetings Used</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px">Trial Meeting Allowance</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <button class="btn xs" onclick="var el=document.getElementById('sa-trial-allowed-input');el.value=Math.max(1,parseInt(el.value||5)-1)">−</button>
+          <input type="number" id="sa-trial-allowed-input" min="1" max="99" style="width:70px;text-align:center;font-size:16px;font-weight:700;padding:6px;border:1px solid var(--g2);border-radius:6px"/>
+          <button class="btn xs" onclick="var el=document.getElementById('sa-trial-allowed-input');el.value=parseInt(el.value||5)+1">+</button>
+          <span style="font-size:12px;color:var(--g4)">free meetings allowed</span>
+        </div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px;margin-top:10px">Trial Meetings Used</div>
         <div style="display:flex;align-items:center;gap:10px">
           <button class="btn xs" onclick="var el=document.getElementById('sa-trial-used-input');el.value=Math.max(0,parseInt(el.value||0)-1)">−</button>
           <input type="number" id="sa-trial-used-input" min="0" style="width:70px;text-align:center;font-size:16px;font-weight:700;padding:6px;border:1px solid var(--g2);border-radius:6px"/>
           <button class="btn xs" onclick="var el=document.getElementById('sa-trial-used-input');el.value=parseInt(el.value||0)+1">+</button>
-          <span style="font-size:12px;color:var(--g4)">of <span id="sa-trial-limit-display"></span> trial meetings</span>
+          <span style="font-size:12px;color:var(--g4)">of <span id="sa-trial-limit-display"></span> used</span>
         </div>
-        <div style="font-size:12px;color:var(--g4);margin-top:8px">Set to 0 to reset. Set above the limit to exhaust the trial.</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:8px;margin-top:10px">Trial Expiry Date <span style="font-weight:400;text-transform:none">(optional)</span></div>
+        <input type="date" id="sa-trial-expires-input" style="width:100%;padding:7px 10px;border:1px solid var(--g2);border-radius:6px;font-size:13px;font-family:inherit;background:var(--wh);color:var(--ch)"/>
+        <div style="font-size:12px;color:var(--g4);margin-top:6px">Leave blank for no expiry. When set, trial exhausts on this date regardless of meetings used.</div>
+        <div style="font-size:12px;color:var(--g4);margin-top:6px">Set meetings used to 0 to reset. Set above allowance to exhaust trial immediately.</div>
       </div>
       <div id="sa-trial-unlimited-note" style="display:none;background:var(--g1);border-radius:8px;padding:12px;font-size:12px;color:var(--g4)">
         Unlimited Trial removes all meeting limits at no charge. When switched off, the brokerage will be charged if their trial meetings are exhausted.
@@ -1689,7 +1699,7 @@ var PRICING = {
   perLotLocal:    1.49,  // $1.49/lot/month — Local StrataSphere
   perLotGlobal:   2.49,  // $2.49/lot/month — Local + Global StrataSphere
   perLotSS:       2.49,  // legacy alias
-  trialMeetings:  2      // free meetings before billing required
+  trialMeetings:  5      // free meetings before billing required (platform default)
 };
 
 // ══════════════════════════════════════════
@@ -2099,8 +2109,12 @@ function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
 
 // ── SC Activation Helpers ─────────────────────────────────────────────
 function scTrialExhausted() {
-  var adjCount = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
-  return adjCount >= PRICING.trialMeetings;
+  var adjCount  = (APP.brokerage && APP.brokerage.trialMeetingsUsed) || 0;
+  var allowed   = (APP.brokerage && APP.brokerage.trialMeetingsAllowed) || PRICING.trialMeetings;
+  // Check expiry date if set
+  var expiresAt = APP.brokerage && APP.brokerage.trialExpiresAt;
+  if (expiresAt && new Date() > new Date(expiresAt)) return true;
+  return adjCount >= allowed;
 }
 function scMmActive(s) {
   // Active if: paid activation, any SS tier (SS requires MM), Stripe sub exists, or still within trial
@@ -8544,8 +8558,10 @@ function adminEnterBrokerage(brkLic) {
     email:              b.email||'', 
     logoUrl:            b.logo_url||'', 
     docs:               b.docs||[],
-    trialMeetingsUsed:  b.trial_meetings_used||0,
-    subscriptionStatus: b.subscription_status||'trial',
+    trialMeetingsUsed:    b.trial_meetings_used||0,
+    trialMeetingsAllowed: b.trial_meetings_allowed||PRICING.trialMeetings,
+    trialExpiresAt:       b.trial_expires_at||null,
+    subscriptionStatus:   b.subscription_status||'trial',
     billingSetup:       b.billing_setup||false,
     stripeCustomerId:   b.stripe_customer_id||null,
     payMethod:          b.pay_method||'acss'
@@ -9543,8 +9559,10 @@ function loadUserProfile(userId) {
           logoUrl:            b.logo_url || '',
           docs:               b.docs || [],
           subscriptionStatus: b.subscription_status || 'trial',
-          trialMeetingsUsed:  b.trial_meetings_used || 0,
-          billingSetup:       b.billing_setup || false,
+          trialMeetingsUsed:    b.trial_meetings_used || 0,
+          trialMeetingsAllowed: b.trial_meetings_allowed || PRICING.trialMeetings,
+          trialExpiresAt:       b.trial_expires_at || null,
+          billingSetup:         b.billing_setup || false,
           stripeCustomerId:   b.stripe_customer_id || null,
           paymentMethodId:    b.payment_method_id || null,
           payMethod:          b.pay_method || 'acss'
@@ -10313,7 +10331,9 @@ function checkOnboardingNudges() {
     var isMB  = role === 'Managing Broker';
     var isAB  = role === 'Associate Broker';
     var brk   = APP.brokerage || {};
-    var trialDone = (brk.trialMeetingsUsed || 0) >= PRICING.trialMeetings;
+    var _trialAllowed = brk.trial_meetings_allowed || PRICING.trialMeetings;
+    var _trialExpired = brk.trial_expires_at && new Date() > new Date(brk.trial_expires_at);
+    var trialDone = _trialExpired || (brk.trialMeetingsUsed || 0) >= _trialAllowed;
     var noPayment = !brk.billingSetup;
 
     if (trialDone && noPayment) {
@@ -10585,14 +10605,16 @@ function selectSCAndOpenMeeting(scId, mtgId) {
 var _saTrialBrkLic = null;
 var _saTrialCurrentUsed = 0;
 
-function saManageTrial(brkLic, brkName, currentUsed, isActive) {
+function saManageTrial(brkLic, brkName, currentUsed, isActive, allowedMeetings, expiresAt) {
   _saTrialBrkLic = brkLic;
   _saTrialCurrentUsed = currentUsed;
+  var allowed = allowedMeetings || PRICING.trialMeetings;
   document.getElementById('sa-trial-brkname').textContent = brkName;
   document.getElementById('sa-trial-used-input').value = currentUsed;
-  document.getElementById('sa-trial-limit-display').textContent = PRICING.trialMeetings;
+  document.getElementById('sa-trial-allowed-input').value = allowed;
+  document.getElementById('sa-trial-limit-display').textContent = allowed;
+  document.getElementById('sa-trial-expires-input').value = expiresAt ? expiresAt.slice(0,10) : '';
   document.getElementById('sa-trial-status').value = isActive ? 'active' : 'trial';
-
   document.getElementById('sa-trial-reset-row').style.display = isActive ? 'none' : '';
   document.getElementById('sa-trial-unlimited-note').style.display = isActive ? '' : 'none';
   openMo('mo-sa-trial');
@@ -10604,15 +10626,33 @@ function saTrialStatusChange(val) {
 }
 
 function saTrialSave() {
-  var status = document.getElementById('sa-trial-status').value;
-  var usedInput = document.getElementById('sa-trial-used-input');
-  var usedVal = parseInt(usedInput && usedInput.value) || 0;
-  var updates = { subscription_status: status, trial_meetings_used: usedVal };
+  var status    = document.getElementById('sa-trial-status').value;
+  var usedVal   = parseInt(document.getElementById('sa-trial-used-input').value) || 0;
+  var allowedVal= parseInt(document.getElementById('sa-trial-allowed-input').value) || PRICING.trialMeetings;
+  var expiresRaw= document.getElementById('sa-trial-expires-input').value;
+  var expiresVal= expiresRaw ? new Date(expiresRaw + 'T23:59:59').toISOString() : null;
+  var updates = {
+    subscription_status:     status,
+    trial_meetings_used:     usedVal,
+    trial_meetings_allowed:  allowedVal,
+    trial_expires_at:        expiresVal
+  };
   getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', _saTrialBrkLic)
   .then(function(r) {
     if (r.error) { nAlert('Error saving changes.','','warn'); return; }
     var b = (APP._allBrokerages||[]).find(function(x){ return x.bcfsa_lic === _saTrialBrkLic; });
-    if (b) { b.subscription_status = status; b.trial_meetings_used = usedVal; }
+    if (b) {
+      b.subscription_status    = status;
+      b.trial_meetings_used    = usedVal;
+      b.trial_meetings_allowed = allowedVal;
+      b.trial_expires_at       = expiresVal;
+    }
+    // Update APP.brokerage if this is the current brokerage
+    if (APP.brokerage && APP.brokerage.lic === _saTrialBrkLic) {
+      APP.brokerage.trialMeetingsUsed    = usedVal;
+      APP.brokerage.trialMeetingsAllowed = allowedVal;
+      APP.brokerage.trialExpiresAt       = expiresVal;
+    }
     closeMo('mo-sa-trial');
     renderDash();
     nAlert('Trial settings updated.','Saved ✓','success');
@@ -10902,12 +10942,12 @@ function renderSuperAdminDashboard(el) {
           + '<span>'+bCorps.length+' corps</span>'
           + '<span>'+bMM+' MM active</span>'
           + '<span style="color:'+aiColor+';font-weight:'+(bAiPct>=80?700:400)+'">AI: '+bAiPct+'%</span>'
-          + '<span>'+(b.trial_meetings_used||0)+'/'+PRICING.trialMeetings+' trial</span>'
+          + '<span>'+(b.trial_meetings_used||0)+'/'+(b.trial_meetings_allowed||PRICING.trialMeetings)+' trial</span>'
           + '</div>'
           + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '<div style="font-size:11px;color:var(--red);margin-bottom:10px">No address on file</div>')
           + '<div style="display:flex;justify-content:flex-end;gap:6px">'
           + '<button class="btn xs" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="event.stopPropagation();syncBrokerageInfo(this.dataset.lic,this)">Sync</button>'
-          + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ')">Manage Trial</button>'
+          + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ',' + (b.trial_meetings_allowed||PRICING.trialMeetings) + ',\'' + (b.trial_expires_at||'') + '\')">Manage Trial</button>'
           + '</div>'
           + '</div>';
       });
