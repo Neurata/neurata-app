@@ -36,7 +36,7 @@ async function dismissDialog(page) {
   await page.waitForSelector('#cdlg-overlay.open', { state: 'detached', timeout: 5000 }).catch(() => {});
 }
 
-// Inject a mock APP.brokerage so we can control billing state without a real MB 
+// Inject a mock APP.brokerage so we can control billing state without a real MB account
 async function mockBrokerage(page, overrides = {}) {
   await page.evaluate((o) => {
     window.APP = window.APP || {};
@@ -71,7 +71,7 @@ test.describe('Billing — Payment Method Setup', () => {
     await expect(page.locator('#bill-email')).toBeVisible();
   });
 
-  test('ACSS tab shows bank  fields and hides card form', async ({ page }) => {
+  test('ACSS tab shows bank account fields and hides card form', async ({ page }) => {
     await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
@@ -113,7 +113,7 @@ test.describe('Billing — Form Validation', () => {
     await dismissDialog(page);
   });
 
-  test('billingSubmit blocks when  holder name is empty', async ({ page }) => {
+  test('billingSubmit blocks when account holder name is empty', async ({ page }) => {
     await loginAsSA(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
@@ -123,7 +123,7 @@ test.describe('Billing — Form Validation', () => {
     await page.locator('[onclick="billingSubmit()"]').click();
 
     const { msg } = await waitForDialog(page);
-    expect(msg).toContain(' holder name');
+    expect(msg).toContain('account holder name');
     await dismissDialog(page);
   });
 
@@ -144,11 +144,11 @@ test.describe('Billing — Form Validation', () => {
 
     await page.locator('#bill-email').fill('billing@testbrokerage.com');
     await page.locator('#acss-name').fill('John Smith');
-    // Leave institution/transit/ blank
+    // Leave institution/transit/account blank
     await page.locator('[onclick="billingSubmit()"]').click();
 
     const { msg } = await waitForDialog(page);
-    expect(msg).toMatch(/bank |institution|transit|complete all/i);
+    expect(msg).toMatch(/bank account|institution|transit|complete all/i);
     await dismissDialog(page);
   });
 
@@ -171,7 +171,7 @@ test.describe('Billing — ACSS Return URL & Pending State', () => {
 
     // Confirmation modal should appear
     const { title, msg } = await waitForDialog(page);
-    expect(title).toContain('Bank  Submitted');
+    expect(title).toContain('Bank Account Submitted');
     expect(msg).toContain('microdeposits');
     await dismissDialog(page);
 
@@ -188,7 +188,7 @@ test.describe('Billing — ACSS Return URL & Pending State', () => {
       payMethod:        'acss'
     });
 
-    await expect(page.locator('#billing-body')).toContainText('Bank  Verification Pending');
+    await expect(page.locator('#billing-body')).toContainText('Bank Account Verification Pending');
     await expect(page.locator('#billing-body')).toContainText('microdeposits');
   });
 
@@ -215,7 +215,7 @@ test.describe('Billing — Activation Gate', () => {
 
 });
 
-test.describe('Billing —  Statements', () => {
+test.describe('Billing — Account Statements', () => {
 
   test.skip('Account Statements renders invoice list from Stripe', async ({ page }) => {
     await loginAsSA(page);
