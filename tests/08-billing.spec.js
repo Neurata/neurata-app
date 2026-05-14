@@ -11,9 +11,17 @@
 const { test, expect } = require('@playwright/test');
 const { DEV_URL, loginAsSA } = require('./helpers');
 
-const WORKER_URL = 'https://api-dev.neurata.ai';
+const WORKER_URL   = 'https://api-dev.neurata.ai';
+const TEST_BRK_LIC = 'X025017';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// Login as SA and enter test brokerage — gives MB context with #tab-billing
+async function loginAndEnterBrokerage(page) {
+  await loginAsSA(page);
+  await page.evaluate((lic) => { window.adminEnterBrokerage(lic); }, TEST_BRK_LIC);
+  await page.waitForSelector('#tab-billing', { timeout: 20000 });
+}
 
 // Navigate to billing page (MB only tab)
 async function goToBilling(page) {
@@ -61,7 +69,7 @@ async function mockBrokerage(page, overrides = {}) {
 test.describe('Billing — Payment Method Setup', () => {
 
   test('Billing page shows payment setup form for unonfigured brokerage', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null });
 
@@ -72,7 +80,7 @@ test.describe('Billing — Payment Method Setup', () => {
   });
 
   test('ACSS tab shows bank account fields and hides card form', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -85,7 +93,7 @@ test.describe('Billing — Payment Method Setup', () => {
   });
 
   test('Card tab shows Stripe card element and hides ACSS form', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -100,7 +108,7 @@ test.describe('Billing — Payment Method Setup', () => {
 test.describe('Billing — Form Validation', () => {
 
   test('billingSubmit blocks when billing email is empty', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -114,7 +122,7 @@ test.describe('Billing — Form Validation', () => {
   });
 
   test('billingSubmit blocks when account holder name is empty', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -128,7 +136,7 @@ test.describe('Billing — Form Validation', () => {
   });
 
   test('billingSubmit blocks when ACSS bank fields are incomplete', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null, payMethod: 'acss' });
 
@@ -180,7 +188,7 @@ test.describe('Billing — ACSS Return URL & Pending State', () => {
   });
 
   test('ACSS pending banner shows when customer exists but billing not yet confirmed', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
     await mockBrokerage(page, {
       billingSetup:     false,
@@ -197,7 +205,7 @@ test.describe('Billing — ACSS Return URL & Pending State', () => {
 test.describe('Billing — Activation Gate', () => {
 
   test('Activating SC without billing set up shows billing-required prompt', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await mockBrokerage(page, { billingSetup: false, stripeCustomerId: null });
 
     // Trigger activation via the app function directly
@@ -218,7 +226,7 @@ test.describe('Billing — Activation Gate', () => {
 test.describe('Billing — Account Statements', () => {
 
   test.skip('Account Statements renders invoice list from Stripe', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
 
     await page.route('**/stripe/invoices*', route => route.fulfill({
@@ -249,7 +257,7 @@ test.describe('Billing — Account Statements', () => {
   });
 
   test.skip('Account Statements shows empty state when no invoices', async ({ page }) => {
-    await loginAsSA(page);
+    await loginAndEnterBrokerage(page);
     await goToBilling(page);
 
     await page.route('**/stripe/invoices*', route => route.fulfill({

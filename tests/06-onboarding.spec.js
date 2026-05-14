@@ -111,18 +111,37 @@ test.describe('Onboarding — Getting Started Checklist', () => {
 
   test('MB checklist includes billing task', async ({ page }) => {
     await loginAndEnterBrokerage(page);
+    // Inject a fake SC so the checklist renders fully including billing task
+    await page.evaluate(() => {
+      if (!window.APP.sc || window.APP.sc.length === 0) {
+        window.APP.sc = [{ id: 'test-sc-fake', plan: 'TST-0001', name: 'Test SC', lots: 5,
+          meetings: [], decisions: [], council: [], docs: [] }];
+      }
+      if (window.renderDashboard) window.renderDashboard();
+      else if (window.renderGSCard) window.renderGSCard();
+    });
     await page.locator('#tab-dashboard').click();
     await page.waitForSelector('#dash-body', { timeout: 10000 });
-    await expect(page.locator('#dash-body')).toContainText('Set up payment method');
+    await expect(page.locator('#dash-body')).toContainText('Set up payment method', { timeout: 5000 });
   });
 
   test('Completed tasks are visually marked done', async ({ page }) => {
     await loginAndEnterBrokerage(page);
+    // Inject SC and reps so hasSC and hasReps are true → those tasks render as done
+    await page.evaluate(() => {
+      if (!window.APP.sc || window.APP.sc.length === 0) {
+        window.APP.sc = [{ id: 'test-sc-fake', plan: 'TST-0001', name: 'Test SC', lots: 5,
+          meetings: [], decisions: [], council: [], docs: [] }];
+      }
+      if (!window.APP.reps || window.APP.reps.length === 0) {
+        window.APP.reps = [{ name: 'Test Rep', lic: 'RE000001', role: 'Representative' }];
+      }
+      if (window.renderDashboard) window.renderDashboard();
+      else if (window.renderGSCard) window.renderGSCard();
+    });
     await page.locator('#tab-dashboard').click();
     await page.waitForSelector('#dash-body', { timeout: 10000 });
 
-    // The test brokerage already has SCs and reps — hasSC and hasReps are true
-    // so at least those tasks will already be marked done without any injection
     const doneTasks = page.locator('.gs-task.done');
     await expect(doneTasks.first()).toBeVisible({ timeout: 5000 });
     expect(await doneTasks.count()).toBeGreaterThan(0);
@@ -232,4 +251,38 @@ test.describe('Onboarding — Path B (invited REP)', () => {
     await expect(page.locator('#mo-welcome-onboard')).not.toBeVisible();
   });
 
+});
+
+// ── Cleanup: delete test-generated SCs after all tests run ───────────────────
+// Prevents DB accumulation across runs. Test SCs match BCS-{PREFIX}-{timestamp}.
+test.afterAll(async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    const { loginAsSA } = require('./helpers');
+    await loginAsSA(page);
+    await page.evaluate(async () => {
+      const db = window.getSupabase();
+      const { data: scs } = await db
+        .from('strata_corps')
+        .select('plan_number')
+        .like('plan_number', 'BCS-%');
+      const testPlans = (scs || [])
+        .map(s => s.plan_number)
+        .filter(p => /^BCS-[A-Z]+-\d{10,}$/.test(p));
+      for (const plan of testPlans) {
+        await db.from('decisions').delete().eq('sc_id', plan);
+        await db.from('meetings').delete().eq('sc_id', plan);
+        await db.from('council_members').delete().eq('sc_id', plan);
+        await db.from('documents').delete().eq('sc_id', plan);
+        await db.from('sc_users').delete().eq('sc_id', plan);
+        await db.from('strata_corps').delete().eq('plan_number', plan);
+      }
+      console.log('[afterAll] Cleaned up', testPlans.length, 'test SCs');
+    });
+  } catch (e) {
+    console.warn('[afterAll] SC cleanup warning:', e.message);
+  } finally {
+    await context.close();
+  }
 });
