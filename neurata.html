@@ -771,34 +771,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <!-- Step 4: Agreement -->
       <div class="ob-step" id="ob-s4">
         <div class="ob-h">Terms &amp; Agreement</div>
-        <div class="ob-s">Review and accept the Neurata End User Agreement to complete your account.</div>
+        <div class="ob-s">Review and accept the Neurata Terms of Service to complete your account. <a href="https://www.neurata.ai/terms" target="_blank" style="color:var(--org)">Open in new tab →</a></div>
         <div class="eua" id="eua-scroll" onscroll="euaScrollCheck()" style="position:relative;">
-          <h4>NEURATA PLATFORM END USER AGREEMENT (Effective May 1, 2026)</h4>
-          <h4>1. Acceptance</h4>
-          <p>By creating an account you agree to be bound by this Agreement. If using the platform on behalf of a brokerage or strata corporation, you represent that you have authority to do so.</p>
-          <h4>2. Brokerage &amp; Representative Structure</h4>
-          <p>Brokerage entities are created using verified BCFSA Brokerage Licence Numbers and are immutable. Representatives are associated with one brokerage at a time using their brokerage email address.</p>
-          <h4>3. Strata Corporation Entities</h4>
-          <p>Strata Corporations are independent, immutable entities identified by their LTSA plan number, linked to one brokerage at a time. If a Strata Corporation transfers to a new brokerage, the former brokerage and its representatives lose access. All data is retained by the Strata Corporation.</p>
-          <h4>4. Meeting Mode Trial</h4>
-          <p>Each Strata Corporation receives 2 free adjourned Meeting Mode sessions. Draft meetings and historic minutes ingestion are unlimited and do not count toward the trial. Historic minutes uploaded must correspond to the correct Strata Corporation — mismatched plan numbers will be rejected.</p>
-          <h4>5. StrataSphere &amp; Data Processing</h4>
-          <p><strong>Local StrataSphere.</strong> Meeting minutes, agendas, decisions, and uploaded documents are stored and processed within your brokerage's private StrataSphere instance. This data is accessible only to authorized representatives of your brokerage and is never shared with other brokerages or third parties.</p>
-          <p><strong>Global StrataSphere.</strong> If you opt into Global StrataSphere, anonymized and de-identified governance data (motions, decisions, and vote outcomes) may be aggregated across the platform to generate cross-portfolio insights. Before any data is contributed to the Global StrataSphere, Neurata applies automated PII stripping to remove all personally identifiable information including owner names, strata lot identifiers linked to individuals, contact details, and any other information that could identify a natural person.</p>
-          <p><strong>PII &amp; PIPA Compliance.</strong> Neurata processes personal information in accordance with the <em>Personal Information Protection Act</em> (PIPA, BC) and the <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA). Personal information collected during account creation (name, email, BCFSA licence number) is used solely for authentication, account management, and regulatory verification. Meeting minutes and documents may contain personal information about strata lot owners — by uploading such content, you confirm that you have the authority to do so under applicable strata legislation and your brokerage's privacy policies.</p>
-          <p><strong>Data Residency.</strong> Primary data storage is on servers located in Canada (Toronto region) via Supabase. Neurata uses Cloudflare Workers for API processing (edge network, global) and Anthropic's Claude AI for StrataSphere and minutes generation. AI queries are transmitted to Anthropic's servers for processing. Neurata does not permit Anthropic to use your content to train AI models. Payment processing is handled by Stripe. Transactional email is delivered via MailTrap. Where data is processed outside Canada, Neurata relies on industry-standard data processing agreements with those providers.</p>
-          <p><strong>AI Processing.</strong> When you submit a query to StrataSphere, relevant strata governance data is sent to Anthropic's Claude AI for processing. Personal identifiers are replaced with strata lot numbers before transmission. Queries are not used to train AI models. AI-generated responses may contain errors and should not be relied upon as legal advice.</p>
-          <p><strong>Surveillance &amp; Key Fob Data.</strong> If you upload documents or records containing surveillance or key fob data, you confirm that your strata corporation has a PIPA-compliant surveillance policy in place and that the data has been collected for a verifiable security purpose as required by the BC Office of the Information and Privacy Commissioner (OIPC).</p>
-          <h4>6. Data Ownership</h4>
-          <p>All content related to a Strata Corporation is owned by that Strata Corporation. Neurata will not prevent data portability regardless of subscription or brokerage status.</p>
-          <h4>7. Authorization</h4>
-          <p>By creating an account, you confirm that you are a licensed BCFSA representative in good standing, authorized to act on behalf of your brokerage and any strata corporations assigned to you on the platform.</p>
-          <h4>8. Access Requests &amp; Privacy Rights</h4>
-          <p>Under PIPA, individuals have the right to access, correct, and request deletion of their personal information. To submit an access request or privacy complaint, contact <a href="mailto:privacy@neurata.ai" style="color:var(--org)">privacy@neurata.ai</a>. Neurata will respond within 30 days as required by PIPA s.29. If you are unsatisfied with our response, you may file a complaint with the <a href="https://www.oipc.bc.ca" target="_blank" style="color:var(--org)">Office of the Information and Privacy Commissioner for BC</a>.</p>
-          <h4>9. Governing Law</h4>
-          <p>Governed by the laws of British Columbia, Canada.</p>
+          <div id="eua-content" style="color:var(--g4);font-size:13px;text-align:center;padding:20px">Loading Terms of Service…</div>
         </div>
-        <div id="eua-scroll-msg" style="font-size:11px;color:var(--g4);text-align:center;margin-bottom:8px;">↓ Scroll through the agreement to enable</div><label class="ob-ck" id="eua-ck-label" style="opacity:.4;pointer-events:none;"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()" disabled><span>I have read and agree to the Neurata End User Agreement above, including the terms governing StrataSphere data processing and PII handling.</span></label>
+        <div id="eua-scroll-msg" style="font-size:11px;color:var(--g4);text-align:center;margin-bottom:8px;">↓ Scroll through the agreement to enable</div><label class="ob-ck" id="eua-ck-label" style="opacity:.4;pointer-events:none;"><input type="checkbox" id="ob-ck1" onchange="obToggleCreateBtn()" disabled><span>I have read and agree to the Neurata <a href="https://www.neurata.ai/terms" target="_blank" style="color:var(--org)">Terms of Service</a> and <a href="https://www.neurata.ai/privacy" target="_blank" style="color:var(--org)">Privacy Policy</a>.</span></label>
         <div class="br" style="margin-top:16px;justify-content:flex-end">
           <button class="btn" onclick="obGoStep(3)">← Back</button>
           <button class="btn pri" id="ob-create-btn" onclick="obComplete()" disabled>Create Account →</button>
@@ -14065,6 +14042,7 @@ function nPrompt(msg, cb, defaultVal, title) {
 
 
 function obGoStep(n){
+  if (n === 4) setTimeout(loadEUA, 50);
   document.querySelectorAll('.ob-step').forEach(function(s){s.classList.remove('on');});
   var el=document.getElementById('ob-s'+n);if(el)el.classList.add('on');
   for(var i=1;i<=4;i++){var s=document.getElementById('stp-'+i);if(!s)continue;s.className='ob-flow-step'+(i<n?' done':i===n?' active':'');}
@@ -14177,6 +14155,48 @@ function obStep3Next(){
   if(pw.length<8||!/[A-Z]/.test(pw)||!/[0-9]/.test(pw)||!/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]/.test(pw)){nAlert('Password does not meet the requirements shown.');return;}
   if(pw!==pw2){nAlert('Passwords do not match.');return;}
   obGoStep(4);
+}
+
+function loadEUA() {
+  var el = document.getElementById('eua-content');
+  if (!el) return;
+  if (el.dataset.loaded) { euaScrollCheck(); return; }
+  el.innerHTML = '<div style="color:var(--g4);font-size:13px;text-align:center;padding:20px">Loading Terms of Service\u2026</div>';
+  fetch('https://www.neurata.ai/terms')
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(html, 'text/html');
+      // Remove TOC, header nav, footer
+      ['nav','header','footer','h1'].forEach(function(sel){
+        doc.querySelectorAll(sel).forEach(function(e){e.remove();});
+      });
+      // Get body content
+      var main = doc.querySelector('main,article,.content') || doc.body;
+      var text = main ? main.innerHTML : '';
+      // Style headings to match app
+      text = text
+        .replace(/<h2[^>]*>/gi,'<h4 style="margin-top:16px;margin-bottom:6px;font-size:13px;font-weight:700;color:var(--ch)">')
+        .replace(/<h3[^>]*>/gi,'<h4 style="margin-top:12px;margin-bottom:4px;font-size:12px;font-weight:700;color:var(--ch)">')
+        .replace(/<\/h[23]>/gi,'</h4>');
+      el.innerHTML = text;
+      el.dataset.loaded = '1';
+      el.querySelectorAll('a').forEach(function(a){a.style.color='var(--org)';a.setAttribute('target','_blank');});
+      var scroll = document.getElementById('eua-scroll');
+      if (scroll) scroll.scrollTop = 0;
+      euaScrollCheck();
+    })
+    .catch(function() {
+      el.innerHTML = '<div style="text-align:center;padding:20px">'
+        + '<p style="color:var(--g4);font-size:13px;margin-bottom:12px">Unable to load Terms of Service inline.</p>'
+        + '<a href="https://www.neurata.ai/terms" target="_blank" class="btn pri" style="font-size:13px">Read Terms of Service \u2192</a>'
+        + '<p style="color:var(--g4);font-size:11px;margin-top:12px">Please read the full Terms before agreeing.</p></div>';
+      el.dataset.loaded = '1';
+      setTimeout(function(){
+        var ck=document.getElementById('ob-ck1');var lbl=document.getElementById('eua-ck-label');var msg=document.getElementById('eua-scroll-msg');
+        if(ck)ck.disabled=false;if(lbl){lbl.style.opacity='1';lbl.style.pointerEvents='';}if(msg)msg.style.display='none';
+      }, 3000);
+    });
 }
 
 function euaScrollCheck() {
