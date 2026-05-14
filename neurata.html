@@ -4244,20 +4244,36 @@ function assignRepToSCFromBrokerage(lic, name) {
     return;
   }
 
-  // Multiple SCs — show picker
-  var opts = scs.map(function(s){
-    var alreadyAssigned = s.repUserIds && s.repUserIds.some(function(u){ return u.lic === lic; });
-    return s.plan + (s.name ? ' — ' + s.name : '') + (alreadyAssigned ? ' ✓' : '');
-  });
-  nPrompt(
+  // Multiple SCs — show dropdown picker
+  var selId = 'assign-sc-sel-' + Date.now();
+  nConfirm(
     'Select a strata corporation to assign ' + name + ' to:',
-    function(choice) {
-      if (!choice) return;
-      var sc_ = scs.find(function(s){ return choice.indexOf(s.plan) === 0; });
+    function(ok) {
+      if (!ok) return;
+      var sel = document.getElementById(selId);
+      if (!sel) return;
+      var scId = sel.value;
+      var sc_ = scs.find(function(s){ return s.id === scId; });
       if (sc_) assignRepToSC(sc_.id, lic, name);
     },
-    opts[0], 'Assign to SC'
+    'Assign to SC', 'info'
   );
+  // Inject a <select> into the dialog message area after it opens
+  setTimeout(function() {
+    var msgEl = document.getElementById('cdlg-msg');
+    if (!msgEl) return;
+    var sel = document.createElement('select');
+    sel.id = selId;
+    sel.style.cssText = 'width:100%;margin-top:10px;padding:8px 10px;border:1px solid var(--g3);border-radius:5px;font-size:13px;font-family:inherit;color:var(--ch);background:var(--wh)';
+    scs.forEach(function(s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      var alreadyAssigned = s.repUserIds && s.repUserIds.some(function(u){ return u.lic === lic; });
+      opt.textContent = s.plan + (s.name ? ' — ' + s.name : '') + (alreadyAssigned ? ' ✓ assigned' : '');
+      sel.appendChild(opt);
+    });
+    msgEl.appendChild(sel);
+  }, 50);
 }
 
 function assignRepToSC(scId, lic, name) {
