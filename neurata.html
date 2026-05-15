@@ -8094,24 +8094,27 @@ var _inviteRepName = '';
 function openInviteModal(lic, name) {
   _inviteRepLic  = lic;
   _inviteRepName = name;
-  var scList = APP.sc;
-  if (!scList.length) { nAlert('No strata corporations in this brokerage.', 'No Corps', 'warn'); return; }
+  var scList = APP.sc || [];
 
   document.getElementById('invite-modal-title').textContent = 'Invite: ' + name;
   document.getElementById('invite-modal-sub').textContent   = 'BCFSA Licence ' + lic + ' · Select strata corporations to assign';
 
   var html = '';
-  scList.forEach(function(s) {
-    var assigned = s.mgrLic === lic || (s.repIds && s.repIds.indexOf(lic) >= 0);
-    html += '<div class="invite-corp-item'+(assigned?' selected':'')+'" data-scid="'+s.id+'" onclick="inviteToggleCorp(this)">'
-      + '<div class="invite-corp-check">'+(assigned?'✓':'')+'</div>'
-      + '<div class="invite-corp-info">'
-      + '<div class="invite-corp-plan">'+escHtml(s.plan)+'</div>'
-      + '<div class="invite-corp-name">'+escHtml(s.name)+(s.addr?' · '+escHtml(s.addr):'')+'</div>'
-      + '</div>'
-      + '<span style="font-size:10px;color:var(--g4)">'+s.lots+' lots</span>'
-      + '</div>';
-  });
+  if (!scList.length) {
+    html = '<div style="color:var(--g4);font-size:12px;padding:8px 0">No strata corporations yet — the representative will be connected to SCs as they are added.</div>';
+  } else {
+    scList.forEach(function(s) {
+      var assigned = s.mgrLic === lic || (s.repIds && s.repIds.indexOf(lic) >= 0);
+      html += '<div class="invite-corp-item'+(assigned?' selected':'')+'" data-scid="'+s.id+'" onclick="inviteToggleCorp(this)">'
+        + '<div class="invite-corp-check">'+(assigned?'✓':'')+'</div>'
+        + '<div class="invite-corp-info">'
+        + '<div class="invite-corp-plan">'+escHtml(s.plan)+'</div>'
+        + '<div class="invite-corp-name">'+escHtml(s.name)+(s.addr?' · '+escHtml(s.addr):'')+'</div>'
+        + '</div>'
+        + '<span style="font-size:10px;color:var(--g4)">'+s.lots+' lots</span>'
+        + '</div>';
+    });
+  }
   document.getElementById('invite-corps-list').innerHTML = html;
   inviteUpdateCount();
   // Set save button to brokerage-level save function
@@ -13388,7 +13391,9 @@ function createSC() {
     showPg('strata');
     setTimeout(function(){
       openSCDetail(plan);
-      setTimeout(function(){ showFirstMeetingPrompt(plan, plan); }, 350);
+      if (!APP.currentUser || !APP.currentUser.isSuperAdmin) {
+        setTimeout(function(){ showFirstMeetingPrompt(plan, plan); }, 350);
+      }
     }, 100);
   });
 }
