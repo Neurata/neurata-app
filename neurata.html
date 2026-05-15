@@ -7738,7 +7738,9 @@ function uploadProfilePhoto(input) {
   getSupabase().storage.from('user-assets').upload(path, file, { upsert: true })
     .then(function(r) {
       if (r.error) { nAlert('Upload failed: '+(r.error.message||'unknown error'),'Error','warn'); return; }
-      var url = getSupabase().storage.from('user-assets').getPublicUrl(path).data.publicUrl;
+      var baseUrl = getSupabase().storage.from('user-assets').getPublicUrl(path).data.publicUrl;
+      // Strip any existing cache-bust param from stored URL, add fresh timestamp
+      var url = baseUrl.split('?')[0] + '?t=' + Date.now();
       return getSupabase().from('users').update({ photo_url: url }).eq('id', APP.currentUser.id)
         .then(function(r2) {
           if (r2.error) { nAlert('Could not save photo.','Error','warn'); return; }
