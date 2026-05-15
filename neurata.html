@@ -8024,11 +8024,16 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+(r.email?'<a href="mailto:'+escHtml(r.email)+'" style="color:var(--g4);text-decoration:none" title="'+escHtml(r.email)+'">'+escHtml(r.email)+'</a>':'<em style="color:var(--g4)">—</em>')+'</td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
-        +(isBrokerageWide?'':(
-          activeLicSet.indexOf(r.lic)>=0
-          ?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+ '" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>'
-          :'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+ '" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
-        ))
+        +(isBrokerageWide
+          // MB/AB: Invite if inactive, nothing if active (already brokerage-wide)
+          ? (activeLicSet.indexOf(r.lic)>=0
+            ? ''
+            : '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
+          // SM/Rep: Assign if active, Invite if inactive
+          : (activeLicSet.indexOf(r.lic)>=0
+            ?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>'
+            :'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
+          ))
         +'</td></tr>';
     }).join('')+'</tbody></table></div></div></div>';
 }
