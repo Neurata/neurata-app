@@ -8025,14 +8025,18 @@ function renderBrokerageRepList() {
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
         +(isBrokerageWide
-          // MB/AB: Invite if inactive, nothing if active (already brokerage-wide)
+          // MB/AB: nothing if active, Resend if invited, Invite if inactive
           ? (activeLicSet.indexOf(r.lic)>=0
             ? ''
-            : '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
-          // SM/Rep: Assign if active, Invite if inactive
+            : r.invited_at
+              ? '<button class="btn xs" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)" title="Resend invitation">Resend</button>'
+              : '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>')
+          // SM/Rep: Assign if active, Resend if invited, Invite if inactive
           : (activeLicSet.indexOf(r.lic)>=0
-            ?'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>'
-            :'<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
+            ? '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="assignRepToSCFromBrokerage(this.dataset.lic,this.dataset.name)">Assign</button>'
+            : r.invited_at
+              ? '<button class="btn xs" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)" title="Resend invitation">Resend</button>'
+              : '<button class="btn xs pri" data-lic="'+escHtml(r.lic||r.name)+'" data-name="'+escHtml(r.name||'')+'" onclick="openInviteModal(this.dataset.lic,this.dataset.name)">Invite</button>'
           ))
         +'</td></tr>';
     }).join('')+'</tbody></table></div></div></div>';
@@ -8220,7 +8224,7 @@ function saveInviteCorps() {
           brokerage: APP.brokerage ? APP.brokerage.name : '', inviteUrl: inviteUrl, type: 'rep' })
       }).then(function(r){return r.json();}).then(function(d){
         if (d.error) nAlert('Could not send invitation: '+d.error,'Error','warn');
-        else nAlert('Invitation sent to '+email+'.','Invite Sent ✓','success');
+        else { nAlert('Invitation sent to '+email+'.','Invite Sent ✓','success'); if (repLic2) markRepInvited(repLic2); }
         renderBrokerage();
       }).catch(function(){ renderBrokerage(); });
     }
@@ -8296,7 +8300,7 @@ function sendInvite(){
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.error) nAlert('Could not send invitation: '+d.error,'Error','warn');
-    else nAlert('Invitation sent to '+email+'. They will receive a link to create their account and verify their BCFSA licence.','Invite Sent ✓','success');
+    else { nAlert('Invitation sent to '+email+'. They will receive a link to create their account and verify their BCFSA licence.','Invite Sent ✓','success'); if (_inviteRepLic) markRepInvited(_inviteRepLic); }
   })
   .catch(function(e){ nAlert('Could not send invitation: '+e.message,'Error','warn'); });
 }
