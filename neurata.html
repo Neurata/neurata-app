@@ -11919,9 +11919,11 @@ function saveOwnerInfo() {
 function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var lots = s.lots || 20;
-  var rows = ['Strata Lot,Owner Name,Email,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'];
+  var rows = ['Strata Lot,Owner Name,Email,Council Role,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'];
+  var councilRoleNote = '# Council Role: leave blank for non-council owners. Use: President, Vice President, Treasurer, Secretary, or Member';
+  rows.unshift(councilRoleNote);
   for (var i = 1; i <= lots; i++) {
-    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,');
+    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,,');
   }
   var csv = rows.join('\n');
   var a = document.createElement('a');
@@ -11971,23 +11973,35 @@ function _parseRosterCSV(csv, s) {
     var cols = line.split(',').map(function(c){return c.trim().replace(/^"|"$/g,'');});
     if(cols.length<1) return;
     // Try to find SL column — col[0] should be lot number or SL###
+    // Skip comment rows
+    if(cols[0].trim().startsWith('#')) return;
     var rawSl = cols[0].replace(/\s/g,'').toUpperCase();
     if(!rawSl.startsWith('SL')) rawSl = 'SL'+String(parseInt(rawSl)||0).padStart(3,'0');
     if(rawSl==='SL000'||rawSl==='SL'){ skipped++; return; }
     var name  = cols[1]||'';
     var email = cols[2]||'';
     if(!name){ skipped++; return; }
+    // Col 3 = Council Role (optional). Presence of a role value = is council member.
+    // Accepted values: President, Vice President, Treasurer, Secretary, Member
+    // Also detect if header row has council role at col 3 vs col 2
+    var councilRoles = ['president','vice president','treasurer','secretary','member'];
+    var councilRoleRaw = cols[3] || '';
+    // If col 3 looks like unit entitlement (a number), col 3 is NOT council role
+    var isCouncilCol = councilRoleRaw && isNaN(parseFloat(councilRoleRaw));
+    var councilRole = isCouncilCol ? councilRoleRaw.trim() : '';
+    var isCouncil = councilRole.length > 0;
     var idx = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
     // Detect if anything actually changed
-    var nameChanged  = !existing || existing.name  !== name;
-    var emailChanged = !existing || existing.email !== email;
-    if (!nameChanged && !emailChanged) { skipped++; return; }
-    // Preserve isCouncil/role if already set; just update name/email
+    var nameChanged   = !existing || existing.name      !== name;
+    var emailChanged  = !existing || existing.email     !== email;
+    var roleChanged   = !existing || existing.role      !== councilRole;
+    var councilChanged= !existing || existing.isCouncil !== isCouncil;
+    if (!nameChanged && !emailChanged && !roleChanged && !councilChanged) { skipped++; return; }
     var member = {
       sl:rawSl, name:name, email:email,
-      role:      existing ? existing.role      : '',
-      isCouncil: existing ? existing.isCouncil : false,
+      role:      councilRole || (existing ? existing.role : ''),
+      isCouncil: isCouncil || (existing ? existing.isCouncil : false),
       _changed:  true
     };
     if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
@@ -12005,8 +12019,8 @@ function _parseRosterCSV(csv, s) {
       sc_id:        s.plan,
       lot_number:   m.sl,
       full_name:    m.name,
-      email:        m.email || null,
-      council_role: m.role  || null,
+      email:        m.email     || null,
+      council_role: m.role      || null,
       is_council:   m.isCouncil || false
     });
   });
