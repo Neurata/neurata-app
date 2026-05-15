@@ -8200,16 +8200,30 @@ function saveInviteCorps() {
     .catch(function(e){ console.error('Rep SC persist error:', e); });
   }
   closeMo('mo-invite-rep-corps');
-  // Prompt for email then send real invite
-  nPrompt('Enter email address for '+(_inviteRepName||'representative')+':', function(email){
-    if(!email||!email.trim()) { renderBrokerage(); return; }
-    if(!email||email.indexOf('@')<0){ nAlert('Please enter a valid email address.','Invalid Email','warn'); return; }
-    var rep = (APP.reps||[]).find(function(r){ return r.name === _inviteRepName; });
-    var repLic = rep ? rep.lic : '';
-    // Use first selected SC for invite URL context
-    var firstSC = assignedSCs.length ? assignedSCs[0] : null;
-    if (firstSC) sendRepInviteEmail(email.trim(), _inviteRepName||'', firstSC.id, repLic, assignedSCs.map(function(s){return s.plan;}));
-    renderBrokerage();
+  // Ask for email via inline prompt
+  var repLic2 = _inviteRepLic || '';
+  var repName2 = _inviteRepName || 'representative';
+  var scParam2 = assignedSCs.length ? assignedSCs.map(function(s){return s.plan;}).join(',') : '';
+  var firstSC2 = assignedSCs.length ? assignedSCs[0] : null;
+  nPrompt('Enter the email address for ' + repName2 + ':', function(email) {
+    if (!email || !email.trim()) { renderBrokerage(); return; }
+    if (email.indexOf('@') < 0) { nAlert('Please enter a valid email address.', 'Invalid Email', 'warn'); return; }
+    if (firstSC2) {
+      sendRepInviteEmail(email.trim(), repName2, firstSC2.id, repLic2, assignedSCs.map(function(s){return s.plan;}));
+    } else {
+      // No SC assigned — use brokerage-level invite
+      var invitePayload = btoa(JSON.stringify({ brk: APP.brokerage.lic||'', sc: scParam2, email: email.trim() }));
+      var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?token=' + encodeURIComponent(invitePayload);
+      fetch(WORKER_URL+'/send-invite', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ to: email.trim(), toName: repName2, fromName: APP.currentUser ? APP.currentUser.name : '',
+          brokerage: APP.brokerage ? APP.brokerage.name : '', inviteUrl: inviteUrl, type: 'rep' })
+      }).then(function(r){return r.json();}).then(function(d){
+        if (d.error) nAlert('Could not send invitation: '+d.error,'Error','warn');
+        else nAlert('Invitation sent to '+email+'.','Invite Sent ✓','success');
+        renderBrokerage();
+      }).catch(function(){ renderBrokerage(); });
+    }
   }, '', 'Email Address');
 }
 
