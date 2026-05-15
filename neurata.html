@@ -675,7 +675,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
       <button class="btn pri full" id="li-btn" onclick="doLogin()">Sign In →</button>
       <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:8px">
-        <button class="btn xs ghost" onclick="showScr('scr-onboard')">New to Neurata? Create an account</button>
+        <!-- Cold signups disabled — account creation by invitation only -->
         <button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button>
         <button class="btn xs ghost" onclick="showForgotPassword()" style="color:var(--g4)">Forgot your password?</button>
 
@@ -824,11 +824,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
     <div class="ob-card" style="width:440px">
       <div class="ob-logo"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 217.96 56" height="64" style="display:block;margin:0 auto"><defs><linearGradient id="nlg3" x1="28" y1="56" x2="28" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".31" stop-color="#f7941d"/></linearGradient></defs><path fill="url(#nlg3)" d="M31.14,8.46L39.6,0h16.4v16.4l-8.46,8.46V8.46h-16.4ZM8.46,47.54v-16.4L0,39.6v16.4h16.4l8.46-8.46H8.46ZM39.6,56h16.4v-16.4l-8.46-8.46v16.4h-3.33l-16.4-16.4h-13.07l24.86,24.86ZM16.4,0H0v16.4l8.46,8.46V8.46h3.33l16.4,16.4h13.07L16.4,0Z"/><g fill="#231f20"><path d="M64.46,46.6V11h4.9l7.7,21.45h.1V11h5.1v35.6h-4.8l-7.8-21.4h-.1v21.4h-5.1Z"/><path d="M90.31,46.6V11h15.2v4.8h-10.1v10.45h8.8v4.8h-8.8v10.45h10.1v5.1h-15.2Z"/><path d="M128.76,11v27.6c0,1.17-.21,2.24-.62,3.22-.42.98-1.01,1.86-1.77,2.62-.77.77-1.65,1.37-2.65,1.8-1,.43-2.07.65-3.2.65s-2.19-.22-3.17-.65c-.98-.43-1.86-1.03-2.62-1.8-.77-.77-1.37-1.64-1.8-2.62-.43-.98-.65-2.06-.65-3.22V11h5.1v27.1c0,1.27.3,2.2.9,2.8.6.6,1.35.9,2.25.9s1.65-.3,2.25-.9c.6-.6.9-1.53.9-2.8V11h5.1Z"/><path d="M137.01,46.6V11h8.2c6,0,9,3.48,9,10.45,0,2.1-.32,3.88-.97,5.35s-1.79,2.65-3.42,3.55l5.5,16.25h-5.4l-4.75-15.2h-3.05v15.2h-5.1ZM142.11,15.8v11.1h2.9c.9,0,1.62-.12,2.15-.38s.95-.61,1.25-1.07c.27-.47.45-1.04.55-1.73.1-.68.15-1.48.15-2.38s-.05-1.69-.15-2.38c-.1-.68-.3-1.27-.6-1.77-.63-.93-1.83-1.4-3.6-1.4h-2.65Z"/><path d="M159.46,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM172.06,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/><path d="M186.16,46.6V15.8h-5.9v-4.8h16.9v4.8h-5.9v30.8h-5.1Z"/><path d="M197.81,46.6l7.95-35.6h4.25l7.95,35.6h-5.1l-1.5-7.65h-6.95l-1.5,7.65h-5.1ZM210.41,34.15l-2.5-12.9h-.1l-2.5,12.9h5.1Z"/></g></svg></div>
       <div class="ob-h">Accept Your Invitation</div>
-      <div class="ob-s">Enter your BCFSA licence number to verify your identity and join your brokerage.</div>
-      <div class="al info" style="margin-bottom:14px;font-size:11px">Your licence will be verified against the BCFSA registry.</div>
+      <div class="ob-s" id="inv-intro">Enter your BCFSA licence number and set a password to create your account.</div>
+      <div class="al info" style="margin-bottom:14px;font-size:11px">Your licence will be verified against the BCFSA registry to confirm your identity.</div>
       <div class="fr" style="margin-bottom:14px">
+        <div class="fg"><label>Your Email</label><input type="email" id="inv-email" placeholder="your@brokerage.ca" readonly style="background:var(--g1);color:var(--g4);cursor:default" oninput="invCheckBtn()"/></div>
         <div class="fg"><label>BCFSA Licence Number</label><input id="inv-lic" type="text" placeholder="e.g. 183255" oninput="this.value=this.value.replace(/\s/g,'').toUpperCase();invCheckBtn()"/></div>
-        <div class="fg"><label>Brokerage Email</label><input type="email" id="inv-email" placeholder="you@yourbrokerage.ca" oninput="invCheckBtn()"/></div>
         <div class="fg">
           <label>Password</label>
           <div style="display:flex;gap:6px;align-items:center">
@@ -1657,20 +1657,19 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 <!-- Invite Representative -->
 <div class="mo" id="mo-invite-rep">
-  <div class="mo-box">
+  <div class="mo-box" style="max-width:420px">
     <div class="mo-hd"><div class="mo-t">Invite Representative</div><button class="mo-x" onclick="closeMo('mo-invite-rep')">×</button></div>
     <div class="mo-bd">
-      <div class="al info" style="margin-bottom:12px">An invitation will be sent to the representative's brokerage email. Their BCFSA licence will be verified on account creation.</div>
-      <div class="fr fr2">
-        <div class="fg"><label>Full Name</label><input id="inv-rep-name" placeholder="Jane Smith"/></div>
-        <div class="fg"><label>BCFSA Licence Number</label><input id="inv-rep-lic" placeholder="e.g. 183255" inputmode="numeric"/></div>
-        <div class="fg" style="grid-column:1/-1"><label>Brokerage Email</label><input type="email" id="inv-rep-email" placeholder="jane@yourbrokerage.ca"/></div>
-      </div>
-      <div class="fg"><label>Assign Strata Corporations</label>
-        <div id="inv-rep-sc-chks" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px"></div>
+      <div class="al info" style="margin-bottom:16px">Enter the representative's brokerage email address. They will receive an invitation link and will verify their identity with their BCFSA licence number on account creation.</div>
+      <div class="fg">
+        <label>Brokerage Email Address</label>
+        <input type="email" id="inv-rep-email" placeholder="jane@yourbrokerage.ca" oninput="var btn=document.getElementById('inv-rep-send-btn');if(btn)btn.disabled=this.value.indexOf('@')<0;"/>
       </div>
     </div>
-    <div class="mo-ft"><button class="btn" onclick="closeMo('mo-invite-rep')">Cancel</button><button class="btn pri" onclick="sendInvite()">Send Invitation</button></div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-invite-rep')">Cancel</button>
+      <button class="btn pri" id="inv-rep-send-btn" onclick="sendInvite()" disabled>Send Invitation</button>
+    </div>
   </div>
 </div>
 
@@ -3879,25 +3878,20 @@ function showInviteScreen() {
   } else if (ctx.type === 'delegate') {
     showScr('scr-delegate-invite');
   } else {
-    // Pre-fill and lock lic + email from invite context
-    var licEl   = document.getElementById('inv-lic');
+    // Pre-fill email from invite context (locked — MB entered this)
+    // Lic is NOT pre-filled — invitee must enter it to verify their identity
     var emailEl2 = document.getElementById('inv-email');
-    if (licEl && ctx.lic) {
-      licEl.value    = ctx.lic.toUpperCase();
-      licEl.readOnly = true;
-      licEl.style.background = 'var(--g1)';
-      licEl.style.color      = 'var(--ch3)';
-      // Remove live oninput to prevent tampering
-      licEl.oninput = null;
-    }
     if (emailEl2 && ctx.email) {
-      emailEl2.value    = ctx.email;
+      emailEl2.value = ctx.email;
+      // Already readonly from HTML — just ensure it
       emailEl2.readOnly = true;
-      emailEl2.style.background = 'var(--g1)';
-      emailEl2.style.color      = 'var(--ch3)';
-      emailEl2.oninput = null;
     }
-    // Enable create button if lic and email are pre-filled
+    // Clear lic field so invitee must enter it fresh
+    var licEl = document.getElementById('inv-lic');
+    if (licEl) { licEl.value = ''; licEl.readOnly = false; licEl.style.background=''; licEl.style.color=''; }
+    // Update intro text with brokerage name if available
+    var introEl = document.getElementById('inv-intro');
+    if (introEl && ctx.brkLic) introEl.textContent = 'Enter your BCFSA licence number and set a password to join ' + (ctx.brkName || ctx.brkLic) + '.';
     invCheckBtn();
     showScr('scr-invited');
   }
@@ -4374,7 +4368,7 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
   var scParam = (allPlans && allPlans.length > 1) ? allPlans.join(',') : (s.plan||scId);
-  var invitePayload = btoa(JSON.stringify({ brk: APP.brokerage.lic||'', sc: scParam, lic: lic||'', email: email||'' }));
+  var invitePayload = btoa(JSON.stringify({ brk: APP.brokerage.lic||'', sc: scParam, email: email||'' }));
   var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?token=' + encodeURIComponent(invitePayload);
 
   // Save assignment locally and persist to Supabase
@@ -7970,9 +7964,13 @@ function renderBrokerageRepList() {
   if (!activeLicSet) {
     var repLics = reps.map(function(r){ return r.lic; }).filter(Boolean);
     if (repLics.length) {
-      getSupabase().from('users').select('bcfsa_lic').in('bcfsa_lic', repLics).eq('brokerage_id', APP.brokerage.lic)
+      getSupabase().from('users').select('bcfsa_lic,email').in('bcfsa_lic', repLics).eq('brokerage_id', APP.brokerage.lic)
       .then(function(res) {
         APP.brokerage._activeLics = (res.data||[]).map(function(u){ return u.bcfsa_lic; });
+        APP.brokerage._activeEmails = {};
+        (res.data||[]).forEach(function(u){ if(u.email) APP.brokerage._activeEmails[u.bcfsa_lic] = u.email; });
+        // Merge emails into reps
+        (APP.brokerage.reps||[]).forEach(function(r){ if(!r.email && APP.brokerage._activeEmails[r.lic]) r.email = APP.brokerage._activeEmails[r.lic]; });
         renderBrokerage();
       }).catch(function(){});
     }
@@ -7992,6 +7990,7 @@ function renderBrokerageRepList() {
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Title</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Licence</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Status</th>'
+    +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Email</th>'
     +'<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--g4);border-bottom:1px solid var(--g2)">Connected Strata Corps</th>'
     +'<th style="padding:6px 10px;border-bottom:1px solid var(--g2)"></th>'
     +'</tr></thead><tbody>'
@@ -8022,6 +8021,7 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:12px;color:var(--ch3);border-bottom:1px solid var(--g2)">'+escHtml(r.title||'—')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+escHtml(r.lic||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
+        +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+(r.email?'<a href="mailto:'+escHtml(r.email)+'" style="color:var(--g4);text-decoration:none" title="'+escHtml(r.email)+'">'+escHtml(r.email)+'</a>':'<em style="color:var(--g4)">—</em>')+'</td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
         +(isBrokerageWide?'':(
@@ -8247,26 +8247,36 @@ function renderRepList(){
     +'</table></div>';
 }
 function sendInvite(){
-  var name  = (document.getElementById('inv-rep-name')||{}).value||'';
-  var lic   = ((document.getElementById('inv-rep-lic')||{}).value||'').trim().toUpperCase();
-  var email = (document.getElementById('inv-rep-email')||{}).value||'';
-  if (!name.trim()) { nAlert('Please enter the representative\'s full name.','Missing Field','warn'); return; }
-  if (!lic) { nAlert('Please enter the BCFSA licence number.','Missing Field','warn'); return; }
+  var email = ((document.getElementById('inv-rep-email')||{}).value||'').trim();
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid brokerage email address.','Missing Field','warn'); return; }
   closeMo('mo-invite-rep');
-  // If there's only one SC use it; otherwise ask which SC to invite to
-  if (APP.sc.length === 1) {
-    sendRepInviteEmail(email, name, APP.sc[0].id, lic);
-  } else if (APP.sc.length > 1) {
-    // Show SC picker
-    var scOptions = APP.sc.map(function(s,i){ return i+') '+s.plan+(s.name?' — '+s.name:''); }).join('\n');
-    var choice = prompt('Which strata corporation is this rep being invited to manage?\n\n'+scOptions+'\n\nEnter number (0-'+(APP.sc.length-1)+'):');
-    var idx = parseInt(choice);
-    if (isNaN(idx) || idx < 0 || idx >= APP.sc.length) { nAlert('Invalid selection.','Error','warn'); return; }
-    sendRepInviteEmail(email, name, APP.sc[idx].id, lic);
-  } else {
-    nAlert('No strata corporations found. Please add one first.','Error','warn');
-  }
+  // Send invite directly — no SC pre-assignment from this modal
+  // The invitee's BCFSA lic determines their role; MBs/ABs get brokerage-wide access automatically
+  // SMs can be assigned to SCs after they accept the invite
+  var brkName = APP.brokerage ? (APP.brokerage.name || APP.brokerage.lic) : '';
+  var fromName = APP.currentUser ? APP.currentUser.name : '';
+  var scParam = (APP.sc && APP.sc.length) ? APP.sc.map(function(s){return s.plan;}).join(',') : '';
+  var invitePayload = btoa(JSON.stringify({ brk: APP.brokerage.lic||'', sc: scParam, email: email }));
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?token=' + encodeURIComponent(invitePayload);
+
+  fetch(WORKER_URL+'/send-invite', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      to:        email,
+      toName:    '',
+      fromName:  fromName,
+      brokerage: brkName,
+      inviteUrl: inviteUrl,
+      type:      'rep'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) nAlert('Could not send invitation: '+d.error,'Error','warn');
+    else nAlert('Invitation sent to '+email+'. They will receive a link to create their account and verify their BCFSA licence.','Invite Sent ✓','success');
+  })
+  .catch(function(e){ nAlert('Could not send invitation: '+e.message,'Error','warn'); });
 }
 
 // ══════════════════════════════════════════
@@ -14386,7 +14396,8 @@ function invCheckBtn(){
   }
   var pwValid = pw.length>=8 && /[A-Z]/.test(pw) && /[0-9]/.test(pw) && /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?`~]/.test(pw);
   var btn = document.getElementById('inv-create-btn');
-  if (btn) btn.disabled = !(lic.length >= 4 && email.indexOf('@') >= 0 && pwValid && pw === pw2);
+  // Email is pre-filled from invite token — just verify lic and password
+  if (btn) btn.disabled = !(lic.length >= 4 && email.length > 0 && pwValid && pw === pw2);
 }
 
 function obInviteComplete(){
@@ -14399,15 +14410,13 @@ function obInviteComplete(){
   if(pw.length<8){ nAlert('Please create a password (minimum 8 characters).'); return; }
   if(pw !== pw2){ nAlert('Passwords do not match. Please try again.','Password Mismatch','warn'); return; }
 
-  // Validate lic matches invitation
-  if (window._inviteContext && window._inviteContext.lic) {
-    var expectedLic = window._inviteContext.lic.toUpperCase().replace(/[^A-Z0-9]/g,'');
-    var enteredLic  = lic.replace(/[^A-Z0-9]/g,'');
-    if (expectedLic && enteredLic !== expectedLic) {
-      nAlert('The licence number you entered does not match the invitation. Please use the licence associated with this invitation.', 'Licence Mismatch', 'warn');
-      return;
-    }
+  // Validate email matches invitation (token email is the authoritative value)
+  var ctx_ = window._inviteContext || {};
+  if (ctx_.email && email.toLowerCase() !== ctx_.email.toLowerCase()) {
+    nAlert('The email address does not match this invitation.', 'Email Mismatch', 'warn');
+    return;
   }
+  // Note: lic vs brokerage validation happens after BCFSA scrape below
 
   var btn = document.getElementById('inv-create-btn');
   if(btn){ btn.disabled=true; btn.textContent='Verifying...'; }
@@ -14422,9 +14431,17 @@ function obInviteComplete(){
       nAlert('Licence '+lic+' was not found in the BCFSA registry.');
       return Promise.reject('not_found');
     }
+    // Validate that the lic belongs to the inviting brokerage
+    var invBrkLic = (ctx && ctx.brkLic) || '';
+    var repBrkLic = rep.businessLicence || '';
+    if (invBrkLic && repBrkLic && repBrkLic.toUpperCase() !== invBrkLic.toUpperCase()) {
+      if(btn){ btn.disabled=false; btn.textContent='Create Account'; }
+      nAlert('This licence number is not associated with the brokerage that sent this invitation. Please check your licence number and try again.', 'Licence Mismatch', 'warn');
+      return Promise.reject('brk_mismatch');
+    }
     var dn       = rep.knownAs||rep.name||lic;
     var initials = dn.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-    var brkLic   = (ctx && ctx.brkLic) || rep.businessLicence || '';
+    var brkLic   = invBrkLic || repBrkLic || '';
     if(btn){ btn.textContent='Creating account...'; }
 
     // Step 2: Create auth account with metadata
@@ -14709,6 +14726,7 @@ async function init(){
       lic:        inviteLic  || '',
       sl:         delegateSl || '',
       email:      asstEmail  || ''
+      // brkName loaded below from brokerages table if needed
     };
     // Clean up URL without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
