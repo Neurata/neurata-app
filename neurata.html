@@ -9381,7 +9381,8 @@ function doLogin(){
         return;
       }
       // Auth succeeded — load profile
-      loadUserProfile(result.data.user.id);
+      var _signInMeta = result.data.session && result.data.session.user && result.data.session.user.app_metadata;
+      loadUserProfile(result.data.user.id, _signInMeta);
     })
     .catch(function(err) {
       if (btn) { btn.disabled=false; btn.textContent='Sign In →'; }
@@ -9464,7 +9465,7 @@ function refreshAndLoad(userId, attempt) {
     var meta    = session && session.user && session.user.app_metadata;
     var hasBrk  = meta && (meta.brokerage_id || meta.role);
     if (hasBrk || attempt >= 5) {
-      loadUserProfile(userId);
+      loadUserProfile(userId, meta);
     } else {
       setTimeout(function() { refreshAndLoad(userId, attempt + 1); }, 1200);
     }
@@ -9475,7 +9476,7 @@ function refreshAndLoad(userId, attempt) {
 }
 
 
-function loadUserProfile(userId) {
+function loadUserProfile(userId, _appMeta) {
   getSupabase()
     .from('users')
     .select('*')
@@ -9523,7 +9524,9 @@ function loadUserProfile(userId) {
         licFor:   u.licensed_for || '',
         title:    u.title || u.role || '',
         globalSS: u.global_ss || false,
-        isSuperAdmin: u.role === 'Super Admin'
+        isSuperAdmin: (_appMeta && _appMeta.role)
+          ? _appMeta.role === 'Super Admin'
+          : u.role === 'Super Admin'  // fallback for legacy accounts
       };
       // Store onboarding flags for use in launchPlatform
       APP._userHasSeenOnboarding   = u.has_seen_onboarding   || false;
