@@ -14318,11 +14318,11 @@ function obComplete(){
       var userId  = result.data.user && result.data.user.id;
       var session = result.data.session;
 
-      // Email confirmation required — no session yet
+      // No session returned — email confirmation is disabled so this shouldn't happen.
+      // If it does, Supabase auth settings may need attention.
       if (!session) {
-        var el = document.getElementById('check-email-address');
-        if (el) el.textContent = email;
-        showScr('scr-check-email');
+        if (btn) { btn.disabled=false; btn.textContent='Create Account'; }
+        nAlert('Account created but sign-in failed. Please contact support@neurata.ai.', 'Sign In Error', 'warn');
         return;
       }
 
@@ -14502,11 +14502,11 @@ function obInviteComplete(){
       var userId  = result.data.user && result.data.user.id;
       var session = result.data.session;
 
-      // Email confirmation required — no session yet
+      // No session returned — email confirmation is disabled so this shouldn't happen.
+      // If it does, Supabase auth settings may need attention.
       if (!session) {
-        var el = document.getElementById('check-email-address');
-        if (el) el.textContent = email;
-        showScr('scr-check-email');
+        if (btn) { btn.disabled=false; btn.textContent='Create Account'; }
+        nAlert('Account created but sign-in failed. Please contact support@neurata.ai.', 'Sign In Error', 'warn');
         return;
       }
 
