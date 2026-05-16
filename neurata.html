@@ -4258,9 +4258,8 @@ function saveSCInviteRep(scId) {
 function assignRepToSCFromBrokerage(lic, name) {
   var scs = (APP.sc||[]).filter(function(s){ return s.plan; });
   if (!scs.length) { nAlert('No strata corporations found. Add a strata corporation first.', '', 'warn'); return; }
-  if (scs.length === 1) { assignRepToSC(scs[0].id, lic, name); return; }
 
-  // Populate and open the assign modal
+  // Always show the modal so MB can confirm the assignment
   var nameEl = document.getElementById('mo-assign-rep-name');
   var listEl = document.getElementById('mo-assign-sc-list');
   if (nameEl) nameEl.textContent = 'Assign ' + name;
