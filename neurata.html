@@ -4450,6 +4450,7 @@ function sendRepInviteEmail(email, name, scId, lic, allPlans) {
       nAlert('Email could not be sent: '+d.error, 'Error', 'warn');
     } else {
       nAlert('Invitation sent to '+email+'.'+(name?' '+name+' will receive an email to create their account.':''), 'Invite Sent ✓', 'success');
+      if (lic) markRepInvited(lic);
       if (scId) { _scDetailTab='reps'; renderSCDetail(scId); }
     }
   })
