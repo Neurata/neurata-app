@@ -6953,11 +6953,16 @@ function exportMinDocx(sc_, mtg, typeLabel, date, mgr, mgrLic, cats, state, fnam
       });
     });
     paras.push(new Para({heading: Head.HEADING_2, spacing:{before:240,after:80}, children:[new Run({text:'ADJOURNMENT', bold:true, color:'2E75B6', size:24, font:'Arial'})]}));
-    paras.push(dPara('There being no further business, the meeting was adjourned at '+fmt12hr(mtg.adjTime)+'.', {after:120}));
+    paras.push(dPara('There being no further business, the meeting was adjourned' + (mtg.adjTime ? ' at '+fmt12hr(mtg.adjTime) : '') + '.', {after:120}));
     // Signatures
     // Signatures
     paras.push(dPara('_________________________        _________________________', {color:'595959', size:20, before:480, after:20}));
-    paras.push(dPara('Strata Council Secretary          Strata Manager'+(mgrLic?' \u2014 '+mgrLic:''), {color:'595959', size:18}));
+    paras.push(dPara('Strata Council Secretary          Strata Manager'+(mgrLic?'\u2014'+mgrLic:''), {color:'595959', size:18}));
+
+    if (paras.length < 3) {
+      nAlert('No meeting content found to export. Please ensure the meeting has been adjourned and agenda items have been completed.', 'Export Error', 'warn');
+      return;
+    }
 
     var doc = new DocDoc({
       styles: {
