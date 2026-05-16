@@ -11609,7 +11609,7 @@ function scAnniversaryStr(activatedAt) {
 }
 
 function renderSCSubscription(s) {
-  var isPaidSub  = !!(s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId); // actually paid via Stripe
+  var isPaidSub  = !!(s.isSubscribed || (s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId)); // paid or SA-activated
   var mmOn       = isPaidSub;
   var ssTier     = scSsTier(s);
   var trialActive = scMmActive(s) && !isPaidSub;
