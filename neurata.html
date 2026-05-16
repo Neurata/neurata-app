@@ -9870,6 +9870,7 @@ function mapSCRow(sc) {
     smLic:               sc.sm_lic || '',   // designated Strata Manager licence
     smName:              '',                 // resolved after reps load
     mmStatus:            (sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at) ? 'ACTIVE' : '',
+    isSubscribed:        !!(sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at),
     mmActivatedAt:       sc.mm_activated_at || null,
     mmPendingCancel:     sc.mm_pending_cancel || false,
     ssTier:              sc.ss_tier || null,
@@ -12358,7 +12359,7 @@ function showPg(pg) {
       addScBtn.style.display = (canCreate && !isSAOutside) ? '' : 'none';
     }
     // Background refresh of SC subscription status
-    if (APP.brokerage && APP.brokerage.lic && !APP.currentUser.isSuperAdmin) {
+    if (APP.brokerage && APP.brokerage.lic && APP.brokerage.lic !== 'ADMIN') {
       getSupabase().from('strata_corps')
         .select('plan_number,is_subscribed,ss_tier,stripe_subscription_id,mm_activated_at,mm_pending_cancel,ss_global_activated_at')
         .eq('brokerage_id', APP.brokerage.lic)
