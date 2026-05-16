@@ -4161,27 +4161,38 @@ function assignSM(scId, lic) {
 
 function removeRepFromSC(scId, lic) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  var brkLic = APP.brokerage && APP.brokerage.lic;
   nConfirm('Remove this representative from '+s.plan+'?', function(ok){
     if(!ok) return;
-    // Update local state
+    // Update local state immediately
     if(s.repIds) s.repIds = s.repIds.filter(function(r){return r!==lic;});
-    // Delete from sc_users (revokes actual access)
-    getSupabase().from('users').select('id').eq('bcfsa_lic', lic).eq('brokerage_id', APP.brokerage.lic).maybeSingle()
+    if(s.repUserIds) s.repUserIds = s.repUserIds.filter(function(u){return u.lic!==lic;});
+    renderSCDetail(scId);
+
+    // Delete from sc_users via plan number + user lookup
+    getSupabase().from('users').select('id').eq('bcfsa_lic', lic).maybeSingle()
     .then(function(u) {
       if (u && u.data && u.data.id) {
-        getSupabase().from('sc_users').delete().eq('sc_id', s.plan).eq('user_id', u.data.id).then(function(){});
+        getSupabase().from('sc_users').delete().eq('sc_id', s.plan).eq('user_id', u.data.id)
+        .then(function(r){ if (r.error) console.warn('sc_users delete error:', r.error.message); });
+      } else {
+        // Fallback: delete by sc_id + bcfsa_lic join through users
+        getSupabase().rpc('remove_rep_from_sc', { p_sc_id: s.plan, p_bcfsa_lic: lic }).then(function(){}).catch(function(){});
       }
     });
+
     // Update reps.sc_ids
-    getSupabase().from('reps').select('sc_ids').eq('brokerage_id', APP.brokerage.lic).eq('bcfsa_lic', lic).maybeSingle()
-    .then(function(r) {
-      var scIds = [];
-      if (r && r.data && r.data.sc_ids) { try { scIds = JSON.parse(r.data.sc_ids); } catch(e){} }
-      scIds = scIds.filter(function(p){ return p !== s.plan; });
-      getSupabase().from('reps').update({ sc_ids: JSON.stringify(scIds) })
-        .eq('brokerage_id', APP.brokerage.lic).eq('bcfsa_lic', lic).then(function(){});
-    });
-    renderSCDetail(scId);
+    if (brkLic) {
+      getSupabase().from('reps').select('sc_ids').eq('bcfsa_lic', lic).maybeSingle()
+      .then(function(r) {
+        var scIds = [];
+        if (r && r.data && r.data.sc_ids) { try { scIds = JSON.parse(r.data.sc_ids); } catch(e){} }
+        scIds = scIds.filter(function(p){ return p !== s.plan; });
+        getSupabase().from('reps').update({ sc_ids: JSON.stringify(scIds) })
+          .eq('bcfsa_lic', lic).then(function(){});
+      });
+    }
+    nAlert('Representative removed from '+s.plan+'.', 'Removed', 'success');
   }, 'Remove Representative', 'danger');
 }
 
