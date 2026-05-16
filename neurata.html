@@ -11505,30 +11505,28 @@ function renderSCDetail(scId) {
     // Show loading state immediately
     html += '<div style="padding:32px;text-align:center;color:var(--g4);font-size:13px">Checking subscription status…</div>';
     el.innerHTML = html;
-    // Ping Stripe directly — source of truth
-    fetch(WORKER_URL + '/stripe/sc-status?scPlan=' + encodeURIComponent(s.plan))
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
+    // Re-fetch live from DB — always fresh on tab open
+    getSupabase().from('strata_corps')
+      .select('is_subscribed,mm_status,ss_tier,stripe_subscription_id,mm_activated_at,ss_activated_at,mm_pending_cancel')
+      .eq('plan_number', s.plan).single()
+    .then(function(res) {
       var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
       if (!sc_) return;
-      // Update local state from Stripe
-      sc_.isSubscribed         = d.isSubscribed || false;
-      sc_.mmStatus             = d.mmStatus || 'TRIAL';
-      sc_.ssTier               = d.ssTier || null;
-      sc_.stripeSubscriptionId = d.stripeSubscriptionId || null;
-      sc_.mmActivatedAt        = d.mmActivatedAt || null;
-      sc_.ssActivatedAt        = d.ssActivatedAt || null;
-      sc_.mmPendingCancel      = d.mmPendingCancel || false;
-      // Update brokerage status too
-      if (d.isSubscribed) APP.brokerage.subscriptionStatus = 'active';
-      // Re-render with live data
+      var d = res.data || {};
+      sc_.isSubscribed         = d.is_subscribed || false;
+      sc_.mmStatus             = d.mm_status || (d.is_subscribed ? 'ACTIVE' : 'TRIAL');
+      sc_.ssTier               = d.ss_tier || null;
+      sc_.stripeSubscriptionId = d.stripe_subscription_id || null;
+      sc_.mmActivatedAt        = d.mm_activated_at || null;
+      sc_.ssActivatedAt        = d.ss_activated_at || null;
+      sc_.mmPendingCancel      = d.mm_pending_cancel || false;
+      if (d.is_subscribed) APP.brokerage.subscriptionStatus = 'active';
       var scEl = document.getElementById('sc-detail-body');
       if (scEl && _scDetailTab === 'subscription') {
         scEl.innerHTML = renderSCSubscription(sc_);
       }
     })
     .catch(function() {
-      // Fall back to cached state on error
       var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
       var scEl = document.getElementById('sc-detail-body');
       if (scEl && _scDetailTab === 'subscription' && sc_) {
