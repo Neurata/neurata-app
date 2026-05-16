@@ -781,7 +781,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <h4>3. Eligibility and Accounts</h4>
           <p>To use Neurata, you must be a licensed real estate professional registered with the BC Financial Services Authority (BCFSA), or an authorized employee or assistant of a licensed brokerage. You are responsible for maintaining the confidentiality of your account credentials and for all activity that occurs under your account. You agree to notify us immediately at <a href="mailto:support@neurata.ai" style="color:var(--org)">support@neurata.ai</a> of any unauthorized access. Accounts are non-transferable. You may not share your credentials with others or allow multiple individuals to use a single account.</p>
           <h4>4. Subscriptions and Billing</h4>
-          <p>Neurata offers paid subscription services billed in Canadian dollars (CA$) subject to applicable taxes including GST: Meeting Mode + Local StrataSphere at CA$39.00/strata corporation/month + CA$1.49/strata lot/month; Meeting Mode + Global StrataSphere at CA$39.00/strata corporation/month + CA$2.49/strata lot/month. All subscriptions are billed monthly on the first day of each month, in advance. When a subscription is activated mid-month, a prorated charge for the remaining days is collected immediately. Payment is collected via pre-authorized debit (ACSS) or credit card through Stripe. GST (5%) is added to all charges for Canadian customers.</p>
+          <p>Neurata offers paid subscription services billed in Canadian dollars (CA$) subject to applicable taxes including GST: Meeting Mode + Local StrataSphere at CA$49.00/strata corporation/month + CA$1.49/strata lot/month; Meeting Mode + Global StrataSphere at CA$49.00/strata corporation/month + CA$2.49/strata lot/month. All subscriptions are billed monthly on the first day of each month, in advance. When a subscription is activated mid-month, a prorated charge for the remaining days is collected immediately. Payment is collected via pre-authorized debit (ACSS) or credit card through Stripe. GST (5%) is added to all charges for Canadian customers.</p>
           <h4>5. Annual Commitment</h4>
           <p>Subscriptions are made on an annual commitment, billed monthly. When you activate a subscription, you are committing to a minimum term of twelve (12) months from the activation date. You may cancel or downgrade at any time, but such changes take effect at the end of your current annual commitment period. You will continue to be billed at your current rate until the commitment period ends. Upgrading from Local StrataSphere to Global StrataSphere takes effect immediately. Neurata reserves the right to waive or modify commitment terms on a case-by-case basis during the early access period.</p>
           <h4>6. Acceptable Use</h4>
@@ -10146,7 +10146,6 @@ document.addEventListener('click',function(e){var pill=document.querySelector('.
 // AUTO-RESTORE SESSION & SUPER ADMIN
 // ══════════════════════════════════════════
 
-// Pre-populated demo data for Super Admin
 function loadSuperAdminData(userId, u) {
   // Load ALL strata corps across all brokerages
   getSupabase().from('strata_corps').select('*').order('brokerage_id')
@@ -11711,7 +11710,7 @@ function renderSCSubscription(s) {
     'PII-stripped and PIPA-compliant data',
     'Global StrataSphere — AI governance intelligence across the entire platform'
   ];
-  var gssPrice  = 'CA$39/mo. + CA$2.49/strata lot';
+  var gssPrice  = 'CA$'+PRICING.perBuilding+'/mo. + CA$'+PRICING.perLotGlobal+'/strata lot';
   var gssCommit = 'Annual commitment, billed monthly';
   var gssAction = '';
   if (currentPlan === 'trial' || currentPlan === 'local') {
