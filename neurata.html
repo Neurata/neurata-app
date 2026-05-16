@@ -11542,42 +11542,42 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
   } else if (_scDetailTab === 'subscription') {
-    // Always re-fetch SC subscription status from DB + Stripe before rendering
     var _subScId = s.id;
-    var _subPlan = s.plan;
-    Promise.all([
-      getSupabase().from('strata_corps')
-        .select('is_subscribed,mm_status,ss_tier,stripe_subscription_id,mm_activated_at,ss_activated_at,mm_pending_cancel')
-        .eq('plan_number', _subPlan).single(),
-      getSupabase().from('brokerages')
-        .select('subscription_status,billing_setup,stripe_customer_id')
-        .eq('bcfsa_lic', APP.brokerage.lic).single()
-    ]).then(function(results) {
-      var scRow  = results[0].data;
-      var brkRow = results[1].data;
-      if (scRow) {
-        s.isSubscribed         = scRow.is_subscribed || false;
-        s.mmStatus             = scRow.mm_status || (scRow.is_subscribed ? 'ACTIVE' : 'TRIAL');
-        s.ssTier               = scRow.ss_tier || null;
-        s.stripeSubscriptionId = scRow.stripe_subscription_id || null;
-        s.mmActivatedAt        = scRow.mm_activated_at || null;
-        s.ssActivatedAt        = scRow.ss_activated_at || null;
-        s.mmPendingCancel      = scRow.mm_pending_cancel || false;
-      }
-      if (brkRow) {
-        APP.brokerage.subscriptionStatus = brkRow.subscription_status || 'trial';
-        APP.brokerage.billingSetup       = brkRow.billing_setup || false;
-        APP.brokerage.stripeCustomerId   = brkRow.stripe_customer_id || null;
-      }
-      // Re-render with fresh data
+    // Show loading state immediately
+    html += '<div style="padding:32px;text-align:center;color:var(--g4);font-size:13px">Checking subscription status…</div>';
+    el.innerHTML = html;
+    // Ping Stripe directly — source of truth
+    fetch(WORKER_URL + '/stripe/sc-status?scPlan=' + encodeURIComponent(s.plan))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
+      if (!sc_) return;
+      // Update local state from Stripe
+      sc_.isSubscribed         = d.isSubscribed || false;
+      sc_.mmStatus             = d.mmStatus || 'TRIAL';
+      sc_.ssTier               = d.ssTier || null;
+      sc_.stripeSubscriptionId = d.stripeSubscriptionId || null;
+      sc_.mmActivatedAt        = d.mmActivatedAt || null;
+      sc_.ssActivatedAt        = d.ssActivatedAt || null;
+      sc_.mmPendingCancel      = d.mmPendingCancel || false;
+      // Update brokerage status too
+      if (d.isSubscribed) APP.brokerage.subscriptionStatus = 'active';
+      // Re-render with live data
       var scEl = document.getElementById('sc-detail-body');
       if (scEl && _scDetailTab === 'subscription') {
-        var freshS = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
-        if (freshS) scEl.innerHTML = renderSCSubscription(freshS);
+        scEl.innerHTML = renderSCSubscription(sc_);
       }
-    }).catch(function(){});
-    // Render immediately with cached data while fetch is in-flight
-    html += renderSCSubscription(s);
+    })
+    .catch(function() {
+      // Fall back to cached state on error
+      var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
+      var scEl = document.getElementById('sc-detail-body');
+      if (scEl && _scDetailTab === 'subscription' && sc_) {
+        scEl.innerHTML = renderSCSubscription(sc_);
+      }
+    });
+    // Return early — content set by async callback above
+    return;
   }
 
   el.innerHTML = html;
