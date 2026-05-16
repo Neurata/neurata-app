@@ -11542,6 +11542,41 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
   } else if (_scDetailTab === 'subscription') {
+    // Always re-fetch SC subscription status from DB + Stripe before rendering
+    var _subScId = s.id;
+    var _subPlan = s.plan;
+    Promise.all([
+      getSupabase().from('strata_corps')
+        .select('is_subscribed,mm_status,ss_tier,stripe_subscription_id,mm_activated_at,ss_activated_at,mm_pending_cancel')
+        .eq('plan_number', _subPlan).single(),
+      getSupabase().from('brokerages')
+        .select('subscription_status,billing_setup,stripe_customer_id')
+        .eq('bcfsa_lic', APP.brokerage.lic).single()
+    ]).then(function(results) {
+      var scRow  = results[0].data;
+      var brkRow = results[1].data;
+      if (scRow) {
+        s.isSubscribed         = scRow.is_subscribed || false;
+        s.mmStatus             = scRow.mm_status || (scRow.is_subscribed ? 'ACTIVE' : 'TRIAL');
+        s.ssTier               = scRow.ss_tier || null;
+        s.stripeSubscriptionId = scRow.stripe_subscription_id || null;
+        s.mmActivatedAt        = scRow.mm_activated_at || null;
+        s.ssActivatedAt        = scRow.ss_activated_at || null;
+        s.mmPendingCancel      = scRow.mm_pending_cancel || false;
+      }
+      if (brkRow) {
+        APP.brokerage.subscriptionStatus = brkRow.subscription_status || 'trial';
+        APP.brokerage.billingSetup       = brkRow.billing_setup || false;
+        APP.brokerage.stripeCustomerId   = brkRow.stripe_customer_id || null;
+      }
+      // Re-render with fresh data
+      var scEl = document.getElementById('sc-detail-body');
+      if (scEl && _scDetailTab === 'subscription') {
+        var freshS = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
+        if (freshS) scEl.innerHTML = renderSCSubscription(freshS);
+      }
+    }).catch(function(){});
+    // Render immediately with cached data while fetch is in-flight
     html += renderSCSubscription(s);
   }
 
@@ -11715,7 +11750,7 @@ function renderSCSubscription(s) {
     'Council &amp; strata lot management',
     'Local StrataSphere — AI governance intelligence for your strata corporation'
   ];
-  var mmPrice  = 'CA$39/mo. + CA$1.49/strata lot';
+  var mmPrice  = 'CA$'+PRICING.perBuilding+'/mo. + CA$'+PRICING.perLotLocal+'/strata lot';
   var mmCommit = 'Annual commitment, billed monthly';
   var mmAction = '';
   if (currentPlan === 'trial') {
