@@ -2198,7 +2198,7 @@ function activateSCMeetingMode(scId) {
         sc_.stripeSubscriptionId = subId;
         getSupabase().from('strata_corps').update({
           is_subscribed: true, mm_activated_at: sc_.mmActivatedAt,
-          ss_tier: 'local', ss_activated_at: sc_.ssActivatedAt,
+          ss_tier: 'local', ss_global_activated_at: sc_.ssActivatedAt,
           stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
         // Update brokerage subscription status
@@ -2227,7 +2227,7 @@ function activateSCStrataSphere(scId, tier) {
         sc_.ssTier = tier; sc_.ssActivatedAt = new Date().toISOString();
         sc_.mmStatus = 'ACTIVE'; sc_.stripeSubscriptionId = subId;
         getSupabase().from('strata_corps').update({
-          ss_tier: tier, ss_activated_at: sc_.ssActivatedAt,
+          ss_tier: tier, ss_global_activated_at: sc_.ssActivatedAt,
           is_subscribed: true, stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
         getSupabase().from('brokerages').update({ subscription_status: 'active' }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
@@ -11518,7 +11518,7 @@ function renderSCDetail(scId) {
       sc_.ssTier               = d.ss_tier || null;
       sc_.stripeSubscriptionId = d.stripe_subscription_id || null;
       sc_.mmActivatedAt        = d.mm_activated_at || null;
-      sc_.ssActivatedAt        = d.ss_activated_at || null;
+      sc_.ssActivatedAt        = d.ss_global_activated_at || null;
       sc_.mmPendingCancel      = d.mm_pending_cancel || false;
       if (d.is_subscribed) APP.brokerage.subscriptionStatus = 'active';
       var scEl = document.getElementById('sc-detail-body');
