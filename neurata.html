@@ -11507,7 +11507,7 @@ function renderSCDetail(scId) {
     el.innerHTML = html;
     // Re-fetch live from DB — always fresh on tab open
     getSupabase().from('strata_corps')
-      .select('is_subscribed,ss_tier,stripe_subscription_id,mm_activated_at,ss_activated_at,mm_pending_cancel')
+      .select('*')
       .eq('plan_number', s.plan).single()
     .then(function(res) {
       var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
