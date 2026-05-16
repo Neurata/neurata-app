@@ -1262,7 +1262,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 <!-- BROKERAGE (MB + AB only) -->
 <div class="pg" id="pg-brokerage">
-  <div class="ph"><div class="ph-row"><div><div class="pt">Brokerage</div><div class="ps">Account info, representatives, strata corporation connections</div></div><button class="btn" onclick="openMo('mo-invite-rep')">+ Invite Representative</button></div></div>
+  <div class="ph"><div class="ph-row"><div><div class="pt">Brokerage</div><div class="ps">Account info, representatives, strata corporation connections</div></div></div></div>
   <div class="pb" id="brokerage-body"></div>
 </div>
 
@@ -8124,7 +8124,11 @@ function renderBrokerageRepList() {
         +'<td style="padding:7px 10px;font-size:13px;font-weight:600;border-bottom:1px solid var(--g2)">'+escHtml(r.name||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--ch3);border-bottom:1px solid var(--g2)">'+escHtml(r.title||'—')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+escHtml(r.lic||'')+'</td>'
-        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
+        +'<td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--g2)">'+(activeLicSet.indexOf(r.lic)>=0
+          ? '<span class="tag grn" style="font-size:10px">Active</span>'
+          : r.invited_at
+            ? '<span class="tag" style="font-size:10px;background:rgba(234,179,8,.12);color:#b45309;border:1px solid rgba(234,179,8,.3)">Invited</span>'
+            : '<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
         +'<td style="padding:7px 10px;font-size:12px;color:var(--g4);border-bottom:1px solid var(--g2)">'+(r.email?'<a href="mailto:'+escHtml(r.email)+'" style="color:var(--g4);text-decoration:none" title="'+escHtml(r.email)+'">'+escHtml(r.email)+'</a>':'<em style="color:var(--g4)">—</em>')+'</td>'
         +'<td style="padding:8px 10px;border-bottom:1px solid var(--g2)">'+corpsHtml+'</td>'
         +'<td style="padding:7px 10px;border-bottom:1px solid var(--g2)">'
@@ -8753,7 +8757,7 @@ function adminEnterBrokerage(brkLic) {
       // Still load reps even if no strata corps
       db.from('reps').select('*').eq('brokerage_id', brkLic).then(function(r) {
         APP.reps = (r.data||[]).map(function(rep){
-          return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
+          return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]', invited_at:rep.invited_at||null };
         });
         _adminFinishEnter(brkLic, b);
       }).catch(function(){ _adminFinishEnter(brkLic, b); });
@@ -8837,7 +8841,7 @@ function adminEnterBrokerage(brkLic) {
 
       // Load reps
       APP.reps = repsData.map(function(rep){
-        return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]' };
+        return { name:rep.name, lic:rep.bcfsa_lic, title:rep.role, email:rep.email||'', status:'Active', scIds:rep.sc_ids||'[]', invited_at:rep.invited_at||null };
       });
 
 
@@ -9770,7 +9774,7 @@ function loadUserProfile(userId, _appMeta) {
           .then(function(r) {
             if (!r.error && r.data && r.data.length) {
               APP.reps = r.data.map(function(rep) {
-                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status:'Active', scIds: rep.sc_ids||'[]' };
+                return { name: rep.name, lic: rep.bcfsa_lic, title: rep.role, email: rep.email||'', status:'Active', scIds: rep.sc_ids||'[]', invited_at: rep.invited_at||null };
               });
               // Resolve smName for each SC
               APP.sc.forEach(function(sc_) {
