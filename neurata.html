@@ -2201,12 +2201,12 @@ function activateSCMeetingMode(scId) {
           ss_tier: 'local', ss_activated_at: sc_.ssActivatedAt,
           stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
+        // Update brokerage subscription status
+        getSupabase().from('brokerages').update({ subscription_status: 'active' }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+        APP.brokerage.subscriptionStatus = 'active';
         sv('sc_'+sc_.id, sc_);
-        renderSidebar(APP.activePg); renderSCDetail(scId);
+        renderSidebar(APP.activePg); renderSCDetail(scId); renderDash();
         nAlert('Meeting Mode + Local StrataSphere activated for '+sc_.plan+'.', 'Activated ✓', 'success');
-        // Refresh SC data so all open sessions reflect new status
-        getSupabase().from('strata_corps').select('is_subscribed,ss_tier').eq('plan_number', sc_.plan).single()
-        .then(function(r){ if(r.data){ sc_.isSubscribed=true; } renderDash(); renderSCDetail(scId); });
       });
     }, 'Activate Meeting Mode', 'info');
 }
@@ -2230,8 +2230,10 @@ function activateSCStrataSphere(scId, tier) {
           ss_tier: tier, ss_activated_at: sc_.ssActivatedAt,
           is_subscribed: true, stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
+        getSupabase().from('brokerages').update({ subscription_status: 'active' }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+        APP.brokerage.subscriptionStatus = 'active';
         sv('sc_'+sc_.id, sc_);
-        renderSCDetail(scId); if(APP.currentScId===scId) renderMeetings();
+        renderSCDetail(scId); renderDash(); if(APP.currentScId===scId) renderMeetings();
         nAlert(label+' activated for '+sc_.plan+'.', 'Activated ✓', 'success');
       });
     }, 'Activate '+label, 'info');
@@ -2252,8 +2254,10 @@ function upgradeSCStrataSphere(scId) {
           ss_tier: 'global', ss_global_activated_at: sc_.ssGlobalActivatedAt,
           is_subscribed: true, stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
+        getSupabase().from('brokerages').update({ subscription_status: 'active' }).eq('bcfsa_lic', APP.brokerage.lic).then(function(){});
+        APP.brokerage.subscriptionStatus = 'active';
         sv('sc_'+sc_.id, sc_);
-        renderBilling(); renderSCDetail(scId);
+        renderBilling(); renderSCDetail(scId); renderDash();
         nAlert('Global StrataSphere activated for '+sc_.plan+'.', 'Upgraded ✓', 'success');
       });
     }, 'Upgrade to Global StrataSphere', 'info');
