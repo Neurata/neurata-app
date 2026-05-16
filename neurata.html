@@ -4313,51 +4313,39 @@ function assignRepToSC(scId, lic, name) {
   var brkLic = APP.brokerage.lic;
   var appUrl = (typeof ENV !== 'undefined' && ENV === 'production') ? 'https://app.neurata.ai' : 'https://appdev.neurata.ai';
 
-  // Get the user's ID and email — look up by bcfsa_lic only (unique per person)
-  getSupabase().from('users').select('id,email').eq('bcfsa_lic', lic).maybeSingle()
-  .then(function(res) {
-    if (!res.data) { nAlert('Could not find user record. Please try the email invite instead.','Error','warn'); return; }
-    var userId = res.data.id;
-    var email  = res.data.email;
-
-    // Write sc_users row
-    getSupabase().from('sc_users').upsert({ sc_id: s.plan, user_id: userId, access_type: 'rep' }, { onConflict: 'sc_id,user_id' }).then(function(){});
-
-    // Update reps.sc_ids
-    getSupabase().from('reps').select('sc_ids').eq('brokerage_id', brkLic).eq('bcfsa_lic', lic).maybeSingle()
-    .then(function(ex) {
-      var ids = [];
-      if (ex && ex.data && ex.data.sc_ids) { try { ids = JSON.parse(ex.data.sc_ids); } catch(e){} }
-      if (ids.indexOf(s.plan) < 0) ids.push(s.plan);
-      getSupabase().from('reps').upsert({ brokerage_id: brkLic, bcfsa_lic: lic, name: name, sc_ids: JSON.stringify(ids) }, { onConflict: 'brokerage_id,bcfsa_lic' }).then(function(){});
-    });
+  fetch(WORKER_URL + '/assign-rep', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ bcfsaLic: lic, scPlan: s.plan, brkLic: brkLic, repName: name })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.error) { nAlert('Assignment failed: ' + d.error, 'Error', 'warn'); return; }
 
     // Update local state
     if (!s.repIds) s.repIds = [];
     if (s.repIds.indexOf(lic) < 0) s.repIds.push(lic);
     if (!s.repUserIds) s.repUserIds = [];
     if (!s.repUserIds.find(function(u){ return u.lic === lic; })) {
-      s.repUserIds.push({ userId: userId, lic: lic, name: name, role: 'Representative', accessType: 'rep' });
+      s.repUserIds.push({ userId: d.userId, lic: lic, name: name, role: 'Representative', accessType: 'rep' });
     }
 
-    // Send notification email
-    fetch(WORKER_URL + '/send-invite', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        type:      'rep_assigned',
-        to:        email,
-        toName:    name,
-        fromName:  APP.currentUser.name,
-        brokerage: APP.brokerage.name || '',
-        scPlan:    s.plan,
-        scName:    s.name || '',
-        appUrl:    appUrl  // plain URL — no token, goes to login screen
-      })
-    }).catch(function(){});
+    // Send notification email if we have their email
+    if (d.email) {
+      fetch(WORKER_URL + '/send-invite', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type: 'rep_assigned', to: d.email, toName: name,
+          fromName: APP.currentUser.name, brokerage: APP.brokerage.name || '',
+          scPlan: s.plan, scName: s.name || '', appUrl: appUrl
+        })
+      }).catch(function(){});
+    }
 
-    renderSCDetail(scId);
-    nAlert(name + ' has been assigned to ' + s.plan + '. They will receive a notification email.', 'Assigned \u2713', 'success');
-  }).catch(function(e){ nAlert('Assignment failed: ' + e.message, 'Error', 'warn'); });
+    renderBrokerage();
+    nAlert(name + ' has been assigned to ' + s.plan + '.', 'Assigned \u2713', 'success');
+  })
+  .catch(function(e){ nAlert('Assignment failed: ' + e.message, 'Error', 'warn'); });
 }
 
 function openEmailInvite(scId, lic, name) {
