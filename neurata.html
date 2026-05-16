@@ -11501,38 +11501,10 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
   } else if (_scDetailTab === 'subscription') {
-    var _subScId = s.id;
-    // Show loading state immediately
-    html += '<div style="padding:32px;text-align:center;color:var(--g4);font-size:13px">Checking subscription status…</div>';
-    el.innerHTML = html;
-    // Re-fetch live from DB — always fresh on tab open
-    getSupabase().from('strata_corps')
-      .select('*')
-      .eq('plan_number', s.plan).single()
-    .then(function(res) {
-      var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
-      if (!sc_) return;
-      var d = res.data || {};
-      sc_.isSubscribed         = d.is_subscribed || false;
-      sc_.mmStatus             = d.is_subscribed ? 'ACTIVE' : 'TRIAL';
-      sc_.ssTier               = d.ss_tier || null;
-      sc_.stripeSubscriptionId = d.stripe_subscription_id || null;
-      sc_.mmActivatedAt        = d.mm_activated_at || null;
-      sc_.ssActivatedAt        = d.ss_global_activated_at || null;
-      sc_.mmPendingCancel      = d.mm_pending_cancel || false;
-      if (d.is_subscribed) APP.brokerage.subscriptionStatus = 'active';
-      var scEl = document.getElementById('sc-detail-body');
-      if (scEl && _scDetailTab === 'subscription') {
-        scEl.innerHTML = renderSCSubscription(sc_);
-      }
-    })
-    .catch(function() {
-      var sc_ = (APP.sc||[]).find(function(x){ return x.id === _subScId; });
-      var scEl = document.getElementById('sc-detail-body');
-      if (scEl && _scDetailTab === 'subscription' && sc_) {
-        scEl.innerHTML = renderSCSubscription(sc_);
-      }
-    });
+    // Use already-loaded SC data — it was fetched fresh on login/brokerage load.
+    // Just sync brokerage subscription status from SC state.
+    if (s.isSubscribed) APP.brokerage.subscriptionStatus = 'active';
+    html += renderSCSubscription(s);
   }
 
   el.innerHTML = html;
@@ -12385,6 +12357,33 @@ function showPg(pg) {
       var canCreate = role === 'Managing Broker' || role === 'Associate Broker' || role === 'Representative';
       var isSAOutside = APP.currentUser && APP.currentUser.isSuperAdmin && !APP._adminContext;
       addScBtn.style.display = (canCreate && !isSAOutside) ? '' : 'none';
+    }
+    // Background refresh of SC subscription status
+    if (APP.brokerage && APP.brokerage.lic && !APP.currentUser.isSuperAdmin) {
+      getSupabase().from('strata_corps')
+        .select('plan_number,is_subscribed,ss_tier,stripe_subscription_id,mm_activated_at,mm_pending_cancel,ss_global_activated_at')
+        .eq('brokerage_id', APP.brokerage.lic)
+      .then(function(res) {
+        var rows = res.data || [];
+        var anyActive = false;
+        rows.forEach(function(row) {
+          var sc_ = (APP.sc||[]).find(function(s){ return s.plan === row.plan_number; });
+          if (sc_) {
+            sc_.isSubscribed         = row.is_subscribed || false;
+            sc_.mmStatus             = row.is_subscribed ? 'ACTIVE' : 'TRIAL';
+            sc_.ssTier               = row.ss_tier || null;
+            sc_.stripeSubscriptionId = row.stripe_subscription_id || null;
+            sc_.mmActivatedAt        = row.mm_activated_at || null;
+            sc_.mmPendingCancel      = row.mm_pending_cancel || false;
+            sc_.ssActivatedAt        = row.ss_global_activated_at || null;
+            if (row.is_subscribed) anyActive = true;
+          }
+        });
+        if (anyActive) APP.brokerage.subscriptionStatus = 'active';
+        // Re-render if subscription tab is open
+        if (_scDetailTab === 'subscription' && APP.currentScId) renderSCDetail(APP.currentScId);
+        renderSidebar('strata');
+      }).catch(function(){});
     }
   }
   if (pg === 'meetings')      renderMeetings();
