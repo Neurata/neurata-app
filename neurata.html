@@ -8375,6 +8375,21 @@ function renderRepList(){
     +'<tbody><tr><td><strong>'+APP.currentUser.name+'</strong></td><td><span class="tag gy">'+APP.currentUser.role+'</span></td><td style="font-size:11px">'+APP.currentUser.lic+'</td><td style="font-size:11px">'+APP.currentUser.licFor+'</td></tr></tbody>'
     +'</table></div>';
 }
+function markRepInvited(lic) {
+  if (!lic || !APP.brokerage) return;
+  var now = new Date().toISOString();
+  // Update local state immediately so pill refreshes without DB round-trip
+  var rep = (APP.brokerage.reps||[]).find(function(r){ return r.lic === lic; });
+  if (rep) rep.invited_at = now;
+  renderBrokerage();
+  // Persist to DB
+  getSupabase().from('reps')
+    .update({ invited_at: now })
+    .eq('brokerage_id', APP.brokerage.lic)
+    .eq('bcfsa_lic', lic)
+    .then(function(){}).catch(function(){});
+}
+
 function sendInvite(){
   var email = ((document.getElementById('inv-rep-email')||{}).value||'').trim();
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid brokerage email address.','Missing Field','warn'); return; }
@@ -8408,16 +8423,19 @@ function sendInvite(){
         if (_inviteRepLic) {
           markRepInvited(_inviteRepLic);
         } else {
-          // No lic known — mark invited by email match in reps table
-          getSupabase().from('reps').update({ invited_at: new Date().toISOString() })
-            .eq('brokerage_id', APP.brokerage.lic)
-            .then(function(){
-              // Reload reps to refresh pills
-              if (APP.brokerage && APP.brokerage.reps) {
-                APP.brokerage.reps.forEach(function(r){ if (!r.invited_at) r.invited_at = new Date().toISOString(); });
-                renderBrokerage();
-              }
-            });
+          // No lic known from context — find rep by email in local roster
+          var invitedRep = (APP.brokerage.reps||[]).find(function(r){
+            return r.email && r.email.toLowerCase() === email.toLowerCase();
+          });
+          if (invitedRep && invitedRep.lic) {
+            markRepInvited(invitedRep.lic);
+          } else {
+            // Can't match to specific rep — mark all uninvited as invited
+            // (only fires when lic unknown and email not in roster)
+            var now = new Date().toISOString();
+            (APP.brokerage.reps||[]).forEach(function(r){ if (!r.invited_at) r.invited_at = now; });
+            renderBrokerage();
+          }
         }
       }
   })
