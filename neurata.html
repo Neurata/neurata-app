@@ -11175,47 +11175,6 @@ function renderDash() {
   if (sub) sub.textContent = (APP.brokerage.name||APP.currentUser.brkName||'—') + (APP.brokerage.lic?' · BCFSA '+APP.brokerage.lic:'');
   if (!el) return;
 
-  // ── Live subscription status re-fetch ──────────────────────────────────
-  // Re-fetch from DB max once per 10 seconds so SA-activated subscriptions
-  // are visible to MB/SM without hammering the DB.
-  var _now = Date.now();
-  if (!APP._lastSubRefresh || (_now - APP._lastSubRefresh) > 10000) {
-    APP._lastSubRefresh = _now;
-    getSupabase().from('brokerages')
-      .select('subscription_status,trial_meetings_used,trial_meetings_allowed,trial_expires_at,billing_setup,stripe_customer_id')
-      .eq('bcfsa_lic', APP.brokerage.lic).single()
-    .then(function(bRes) {
-      var bData = bRes.data;
-      if (!bData) return;
-      var changed = APP.brokerage.subscriptionStatus !== (bData.subscription_status||'trial');
-      APP.brokerage.subscriptionStatus    = bData.subscription_status || 'trial';
-      APP.brokerage.trialMeetingsUsed     = bData.trial_meetings_used || 0;
-      APP.brokerage.trialMeetingsAllowed  = bData.trial_meetings_allowed || PRICING.trialMeetings;
-      APP.brokerage.trialExpiresAt        = bData.trial_expires_at || null;
-      APP.brokerage.billingSetup          = bData.billing_setup || false;
-      APP.brokerage.stripeCustomerId      = bData.stripe_customer_id || null;
-      if (changed) {
-        getSupabase().from('strata_corps')
-          .select('plan_number,is_subscribed,mm_status,ss_tier,stripe_subscription_id')
-          .eq('brokerage_id', APP.brokerage.lic)
-        .then(function(scRes) {
-          (scRes.data||[]).forEach(function(row) {
-            var sc_ = (APP.sc||[]).find(function(s){ return s.plan === row.plan_number; });
-            if (sc_) {
-              sc_.isSubscribed         = row.is_subscribed || false;
-              sc_.mmStatus             = row.mm_status || (row.is_subscribed ? 'ACTIVE' : 'TRIAL');
-              sc_.ssTier               = row.ss_tier || null;
-              sc_.stripeSubscriptionId = row.stripe_subscription_id || null;
-            }
-          });
-          APP._lastSubRefresh = 0; // allow immediate re-render
-          renderDash();
-        });
-      }
-    }).catch(function(){});
-  }
-  // ── End live re-fetch ────────────────────────────────────────────────────
-
   var sc = getVisibleSCs();
   var adjCount  = APP.brokerage.trialMeetingsUsed || 0;
 
@@ -11576,8 +11535,6 @@ function renderSCDetail(scId) {
         scEl.innerHTML = renderSCSubscription(sc_);
       }
     });
-    // Return early — content set by async callback above
-    return;
   }
 
   el.innerHTML = html;
