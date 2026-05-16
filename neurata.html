@@ -2204,6 +2204,9 @@ function activateSCMeetingMode(scId) {
         sv('sc_'+sc_.id, sc_);
         renderSidebar(APP.activePg); renderSCDetail(scId);
         nAlert('Meeting Mode + Local StrataSphere activated for '+sc_.plan+'.', 'Activated ✓', 'success');
+        // Refresh SC data so all open sessions reflect new status
+        getSupabase().from('strata_corps').select('is_subscribed,ss_tier').eq('plan_number', sc_.plan).single()
+        .then(function(r){ if(r.data){ sc_.isSubscribed=true; } renderDash(); renderSCDetail(scId); });
       });
     }, 'Activate Meeting Mode', 'info');
 }
@@ -4253,45 +4256,42 @@ function saveSCInviteRep(scId) {
 }
 
 function assignRepToSCFromBrokerage(lic, name) {
-  // If only one SC, assign directly. If multiple, let MB pick.
   var scs = (APP.sc||[]).filter(function(s){ return s.plan; });
-  if (!scs.length) { nAlert('No strata corporations found.', '', 'warn'); return; }
+  if (!scs.length) { nAlert('No strata corporations found. Add a strata corporation first.', '', 'warn'); return; }
+  if (scs.length === 1) { assignRepToSC(scs[0].id, lic, name); return; }
 
-  if (scs.length === 1) {
-    assignRepToSC(scs[0].id, lic, name);
-    return;
-  }
-
-  // Multiple SCs — show dropdown picker
-  var selId = 'assign-sc-sel-' + Date.now();
-  nConfirm(
-    'Select a strata corporation to assign ' + name + ' to:',
-    function(ok) {
-      if (!ok) return;
-      var sel = document.getElementById(selId);
-      if (!sel) return;
-      var scId = sel.value;
-      var sc_ = scs.find(function(s){ return s.id === scId; });
-      if (sc_) assignRepToSC(sc_.id, lic, name);
-    },
-    'Assign to SC', 'info'
-  );
-  // Inject a <select> into the dialog message area after it opens
-  setTimeout(function() {
-    var msgEl = document.getElementById('cdlg-msg');
-    if (!msgEl) return;
-    var sel = document.createElement('select');
-    sel.id = selId;
-    sel.style.cssText = 'width:100%;margin-top:10px;padding:8px 10px;border:1px solid var(--g3);border-radius:5px;font-size:13px;font-family:inherit;color:var(--ch);background:var(--wh)';
+  // Populate and open the assign modal
+  var nameEl = document.getElementById('mo-assign-rep-name');
+  var listEl = document.getElementById('mo-assign-sc-list');
+  if (nameEl) nameEl.textContent = 'Assign ' + name;
+  if (listEl) {
+    listEl.innerHTML = '';
     scs.forEach(function(s) {
-      var opt = document.createElement('option');
-      opt.value = s.id;
       var alreadyAssigned = s.repUserIds && s.repUserIds.some(function(u){ return u.lic === lic; });
-      opt.textContent = s.plan + (s.name ? ' — ' + s.name : '') + (alreadyAssigned ? ' ✓ assigned' : '');
-      sel.appendChild(opt);
+      var row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--g2);border-radius:6px;cursor:pointer;font-size:13px;transition:background .15s';
+      row.innerHTML = '<input type="checkbox" value="'+escHtml(s.id)+'" style="width:16px;height:16px;accent-color:var(--org)"'+(alreadyAssigned?' checked disabled':'')+'/>'
+        + '<span><strong>'+escHtml(s.plan)+'</strong>'+(s.name?' — '+escHtml(s.name):'')+'</span>'
+        + (alreadyAssigned ? '<span class="tag grn" style="margin-left:auto;font-size:10px">Assigned</span>' : '');
+      listEl.appendChild(row);
     });
-    msgEl.appendChild(sel);
-  }, 50);
+  }
+  window._assignRepLic  = lic;
+  window._assignRepName = name;
+  openMo('mo-assign-rep');
+}
+
+function saveAssignRep() {
+  var listEl = document.getElementById('mo-assign-sc-list');
+  if (!listEl) return;
+  var boxes = listEl.querySelectorAll('input[type="checkbox"]:not(:disabled):checked');
+  if (!boxes.length) { nAlert('Please select at least one strata corporation.', '', 'warn'); return; }
+  closeMo('mo-assign-rep');
+  boxes.forEach(function(box) {
+    var scId = box.value;
+    var sc_ = (APP.sc||[]).find(function(s){ return s.id === scId; });
+    if (sc_) assignRepToSC(sc_.id, window._assignRepLic, window._assignRepName);
+  });
 }
 
 function assignRepToSC(scId, lic, name) {
@@ -5407,7 +5407,7 @@ function renderCtr(it) {
     var adjScript = 'Chair: "Is there a motion to adjourn? … Moved by — Seconded by — All in favour? … The motion is CARRIED. This meeting is adjourned at [time]. Thank you all for attending."';
     h += '<div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:12px;color:var(--ch3);line-height:1.7;font-style:italic">'+adjScript+'</div>';
   }
-  if (!isAdjournment && itemLower.indexOf('next meeting') < 0 && itemLower.indexOf('set next') < 0) {
+  if (!isAdjournment && itemLower.indexOf('next meeting') < 0 && itemLower.indexOf('set next') < 0 && itemLower.indexOf('call to order') < 0) {
     h += mmSec('Background / Rationale', it.background||it.rationale||'', false);
     h += mmSec('Financial Implications', it.financial||'', false);
     h += mmSec('Risks / Compliance',     it.risks||it.compliance||'', false);
@@ -6412,8 +6412,10 @@ function renderMinutesContent(mtg, sc_) {
   });
   html += '<div class="min-section-hd">ADJOURNMENT</div>'
     +'<div class="min-para">There being no further business, the meeting was adjourned at '+fmt12hr(mtg.adjTime)+'.</div>';
-  html += '<div class="min-sig"><div class="min-sig-line">_________________________<br><span>Strata Council Secretary</span></div>'
-    +'<div class="min-sig-line">_________________________<br><span>Strata Manager</span></div></div>';
+  html += '<div class="min-sig" style="display:flex;gap:60px;margin-top:48px;padding-top:20px;border-top:1px solid var(--g2)">'
+    +'<div class="min-sig-line" style="min-width:200px"><div style="margin-bottom:28px">_________________________</div><span>Strata Council Chair</span></div>'
+    +'<div class="min-sig-line" style="min-width:200px"><div style="margin-bottom:28px">_________________________</div><span>Strata Manager</span></div>'
+    +'</div>';
   el.innerHTML = html;
 }
 
@@ -6563,12 +6565,95 @@ function exportAgenda(scId, mtgId) {
   } else { doExport(''); }
 }
 
-function exportMin(fmt, scId, mtgId) {
+function exportAgendaDocx(sc_, mtg) {
+  var plan      = sc_ ? sc_.plan : '';
+  var date      = mtg.date || '';
+  var typeMap   = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
+  var typeLabel = typeMap[mtg.type] || mtg.type || 'Meeting';
+  var mgr       = APP.currentUser ? APP.currentUser.name : '—';
+  var fname     = (plan.replace(/\s+/g,''))+'_'+typeLabel.replace(/\s+/g,'_')+'_'+date+'_AGENDA.docx';
+
+  // Group agenda by category
+  var cats = [], catMap = {};
+  mtg.agenda.forEach(function(it){
+    if(!catMap[it.catId]){catMap[it.catId]={name:it.cat,items:[]};cats.push(catMap[it.catId]);}
+    catMap[it.catId].items.push(it);
+  });
+
+  var brkName = APP.brokerage && APP.brokerage.name ? APP.brokerage.name : '';
+  var brkAddr = APP.brokerage && APP.brokerage.addr ? APP.brokerage.addr : '';
+  var location = mtg.loc ? mtg.loc : (mtg.fmt === 'virtual' ? 'Virtual Meeting' : '');
+  var timeStr  = mtg.time ? ' at ' + mtg.time : '';
+
+  // Build docx XML
+  var xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  xml += '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n<w:body>\n';
+
+  function para(text, style, opts) {
+    opts = opts || {};
+    var sz = opts.sz || '24'; var bold = opts.bold ? '<w:b/>' : ''; var color = opts.color || '';
+    var colorTag = color ? '<w:color w:val="'+color+'"/>' : '';
+    var align = opts.align ? '<w:jc w:val="'+opts.align+'"/>' : '';
+    return '<w:p><w:pPr>'+align+'<w:spacing w:before="'+(opts.before||'0')+'" w:after="'+(opts.after||'80')+'"/></w:pPr>'
+      +'<w:r><w:rPr>'+bold+colorTag+'<w:sz w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+esc(text)+'</w:t></w:r></w:p>\n';
+  }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function hline() { return '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="CCCCCC"/></w:pBdr><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>\n'; }
+
+  // Header
+  if (brkName) xml += para(brkName, '', {bold:true, sz:'28', align:'center', after:'40'});
+  if (brkAddr) xml += para(brkAddr, '', {sz:'20', align:'center', color:'666666', after:'40'});
+  xml += hline();
+  xml += para('MEETING AGENDA', '', {bold:true, sz:'32', align:'center', color:'1B4F8A', before:'120', after:'60'});
+  xml += para(typeLabel.toUpperCase(), '', {bold:true, sz:'26', align:'center', before:'0', after:'120'});
+  xml += para('Strata Plan ' + plan + (sc_.name ? ' — ' + sc_.name : ''), '', {bold:true, sz:'24', before:'0', after:'40'});
+  if (date) xml += para('Date: ' + date + timeStr, '', {sz:'22', color:'444444', before:'0', after:'20'});
+  if (location) xml += para('Location: ' + location, '', {sz:'22', color:'444444', before:'0', after:'20'});
+  xml += para('Strata Manager: ' + mgr, '', {sz:'22', color:'444444', before:'0', after:'80'});
+  xml += hline();
+
+  // Agenda items
+  var itemNum = 1;
+  cats.forEach(function(cat) {
+    xml += para(cat.name.toUpperCase(), '', {bold:true, sz:'22', color:'1B4F8A', before:'200', after:'60'});
+    cat.items.forEach(function(it) {
+      var typeTag = it.type && it.type !== 'FOR_INFORMATION' ? ' [' + it.type.replace(/_/g,' ') + ']' : '';
+      xml += para(itemNum + '. ' + it.text + typeTag, '', {sz:'22', before:'40', after:'40'});
+      if (it.motion && it.motion.text) {
+        xml += para('Proposed Motion: ' + it.motion.text, '', {sz:'20', color:'555555', before:'20', after:'60'});
+      }
+      itemNum++;
+    });
+  });
+
+  // Signature
+  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="0"/></w:pPr></w:p>\n';
+  xml += hline();
+  xml += '<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders/></w:tblPr><w:tblGrid><w:gridCol w:w="4680"/><w:gridCol w:w="4680"/></w:tblGrid>';
+  xml += '<w:tr><w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/></w:tcPr>';
+  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>_________________________</w:t></w:r></w:p>';
+  xml += '<w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>Strata Council Chair</w:t></w:r></w:p>';
+  xml += '</w:tc><w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/></w:tcPr>';
+  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>_________________________</w:t></w:r></w:p>';
+  xml += '<w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>Strata Manager</w:t></w:r></w:p>';
+  xml += '</w:tc></w:tr></w:tbl>';
+  xml += '<w:sectPr><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>\n</w:body>\n</w:document>';
+
+  buildAndDownloadDocx(xml, fname);
+}
+
+function exportMin(fmt, scId, mtgId, mode) {
   var sc_  = scId  ? APP.sc.find(function(s){return s.id===scId;})  : APP.sc.find(function(s){return s.id===APP.currentScId;});
   var mtg  = mtgId ? (sc_&&sc_.meetings?sc_.meetings.find(function(m){return String(m.id)===String(mtgId);}):null)
                    : (sc_&&sc_.meetings?sc_.meetings.find(function(m){return String(m.id)===String(APP.currentMtgId);}):null);
   if (!mtg) { nAlert('Meeting not found.'); return; }
   if (!mtg.agenda || !mtg.agenda.length) { nAlert('No agenda found for this meeting.'); return; }
+
+  // Agenda export mode — generate agenda docx instead of minutes
+  if (mode === 'agenda') {
+    if (fmt === 'docx') { exportAgendaDocx(sc_, mtg); return; }
+  }
+
   if (fmt === 'pdf' && mtg.minutesState !== 'FINAL') {
     nAlert('Only finalised minutes can be exported as PDF. Please finalise the minutes first.');
     return;
@@ -8302,7 +8387,23 @@ function sendInvite(){
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.error) nAlert('Could not send invitation: '+d.error,'Error','warn');
-    else { nAlert('Invitation sent to '+email+'. They will receive a link to create their account and verify their BCFSA licence.','Invite Sent ✓','success'); if (_inviteRepLic) markRepInvited(_inviteRepLic); }
+    else {
+        nAlert('Invitation sent to '+email+'. They will receive a link to create their account and verify their BCFSA licence.','Invite Sent ✓','success');
+        if (_inviteRepLic) {
+          markRepInvited(_inviteRepLic);
+        } else {
+          // No lic known — mark invited by email match in reps table
+          getSupabase().from('reps').update({ invited_at: new Date().toISOString() })
+            .eq('brokerage_id', APP.brokerage.lic)
+            .then(function(){
+              // Reload reps to refresh pills
+              if (APP.brokerage && APP.brokerage.reps) {
+                APP.brokerage.reps.forEach(function(r){ if (!r.invited_at) r.invited_at = new Date().toISOString(); });
+                renderBrokerage();
+              }
+            });
+        }
+      }
   })
   .catch(function(e){ nAlert('Could not send invitation: '+e.message,'Error','warn'); });
 }
@@ -10257,7 +10358,8 @@ function getGSTasks() {
   var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
   var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; }); });
   var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='upload'||d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
-  var hasSSQuery   = APP._hasSSQuery || false;
+  var _ssKey = 'ss_query_' + (APP.currentUser && APP.currentUser.id || '') + '_' + (APP.brokerage && APP.brokerage.lic || '');
+  var hasSSQuery   = APP[_ssKey] || false;
   var hasInvited   = sc.some(function(s){ return (s.repIds||[]).some(function(lic){ return lic !== APP.currentUser.lic; }); });
   var hasBilling   = brk.billingSetup || false;
   var hasSubReq    = APP._hasSubRequest || false;
@@ -10296,6 +10398,7 @@ function getGSTasks() {
       { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
       { label: 'Upload a document (e.g. bylaws)',   done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Create your first meeting',         done: hasMeeting, action: goMeetings },
       { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
       { label: 'Set up payment method',             done: hasBilling, action: goBilling }
     ];
@@ -10308,6 +10411,7 @@ function getGSTasks() {
       { label: 'Upload historic minutes',           done: hasMinutes, action: goMinutes },
       { label: 'Upload a document (e.g. bylaws)',   done: hasBylaws,  action: goDocs },
       { label: 'Ask StrataSphere a question',       done: hasSSQuery, action: goSS },
+      { label: 'Create your first meeting',         done: hasMeeting, action: goMeetings },
       { label: 'Invite a representative (SM)',      done: hasInvited, action: goReps },
       { label: 'Request subscription activation',  done: hasSubReq,  action: goSubReq }
     ];
@@ -10334,7 +10438,8 @@ function refreshGSCard() {
 
 // Call this after a StrataSphere query to mark it done
 function markSSQueryDone() {
-  APP._hasSSQuery = true;
+  var _ssKey = 'ss_query_' + (APP.currentUser && APP.currentUser.id || '') + '_' + (APP.brokerage && APP.brokerage.lic || '');
+  APP[_ssKey] = true;
   refreshGSCard();
 }
 
@@ -10414,19 +10519,54 @@ function _markOnboardingSeen() {
 // ── First Meeting Prompt (shown after SC created) ────────────────
 
 var _fmpScId = null;
+var _fmpStep = 0; // 0=roster,1=council,2=minutes,3=bylaws,4=meeting
+
+var _fmpSteps = [
+  { sub: 'Next step: upload your owner roster to populate the strata lots and identify council members.',
+    btn: 'Upload Owner Roster →',
+    go: function(scId){ closeMo('mo-first-meeting-prompt'); showPg('strata'); setTimeout(function(){ APP.currentScId=scId; _scDetailTab='lots'; renderSCDetail(scId); }, 100); } },
+  { sub: 'Next step: add your council members — President, Vice President, Treasurer, Secretary, and any other council positions.',
+    btn: 'Add Council Members →',
+    go: function(scId){ closeMo('mo-first-meeting-prompt'); showPg('strata'); setTimeout(function(){ APP.currentScId=scId; _scDetailTab='council'; renderSCDetail(scId); }, 100); } },
+  { sub: 'Next step: upload historic minutes so StrataSphere can answer questions about past decisions.',
+    btn: 'Upload Historic Minutes →',
+    go: function(scId){ closeMo('mo-first-meeting-prompt'); showPg('strata'); setTimeout(function(){ APP.currentScId=scId; goToMtgTab(scId,'minutes'); }, 100); } },
+  { sub: 'Next step: upload your bylaws and any other strata documents so StrataSphere has full governance context.',
+    btn: 'Upload Documents →',
+    go: function(scId){ closeMo('mo-first-meeting-prompt'); showPg('strata'); setTimeout(function(){ APP.currentScId=scId; goToMtgTab(scId,'docs'); }, 100); } },
+  { sub: 'Your strata corporation is fully set up! Ready to create your first meeting?',
+    btn: '+ Create First Meeting',
+    go: function(scId){ closeMo('mo-first-meeting-prompt'); if (scId) { setTimeout(function() { selectSCMeeting(scId); }, 150); } } }
+];
 
 function showFirstMeetingPrompt(scId, scPlan) {
   _fmpScId = scId;
-  var el = document.getElementById('fmp-sc-name');
-  if (el) el.textContent = scPlan ? scPlan + ' Added!' : 'Strata Corporation Added!';
+  _fmpStep = 0;
+  // Determine which step to start on based on what's already done
+  var sc_ = (APP.sc||[]).find(function(s){ return s.id===scId; });
+  if (sc_) {
+    var hasRoster  = (sc_.councilMembers||[]).some(function(m){ return m.name && m.name.trim(); });
+    var hasCouncil = (sc_.councilMembers||[]).some(function(m){ return m.isCouncil; });
+    var hasMinutes = (sc_.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; });
+    var hasDocs    = (sc_.docs||[]).some(function(d){ return d.source==='upload'||d.sourceLabel==='Bylaws'; });
+    if (hasRoster)  _fmpStep = Math.max(_fmpStep, 1);
+    if (hasCouncil) _fmpStep = Math.max(_fmpStep, 2);
+    if (hasMinutes) _fmpStep = Math.max(_fmpStep, 3);
+    if (hasDocs)    _fmpStep = Math.max(_fmpStep, 4);
+  }
+  var step = _fmpSteps[_fmpStep];
+  var nameEl = document.getElementById('fmp-sc-name');
+  var subEl  = document.getElementById('fmp-sub');
+  var btnEl  = document.getElementById('fmp-action-btn');
+  if (nameEl) nameEl.textContent = scPlan ? scPlan + ' Added!' : 'Strata Corporation Added!';
+  if (subEl)  subEl.textContent  = step.sub;
+  if (btnEl)  btnEl.textContent  = step.btn;
   openMo('mo-first-meeting-prompt');
 }
 
 function firstMeetingPromptGo() {
-  closeMo('mo-first-meeting-prompt');
-  if (_fmpScId) {
-    setTimeout(function() { selectSCMeeting(_fmpScId); }, 150);
-  }
+  var step = _fmpSteps[_fmpStep];
+  if (step) step.go(_fmpScId);
 }
 
 // ── Billing Nudge ────────────────────────────────────────────────
@@ -13882,7 +14022,7 @@ function renderMeetingsList(sc, el) {
         +'<div class="br" style="flex-shrink:0">';
       if (!isDel && m.status === 'DRAFT') {
         html += '<button class="btn sm" onclick="editMeeting(\''+sc.id+'\',\''+m.id+'\')">Edit Agenda</button>';
-        html += '<button class="btn sm" onclick="exportAgenda(\''+sc.id+'\',\''+m.id+'\')" title="Export agenda as RTF">Export</button>';
+        html += '<button class="btn sm" onclick="exportMin(\'docx\',\''+sc.id+'\',\''+m.id+'\',\'agenda\')" title="Export agenda as Word document">Export .docx</button>';
         if (!mmActive) {
           html += '<button class="btn sm" style="opacity:.5" onclick="mmRequestActivation(\''+sc.id+'\')" title="Meeting Mode required">▶ Launch</button>';
         } else if (canLaunch) {
@@ -14908,6 +15048,24 @@ init();
     </div>
   </div>
 </div>
+<!-- Assign Rep to SC Modal -->
+<div class="mo" id="mo-assign-rep">
+  <div class="mo-box" style="max-width:440px">
+    <div class="mo-hd">
+      <div class="mo-t" id="mo-assign-rep-name">Assign Representative</div>
+      <button class="mo-x" onclick="closeMo('mo-assign-rep')">×</button>
+    </div>
+    <div class="mo-bd">
+      <div style="font-size:13px;color:var(--ch3);margin-bottom:14px">Select one or more strata corporations to assign this representative to:</div>
+      <div id="mo-assign-sc-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-assign-rep')">Cancel</button>
+      <button class="btn pri" onclick="saveAssignRep()">Assign →</button>
+    </div>
+  </div>
+</div>
+
 <!-- PDF.js for client-side text extraction -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -14943,9 +15101,8 @@ if (typeof pdfjsLib !== 'undefined') {
       </div>
 
       <!-- Footer -->
-      <div class="ob-nudge-ft">
-        <button class="btn ghost" onclick="dismissWelcomeOnboard()">Skip</button>
-        <button class="btn pri" onclick="dismissWelcomeOnboard()" style="min-width:140px">Get Started →</button>
+      <div class="ob-nudge-ft" style="justify-content:center">
+        <button class="btn pri" onclick="dismissWelcomeOnboard()" style="min-width:180px">Get Started →</button>
       </div>
     </div>
   </div>
@@ -14960,10 +15117,10 @@ if (typeof pdfjsLib !== 'undefined') {
     <div class="mo-bd" style="padding:28px 28px 20px;text-align:center">
       <div class="ob-nudge-icon" style="background:none;border:none"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/neurata-logos/NEU.png" style="width:64px;height:64px;object-fit:contain"/></div>
       <div class="ob-nudge-h" id="fmp-sc-name">Strata Corporation Added!</div>
-      <div class="ob-nudge-s">Your strata corporation is ready. Would you like to create your first meeting now? You can set the type, date, location, and agenda — then launch Meeting Mode when council is ready.</div>
+      <div class="ob-nudge-s" id="fmp-sub">Next step: upload your owner roster to populate the strata lots and identify council members.</div>
       <div style="display:flex;gap:10px;justify-content:center">
-        <button class="btn ghost" onclick="closeMo('mo-first-meeting-prompt')" style="min-width:120px">Not yet</button>
-        <button class="btn pri" onclick="firstMeetingPromptGo()" style="min-width:160px">+ Create First Meeting</button>
+        <button class="btn ghost" onclick="closeMo('mo-first-meeting-prompt')" style="min-width:120px">Maybe Later</button>
+        <button class="btn pri" id="fmp-action-btn" onclick="firstMeetingPromptGo()" style="min-width:180px">Upload Owner Roster →</button>
       </div>
     </div>
   </div>
