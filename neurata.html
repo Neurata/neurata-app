@@ -4313,8 +4313,8 @@ function assignRepToSC(scId, lic, name) {
   var brkLic = APP.brokerage.lic;
   var appUrl = (typeof ENV !== 'undefined' && ENV === 'production') ? 'https://app.neurata.ai' : 'https://appdev.neurata.ai';
 
-  // Get the user's ID and email so we can write sc_users and send notification
-  getSupabase().from('users').select('id,email').eq('bcfsa_lic', lic).eq('brokerage_id', brkLic).maybeSingle()
+  // Get the user's ID and email — look up by bcfsa_lic only (unique per person)
+  getSupabase().from('users').select('id,email').eq('bcfsa_lic', lic).maybeSingle()
   .then(function(res) {
     if (!res.data) { nAlert('Could not find user record. Please try the email invite instead.','Error','warn'); return; }
     var userId = res.data.id;
@@ -10860,6 +10860,14 @@ function saTrialSave() {
   getSupabase().from('brokerages').update(updates).eq('bcfsa_lic', _saTrialBrkLic)
   .then(function(r) {
     if (r.error) { nAlert('Error saving changes.','','warn'); return; }
+    // If activating, backfill mm_activated_at on SC rows that are missing it
+    if (status === 'active') {
+      getSupabase().from('strata_corps')
+        .update({ is_subscribed: true, mm_activated_at: new Date().toISOString() })
+        .eq('brokerage_id', _saTrialBrkLic)
+        .is('mm_activated_at', null)
+        .then(function(){});
+    }
     var b = (APP._allBrokerages||[]).find(function(x){ return x.bcfsa_lic === _saTrialBrkLic; });
     if (b) {
       b.subscription_status    = status;
