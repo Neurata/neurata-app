@@ -8599,7 +8599,7 @@ function renderAdminKB() {
         + '<div class="br">'
         + (!hasText ? '<button class="btn sm" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)">Index</button>' : '')
         + (hasText ? '<button class="btn xs" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="indexGlobalDoc(this)" style="color:var(--g4)">Re-index</button>' : '')
-        + (doc.storage_path ? '<button class="btn sm" onclick="downloadDoc(this)" data-name="'+escHtml(doc.name)+'" data-href="'+escHtml(publicUrl)+'">Download</button>' : '')
+        + (doc.storage_path ? '<button class=\"btn sm\" onclick=\"downloadDocSigned(this)\" data-name="'+escHtml(doc.name)+'" data-path="'+escHtml(doc.storage_path)+'">Download</button>' : '')
         + '<button class="btn sm red" data-id="'+doc.id+'" data-path="'+escHtml(doc.storage_path||'')+'" data-name="'+escHtml(doc.name)+'" onclick="deleteKbDoc(this)">Delete</button>'
         + '</div>'
         + '</div></div>';
