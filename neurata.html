@@ -12774,8 +12774,8 @@ function renderDocsList(sc, el) {
       statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
     }
 
-    var downloadHref = doc.url || ''; // public URL if available
-    var useSignedUrl = !downloadHref && doc.storagePath; // need signed URL for sc-docs/ paths
+    var downloadHref = ''; // always use signed URLs — bucket is private
+    var useSignedUrl = !!doc.storagePath;
 
     html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
       + '<div style="flex:1;min-width:0">'
