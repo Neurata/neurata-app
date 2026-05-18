@@ -12026,7 +12026,11 @@ function exportFormB() {
 
   // Build docx using existing docx.js
   if (typeof docx === 'undefined') { nAlert('Word export not available.','','warn'); return; }
-  var Doc=docx.Document,Para=docx.Paragraph,Run=docx.TextRun,Packer=docx.Packer,Align=docx.AlignmentType;
+
+  var logoUrl = APP.brokerage && APP.brokerage.logoUrl ? APP.brokerage.logoUrl : '';
+
+  function doFormBExport(logoDataUrl) {
+  var Doc=docx.Document,Para=docx.Paragraph,Run=docx.TextRun,Packer=docx.Packer,Align=docx.AlignmentType,ImageRun=docx.ImageRun;
   function p(text,opts){opts=opts||{};return new Para({spacing:{before:opts.before||0,after:opts.after||120},alignment:opts.align||Align.LEFT,children:[new Run({text:String(text||''),bold:!!opts.bold,size:opts.size||22,font:'Arial',color:opts.color||'000000'})]});}
   function h(text){return new Para({spacing:{before:280,after:80},children:[new Run({text:String(text||''),bold:true,size:24,font:'Arial',color:'1B3A6B'})]});}
   function field(label,value){
@@ -12036,13 +12040,24 @@ function exportFormB() {
     ];
   }
 
-  var paras = [
+  var paras = [];
+
+  // Logo if available
+  if (logoDataUrl && logoDataUrl.indexOf('base64,') > 0) {
+    try {
+      var logoB64 = logoDataUrl.split('base64,')[1];
+      var logoType = logoDataUrl.indexOf('image/png') > 0 ? 'png' : 'jpeg';
+      paras.push(new Para({spacing:{before:0,after:120},children:[new ImageRun({data:logoB64,transformation:{width:160,height:48},type:logoType})]}));
+    } catch(e) {}
+  }
+
+  paras = paras.concat([
     new Para({spacing:{before:0,after:60},children:[new Run({text:'STRATA CORPORATION '+plan,bold:true,size:28,font:'Arial',color:'1B3A6B'})]}),
     new Para({spacing:{before:0,after:40},children:[new Run({text:addr,size:20,font:'Arial',color:'6B7280'})]}),
     new Para({spacing:{before:0,after:160},children:[new Run({text:'FORM B — INFORMATION CERTIFICATE',bold:true,size:22,font:'Arial',color:'1B3A6B'})]}),
     new Para({spacing:{before:0,after:80},children:[new Run({text:'Strata Property Act, SBC 1998, c. 43, s. 59  |  Date: '+date,size:18,font:'Arial',color:'6B7280'})]}),
     p('⚠ This form was prepared with AI assistance from Neurata StrataSphere. All fields have been reviewed and verified by the strata manager against source documents.',{size:18,color:'92400E',after:200}),
-  ];
+  ]);
 
   if (lot||owner) {
     paras.push(h('STRATA LOT INFORMATION'));
@@ -12077,16 +12092,31 @@ function exportFormB() {
   paras.push(p(brk,{size:20,color:'6B7280',after:160}));
   paras.push(p('This form was prepared using Neurata. Recipients should verify currency of information at time of completion. This form does not constitute legal advice.',{size:17,color:'9CA3AF'}));
 
-  var document = new Doc({
+  var fbDoc = new Doc({
     sections:[{properties:{},children:paras}],
     styles:{default:{document:{run:{font:'Arial',size:22}}}}
   });
-  Packer.toBlob(document).then(function(blob){
+  Packer.toBlob(fbDoc).then(function(blob){
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=s.plan+'_Form_B_'+date+'.docx'; a.click();
     closeMo('mo-form-b');
     nAlert('Form B exported. Review before distributing.','Exported ✓','success');
   }).catch(function(e){ nAlert('Export failed: '+e.message,'','warn'); });
+  } // end doFormBExport
+
+  // Fetch logo then export — same pattern as minutes export
+  if (logoUrl) {
+    fetch(logoUrl)
+      .then(function(r){ return r.blob(); })
+      .then(function(blob){
+        var reader = new FileReader();
+        reader.onloadend = function(){ doFormBExport(reader.result); };
+        reader.readAsDataURL(blob);
+      })
+      .catch(function(){ doFormBExport(''); });
+  } else {
+    doFormBExport('');
+  }
 }
 
 function renderSCSubscription(s) {
