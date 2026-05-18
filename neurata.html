@@ -12863,7 +12863,8 @@ function removeCouncilMember(scId, idx) {
 
 function showPg(pg) {
   // Clear SC selection when navigating away from strata
-  if (pg !== 'strata' && pg !== 'meetings') APP.currentScId = null;
+  // Clear SC highlight when not on a specific SC detail page
+  if (pg !== 'meetings' && pg !== 'mm') APP.currentScId = null;
   document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});
   document.querySelectorAll('.t-tab').forEach(function(t){t.classList.remove('on');});
   var el = document.getElementById('pg-'+pg);
