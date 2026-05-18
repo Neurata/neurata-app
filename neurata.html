@@ -11723,7 +11723,7 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'subscription') {
     // Use already-loaded SC data — it was fetched fresh on login/brokerage load.
     // Just sync brokerage subscription status from SC state.
-    if (s.isSubscribed) APP.brokerage.subscriptionStatus = 'active';
+    if (s.isSubscribed && APP.brokerage.subscriptionStatus !== 'trial') APP.brokerage.subscriptionStatus = 'active';
     html += renderSCSubscription(s);
   }
 
@@ -12905,7 +12905,7 @@ function showPg(pg) {
             if (row.is_subscribed) anyActive = true;
           }
         });
-        if (anyActive) APP.brokerage.subscriptionStatus = 'active';
+        if (anyActive && APP.brokerage.subscriptionStatus !== 'trial') APP.brokerage.subscriptionStatus = 'active';
         // Re-render if subscription tab is open
         if (_scDetailTab === 'subscription' && APP.currentScId) renderSCDetail(APP.currentScId);
         renderSidebar('strata');
