@@ -11879,13 +11879,17 @@ function openFormB(scId) {
   _formBScId = scId;
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   // Pre-fill known fields from APP data
+  // Use designated SM (sc.smLic) not logged-in user
+  var smRep = s.smLic ? (APP.reps||[]).find(function(r){ return r.lic === s.smLic; }) : null;
+  var mgrName = smRep ? smRep.name : (APP.currentUser ? APP.currentUser.name : '');
+  var mgrLic  = smRep ? (smRep.lic||'') : (APP.currentUser ? (APP.currentUser.lic||'') : '');
   var fields = {
     plan: s.plan||'',
     name: s.name||'',
     addr: s.addr||'',
     lots: s.lots||'',
-    mgr:  APP.currentUser ? APP.currentUser.name : '',
-    mgrLic: APP.currentUser ? (APP.currentUser.lic||'') : '',
+    mgr:  mgrName,
+    mgrLic: mgrLic,
     brokerage: APP.brokerage ? (APP.brokerage.name||'') : '',
     date: new Date().toISOString().split('T')[0]
   };
