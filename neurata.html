@@ -1124,6 +1124,53 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 </div>
 
 <!-- ═══════ SA TRIAL MANAGEMENT MODAL ═══════ -->
+<!-- SA Create User Modal -->
+<div class="mo" id="mo-sa-create-user">
+  <div class="mo-box" style="max-width:460px">
+    <div class="mo-hd">
+      <div><div class="mo-t">Create User</div><div style="font-size:11px;color:var(--g4)">Bypasses invite flow — use for demo/test accounts</div></div>
+      <button class="mo-x" onclick="closeMo('mo-sa-create-user')">×</button>
+    </div>
+    <div class="mo-bd" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Full Name</div>
+        <input id="cu-name" type="text" class="cm-input" placeholder="Sandra Hollingsworth" style="width:100%">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Email</div>
+        <input id="cu-email" type="email" class="cm-input" placeholder="sandra@example.ca" style="width:100%">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Password</div>
+        <input id="cu-password" type="text" class="cm-input" placeholder="Demo1234!" style="width:100%">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">BCFSA Licence #</div>
+          <input id="cu-lic" type="text" class="cm-input" placeholder="210001" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Brokerage Lic #</div>
+          <input id="cu-brk" type="text" class="cm-input" placeholder="X099001" style="width:100%">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Role</div>
+        <select id="cu-role" class="cm-select" style="width:100%">
+          <option value="Managing Broker">Managing Broker</option>
+          <option value="Associate Broker">Associate Broker</option>
+          <option value="Representative" selected>Representative</option>
+        </select>
+      </div>
+      <div id="cu-msg" style="font-size:12px;color:var(--g4);min-height:16px"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-sa-create-user')">Cancel</button>
+      <button class="btn pri" onclick="saCreateUser()">Create User →</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="mo-sa-trial">
   <div class="mo-box" style="max-width:420px">
     <div class="mo-hd">
@@ -10838,6 +10885,44 @@ function saTrialStatusChange(val) {
   document.getElementById('sa-trial-unlimited-note').style.display = val === 'active' ? '' : 'none';
 }
 
+function openSACreateUser() {
+  ['cu-name','cu-email','cu-password','cu-lic','cu-brk','cu-msg'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('cu-role').value = 'Representative';
+  openMo('mo-sa-create-user');
+}
+
+function saCreateUser() {
+  var name     = document.getElementById('cu-name').value.trim();
+  var email    = document.getElementById('cu-email').value.trim();
+  var password = document.getElementById('cu-password').value.trim();
+  var lic      = document.getElementById('cu-lic').value.trim();
+  var brk      = document.getElementById('cu-brk').value.trim();
+  var role     = document.getElementById('cu-role').value;
+  var msg      = document.getElementById('cu-msg');
+  if (!name||!email||!password||!lic||!brk) { msg.style.color='var(--rd)'; msg.textContent='All fields are required.'; return; }
+  msg.style.color='var(--g4)'; msg.textContent='Creating user…';
+  var btn = document.querySelector('#mo-sa-create-user .btn.pri');
+  if (btn) { btn.disabled=true; btn.textContent='Creating…'; }
+  fetch(WORKER_URL + '/sa-create-user', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name:name, email:email, password:password, bcfsaLic:lic, brkLic:brk, role:role })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (btn) { btn.disabled=false; btn.textContent='Create User →'; }
+    if (d.error) { msg.style.color='var(--rd)'; msg.textContent='Error: '+d.error; return; }
+    msg.style.color='var(--gn)'; msg.textContent='✓ User created — '+email;
+    setTimeout(function(){ closeMo('mo-sa-create-user'); }, 1500);
+  })
+  .catch(function(e) {
+    if (btn) { btn.disabled=false; btn.textContent='Create User →'; }
+    msg.style.color='var(--rd)'; msg.textContent='Request failed: '+e.message;
+  });
+}
+
 function saTrialSave() {
   var status    = document.getElementById('sa-trial-status').value;
   var usedVal   = parseInt(document.getElementById('sa-trial-used-input').value) || 0;
@@ -11189,7 +11274,7 @@ function renderDash() {
   if (APP.currentUser.isSuperAdmin && !APP._adminContext) {
     if (sub) sub.textContent = 'Platform Overview';
     var hdrActions = document.getElementById('dash-hdr-actions');
-    if (hdrActions) hdrActions.innerHTML = '<button class="btn pri" onclick="openCreateBrokerage()">+ Add Brokerage</button>';
+    if (hdrActions) hdrActions.innerHTML = '<button class="btn" onclick="openSACreateUser()" style="margin-right:8px">+ Create User</button><button class="btn pri" onclick="openCreateBrokerage()">+ Add Brokerage</button>';
     if (!el) return;
     renderSuperAdminDashboard(el);
     return;
