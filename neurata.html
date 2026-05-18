@@ -11901,6 +11901,8 @@ function openFormB(scId) {
   });
   document.getElementById('fb-ai-status').textContent = '';
   openMo('mo-form-b');
+  // Auto-fill immediately on open
+  setTimeout(function(){ formBAutoFill(); }, 300);
 }
 
 function formBAutoFill() {
