@@ -11912,7 +11912,7 @@ function formBAutoFill() {
   status.textContent='StrataSphere is searching uploaded documents for Form B information…';
 
   // Build query for StrataSphere
-  var lssCtx = window._lssCtxCache && window._lssCtxCache[s.plan] ? window._lssCtxCache[s.plan] : '';
+  var lssCtx = buildLssContext(s);
   if (!lssCtx) {
     status.style.color='var(--rd)';
     status.textContent='No documents indexed for this strata corporation. Upload and index documents first.';
@@ -11937,23 +11937,35 @@ function formBAutoFill() {
     + 'notes (any other material facts an owner should know). '
     + 'Documents follow:\n\n' + lssCtx;
 
-  fetch(WORKER_URL+'/ss-local', {
+  fetch(WORKER_URL+'/ai', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
-      scId: s.plan,
-      brkLic: APP.brokerage.lic,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
       messages:[{role:'user',content:'Extract all Form B data points from the documents. Return only a JSON object as instructed.'}],
-      systemPrompt: systemPrompt,
-      maxTokens: 1000
+      _usageType: 'ss_local',
+      _brokerageId: APP.brokerage ? APP.brokerage.lic : '',
+      _scId: s.plan
     })
   })
   .then(function(r){return r.text();})
-  .then(function(text) {
+  .then(function(rawText) {
     if(btn){btn.disabled=false;btn.textContent='Auto-Fill from Documents';}
+    // Parse Anthropic response format
+    var text = '';
+    try {
+      var d = JSON.parse(rawText);
+      if (d.error) throw new Error(JSON.stringify(d.error));
+      text = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+    } catch(e) {
+      text = rawText;
+    }
     // Extract JSON from response
     var json = null;
     try {
+      text = text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
       var match = text.match(/\{[\s\S]*\}/);
       if (match) json = JSON.parse(match[0]);
     } catch(e) {}
