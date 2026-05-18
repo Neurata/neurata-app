@@ -1124,6 +1124,113 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 </div>
 
 <!-- ═══════ SA TRIAL MANAGEMENT MODAL ═══════ -->
+<!-- Form B Modal -->
+<div class="mo" id="mo-form-b">
+  <div class="mo-box xl" style="max-width:700px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t">Form B — Information Certificate</div>
+        <div style="font-size:11px;color:var(--g4)" id="fb-plan"></div>
+        <div style="font-size:11px;color:var(--g4)" id="fb-addr"></div>
+      </div>
+      <button class="mo-x" onclick="closeMo('mo-form-b')">×</button>
+    </div>
+    <div class="mo-bd" style="display:flex;flex-direction:column;gap:0">
+
+      <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:12px;color:#92400E;line-height:1.6">
+        <strong>⚠ Legal Document Warning</strong> — Form B has legal significance under the Strata Property Act. Every field must be verified against source documents before this form is signed or distributed. AI-populated fields are drafts only.
+      </div>
+
+      <!-- Auto-fill -->
+      <div style="background:var(--g1);border:1px solid var(--g2);border-radius:8px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <button class="btn pri" id="fb-autofill-btn" onclick="formBAutoFill()">Auto-Fill from Documents</button>
+        <div id="fb-ai-status" style="font-size:12px;color:var(--g4);flex:1;line-height:1.5"></div>
+      </div>
+
+      <!-- Fields grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+          <div class="fb-lbl">Strata Lot (if specific)</div>
+          <input class="cm-input" id="fb-lot" type="text" placeholder="e.g. SL 012" style="width:100%">
+        </div>
+        <div>
+          <div class="fb-lbl">Owner / Applicant Name</div>
+          <input class="cm-input" id="fb-owner" type="text" placeholder="Optional" style="width:100%">
+        </div>
+        <div>
+          <div class="fb-lbl">Monthly Strata Fee <span style="color:var(--rd)">*</span></div>
+          <input class="cm-input" id="fb-strataFee" type="text" placeholder="e.g. 688" style="width:100%">
+        </div>
+        <div>
+          <div class="fb-lbl">CRF Balance <span style="color:var(--rd)">*</span></div>
+          <input class="cm-input" id="fb-crfBalance" type="text" placeholder="e.g. 292,600" style="width:100%">
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div class="fb-lbl">Rental Restriction (bylaw reference + description)</div>
+        <textarea class="cm-input" id="fb-rentalRestriction" rows="2" placeholder="e.g. Bylaw 3.1 — Maximum 30% of units may be rented at any time..." style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="fb-lbl">Short-Term Accommodation Restriction</div>
+        <textarea class="cm-input" id="fb-strRental" rows="2" placeholder="e.g. Bylaw 3.2 — Rentals of less than 30 consecutive days are prohibited..." style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
+        <div>
+          <div class="fb-lbl">Insurance (company + coverage)</div>
+          <textarea class="cm-input" id="fb-insurance" rows="2" placeholder="e.g. Intact Insurance — $28.4M replacement cost" style="width:100%;resize:vertical"></textarea>
+        </div>
+        <div>
+          <div class="fb-lbl">Deductible (amount + bylaw)</div>
+          <textarea class="cm-input" id="fb-deductible" rows="2" placeholder="e.g. $10,000 — Bylaw 9.1 places responsibility on owner who causes loss" style="width:100%;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="fb-lbl">Special Levies (current or pending)</div>
+        <textarea class="cm-input" id="fb-specialLevy" rows="2" placeholder="e.g. None. or describe amount, purpose, per-lot share" style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="fb-lbl">Pending Bylaw Amendments</div>
+        <textarea class="cm-input" id="fb-pendingBylaws" rows="2" placeholder="e.g. None. or list any bylaws adopted but not yet filed at LTO" style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="fb-lbl">Litigation (current or pending)</div>
+        <textarea class="cm-input" id="fb-litigation" rows="2" placeholder="e.g. None. or describe any legal proceedings involving the strata corporation" style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:14px">
+        <div class="fb-lbl">Additional Material Facts</div>
+        <textarea class="cm-input" id="fb-notes" rows="2" placeholder="Any other material information a buyer should know" style="width:100%;resize:vertical"></textarea>
+      </div>
+
+      <div style="border-top:1px solid var(--g2);padding-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div>
+          <div class="fb-lbl">Strata Manager <span style="color:var(--rd)">*</span></div>
+          <input class="cm-input" id="fb-mgr" type="text" style="width:100%">
+        </div>
+        <div>
+          <div class="fb-lbl">BCFSA Licence #</div>
+          <input class="cm-input" id="fb-mgrlic" type="text" style="width:100%">
+        </div>
+        <div>
+          <div class="fb-lbl">Date</div>
+          <input class="cm-input" id="fb-date" type="date" style="width:100%">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="fb-lbl">Brokerage <span style="color:var(--rd)">*</span></div>
+        <input class="cm-input" id="fb-brk" type="text" style="width:100%">
+      </div>
+
+      <div style="font-size:11px;color:var(--g4);margin-top:10px">Lots: <span id="fb-lots"></span></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="closeMo('mo-form-b')">Cancel</button>
+      <button class="btn pri" onclick="exportFormB()">Export Form B (.docx) →</button>
+    </div>
+  </div>
+</div>
+<style>.fb-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:5px}</style>
+
 <!-- SA Create User Modal -->
 <div class="mo" id="mo-sa-create-user">
   <div class="mo-box" style="max-width:460px">
@@ -11582,8 +11689,8 @@ function renderSCDetail(scId) {
 
   var role_ = APP.currentUser && APP.currentUser.role || '';
   var isAsst = role_ === 'Assistant';
-  var tabs = isAsst ? ['overview','council','lots','reps'] : ['overview','subscription','council','lots','reps'];
-  var tabLabels = {overview:'Overview', subscription:'Subscription', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
+  var tabs = isAsst ? ['overview','council','lots','reps'] : ['overview','subscription','forms','council','lots','reps'];
+  var tabLabels = {overview:'Overview', subscription:'Subscription', forms:'Forms', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
 
   var isDel_ = APP.currentUser && APP.currentUser.role === 'Council Delegate';
   var html = '<div class="sc-detail-hd">'
@@ -11611,6 +11718,8 @@ function renderSCDetail(scId) {
     html += renderLotsPlan(s);
   } else if (_scDetailTab === 'reps') {
     html += renderSCReps(s);
+  } else if (_scDetailTab === 'forms') {
+    html += renderSCForms(s);
   } else if (_scDetailTab === 'subscription') {
     // Use already-loaded SC data — it was fetched fresh on login/brokerage load.
     // Just sync brokerage subscription status from SC state.
@@ -11717,6 +11826,267 @@ function scAnniversaryStr(activatedAt) {
   var d = scAnniversaryDate(activatedAt);
   if (!d) return 'end of annual term';
   return d.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'});
+}
+
+function renderSCForms(s) {
+  var isPaid = !!(s.isSubscribed || (s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId));
+  var html = '<div style="padding:28px 32px;max-width:820px">';
+  html += '<div style="margin-bottom:24px">';
+  html += '<div style="font-size:18px;font-weight:700;color:var(--ch);margin-bottom:6px">Forms &amp; Documents</div>';
+  html += '<div style="font-size:13px;color:var(--g4);line-height:1.6">AI-assisted forms for '+escHtml(s.plan)+'. StrataSphere retrieves information from uploaded documents — all fields are pre-populated from your records and must be reviewed before use. <strong style="color:var(--ch)">Never send a form without reviewing every field.</strong></div>';
+  html += '</div>';
+
+  // Form B card
+  html += '<div style="border:1px solid var(--g2);border-radius:10px;overflow:hidden;margin-bottom:16px">';
+  html += '<div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;background:var(--wh)">';
+  html += '<div>';
+  html += '<div style="font-size:15px;font-weight:700;color:var(--ch);margin-bottom:4px">Form B — Information Certificate</div>';
+  html += '<div style="font-size:12px;color:var(--g4);line-height:1.6">Required by the Strata Property Act when a strata lot is listed for sale. Discloses strata fees, CRF balance, rental restrictions, bylaws, insurance, special levies, and litigation status.</div>';
+  html += '</div>';
+  if (isPaid) {
+    html += '<button class="btn pri" onclick="openFormB(\''+s.id+'\')" style="margin-left:20px;white-space:nowrap;flex-shrink:0">Generate Form B →</button>';
+  } else {
+    html += '<span class="tag gy" style="margin-left:20px;white-space:nowrap;flex-shrink:0;font-size:11px">Meeting Mode Required</span>';
+  }
+  html += '</div>';
+  html += '<div style="padding:12px 24px;background:var(--g1);border-top:1px solid var(--g2);font-size:11px;color:var(--g4)">';
+  html += '⚠ Form B carries legal significance under the SPA. All AI-populated fields must be verified against source documents before the form is signed or distributed.';
+  html += '</div></div>';
+
+  // Coming soon cards
+  var comingSoon = [
+    {name:'Form K — Notice of Tenant\'s Responsibilities', desc:'Informs tenants of their obligations under the strata bylaws.'},
+    {name:'Bylaw Enforcement Notice — Form I', desc:'Formal notice of bylaw contravention with fine schedule.'},
+    {name:'AGM Notice Package', desc:'Agenda, financial statements, proxy form, and special resolutions.'},
+  ];
+  comingSoon.forEach(function(f) {
+    html += '<div style="border:1px solid var(--g2);border-radius:10px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;background:var(--wh);margin-bottom:12px;opacity:.6">';
+    html += '<div><div style="font-size:14px;font-weight:600;color:var(--ch);margin-bottom:3px">'+escHtml(f.name)+'</div>';
+    html += '<div style="font-size:12px;color:var(--g4)">'+escHtml(f.desc)+'</div></div>';
+    html += '<span class="tag gy" style="margin-left:20px;white-space:nowrap;flex-shrink:0;font-size:11px">Coming Soon</span>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// ── Form B Modal opener ────────────────────────────────────────
+var _formBScId = null;
+function openFormB(scId) {
+  _formBScId = scId;
+  var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
+  // Pre-fill known fields from APP data
+  var fields = {
+    plan: s.plan||'',
+    name: s.name||'',
+    addr: s.addr||'',
+    lots: s.lots||'',
+    mgr:  APP.currentUser ? APP.currentUser.name : '',
+    mgrLic: APP.currentUser ? (APP.currentUser.lic||'') : '',
+    brokerage: APP.brokerage ? (APP.brokerage.name||'') : '',
+    date: new Date().toISOString().split('T')[0]
+  };
+  document.getElementById('fb-plan').textContent = fields.plan + (fields.name ? ' — ' + fields.name : '');
+  document.getElementById('fb-addr').textContent = fields.addr;
+  document.getElementById('fb-lots').textContent = fields.lots;
+  document.getElementById('fb-mgr').value  = fields.mgr;
+  document.getElementById('fb-mgrlic').value = fields.mgrLic;
+  document.getElementById('fb-brk').value  = fields.brokerage;
+  document.getElementById('fb-date').value  = fields.date;
+  // Clear AI-populated fields
+  ['fb-strataFee','fb-crfBalance','fb-rentalRestriction','fb-strRental','fb-insurance',
+   'fb-deductible','fb-specialLevy','fb-pendingBylaws','fb-litigation','fb-notes'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('fb-ai-status').textContent = '';
+  openMo('mo-form-b');
+}
+
+function formBAutoFill() {
+  var s = APP.sc.find(function(x){return x.id===_formBScId;}); if(!s) return;
+  var btn = document.getElementById('fb-autofill-btn');
+  var status = document.getElementById('fb-ai-status');
+  if(btn){btn.disabled=true;btn.textContent='Retrieving…';}
+  status.style.color='var(--g4)';
+  status.textContent='StrataSphere is searching uploaded documents for Form B information…';
+
+  // Build query for StrataSphere
+  var lssCtx = window._lssCtxCache && window._lssCtxCache[s.plan] ? window._lssCtxCache[s.plan] : '';
+  if (!lssCtx) {
+    status.style.color='var(--rd)';
+    status.textContent='No documents indexed for this strata corporation. Upload and index documents first.';
+    if(btn){btn.disabled=false;btn.textContent='Auto-Fill from Documents';}
+    return;
+  }
+
+  var systemPrompt = 'You are extracting specific data points for a BC Form B (Information Certificate) for Strata Corporation '+s.plan+'. '
+    + 'ABSOLUTE RULE: Only extract information that is explicitly stated in the documents below. '
+    + 'If a data point is not found, respond with EXACTLY "NOT FOUND" for that field. '
+    + 'Never estimate, infer, or fabricate any value. '
+    + 'Return ONLY a valid JSON object with these exact keys: '
+    + 'strataFee (monthly fee per lot in dollars, e.g. "688"), '
+    + 'crfBalance (CRF balance in dollars, e.g. "292600"), '
+    + 'rentalRestriction (bylaw reference and description of any rental restriction), '
+    + 'strRental (short-term rental restriction bylaw reference and details), '
+    + 'insurance (insurance company name and coverage amount if stated), '
+    + 'deductible (deductible amount and bylaw reference for owner responsibility), '
+    + 'specialLevy (any current or pending special levies), '
+    + 'pendingBylaws (any bylaws adopted but not yet filed, or under review), '
+    + 'litigation (any current or pending litigation involving the strata corporation), '
+    + 'notes (any other material facts an owner should know). '
+    + 'Documents follow:\n\n' + lssCtx;
+
+  fetch(WORKER_URL+'/ss-local', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      scId: s.plan,
+      brkLic: APP.brokerage.lic,
+      messages:[{role:'user',content:'Extract all Form B data points from the documents. Return only a JSON object as instructed.'}],
+      systemPrompt: systemPrompt,
+      maxTokens: 1000
+    })
+  })
+  .then(function(r){return r.text();})
+  .then(function(text) {
+    if(btn){btn.disabled=false;btn.textContent='Auto-Fill from Documents';}
+    // Extract JSON from response
+    var json = null;
+    try {
+      var match = text.match(/\{[\s\S]*\}/);
+      if (match) json = JSON.parse(match[0]);
+    } catch(e) {}
+    if (!json) {
+      status.style.color='var(--rd)';
+      status.textContent='Could not parse document data. Please fill fields manually.';
+      return;
+    }
+    // Populate fields
+    var filled = 0;
+    var missing = [];
+    var fieldMap = {
+      strataFee:'fb-strataFee', crfBalance:'fb-crfBalance',
+      rentalRestriction:'fb-rentalRestriction', strRental:'fb-strRental',
+      insurance:'fb-insurance', deductible:'fb-deductible',
+      specialLevy:'fb-specialLevy', pendingBylaws:'fb-pendingBylaws',
+      litigation:'fb-litigation', notes:'fb-notes'
+    };
+    Object.keys(fieldMap).forEach(function(key) {
+      var el = document.getElementById(fieldMap[key]);
+      if (!el) return;
+      var val = json[key] || '';
+      if (val && val !== 'NOT FOUND') { el.value = val; filled++; }
+      else { el.value = ''; missing.push(key); }
+    });
+    status.style.color = missing.length > 0 ? 'var(--amb)' : 'var(--gn)';
+    status.textContent = filled + ' field' + (filled!==1?'s':'') + ' populated from documents.'
+      + (missing.length ? ' ' + missing.length + ' field(s) not found in documents — fill manually: ' + missing.join(', ') : '')
+      + ' ⚠ Review all fields before use.';
+  })
+  .catch(function(e) {
+    if(btn){btn.disabled=false;btn.textContent='Auto-Fill from Documents';}
+    status.style.color='var(--rd)';
+    status.textContent='Error: '+e.message;
+  });
+}
+
+function exportFormB() {
+  var s = APP.sc.find(function(x){return x.id===_formBScId;}); if(!s) return;
+  var get = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
+  var getText = function(id){ var el=document.getElementById(id); return el?el.textContent.trim():''; };
+
+  // Validate no empty required fields
+  var required = ['fb-strataFee','fb-crfBalance','fb-mgr','fb-brk'];
+  var empty = required.filter(function(id){ return !get(id); });
+  if (empty.length) {
+    nAlert('Please fill in all required fields before exporting.','','warn'); return;
+  }
+
+  if (!confirm('⚠ Form B carries legal significance. Have you reviewed every field for accuracy?\n\nClick OK only if you have verified all information against the original source documents.')) return;
+
+  var plan = getText('fb-plan');
+  var addr = getText('fb-addr');
+  var date = get('fb-date');
+  var mgr  = get('fb-mgr');
+  var mgrLic = get('fb-mgrlic');
+  var brk  = get('fb-brk');
+  var lot  = get('fb-lot');
+  var owner= get('fb-owner');
+  var fee  = get('fb-strataFee');
+  var crf  = get('fb-crfBalance');
+  var rental = get('fb-rentalRestriction') || 'No rental restriction.';
+  var strRental = get('fb-strRental') || 'No short-term accommodation restriction.';
+  var ins  = get('fb-insurance') || 'See insurance certificate on file.';
+  var ded  = get('fb-deductible') || 'See bylaws.';
+  var levy = get('fb-specialLevy') || 'None.';
+  var pendingBylaw = get('fb-pendingBylaws') || 'None.';
+  var lit  = get('fb-litigation') || 'None.';
+  var notes= get('fb-notes') || 'None.';
+
+  // Build docx using existing docx.js
+  if (typeof docx === 'undefined') { nAlert('Word export not available.','','warn'); return; }
+  var Doc=docx.Document,Para=docx.Paragraph,Run=docx.TextRun,Packer=docx.Packer,Align=docx.AlignmentType;
+  function p(text,opts){opts=opts||{};return new Para({spacing:{before:opts.before||0,after:opts.after||120},alignment:opts.align||Align.LEFT,children:[new Run({text:String(text||''),bold:!!opts.bold,size:opts.size||22,font:'Arial',color:opts.color||'000000'})]});}
+  function h(text){return new Para({spacing:{before:280,after:80},children:[new Run({text:String(text||''),bold:true,size:24,font:'Arial',color:'1B3A6B'})]});}
+  function field(label,value){
+    return [
+      new Para({spacing:{before:100,after:20},children:[new Run({text:label,bold:true,size:20,font:'Arial',color:'374151'})]}),
+      new Para({spacing:{before:0,after:80},children:[new Run({text:String(value||'— Not provided'),size:20,font:'Arial',color:value?'111827':'EF4444'})]}),
+    ];
+  }
+
+  var paras = [
+    new Para({spacing:{before:0,after:60},children:[new Run({text:'STRATA CORPORATION '+plan,bold:true,size:28,font:'Arial',color:'1B3A6B'})]}),
+    new Para({spacing:{before:0,after:40},children:[new Run({text:addr,size:20,font:'Arial',color:'6B7280'})]}),
+    new Para({spacing:{before:0,after:160},children:[new Run({text:'FORM B — INFORMATION CERTIFICATE',bold:true,size:22,font:'Arial',color:'1B3A6B'})]}),
+    new Para({spacing:{before:0,after:80},children:[new Run({text:'Strata Property Act, SBC 1998, c. 43, s. 59  |  Date: '+date,size:18,font:'Arial',color:'6B7280'})]}),
+    p('⚠ This form was prepared with AI assistance from Neurata StrataSphere. All fields have been reviewed and verified by the strata manager against source documents.',{size:18,color:'92400E',after:200}),
+  ];
+
+  if (lot||owner) {
+    paras.push(h('STRATA LOT INFORMATION'));
+    if (lot) paras.push(...field('Strata Lot',lot));
+    if (owner) paras.push(...field('Owner/Applicant',owner));
+  }
+
+  paras.push(h('1. STRATA FEES'));
+  paras.push(...field('Monthly Strata Fee','CA$'+fee+'/month'));
+  paras.push(h('2. CONTINGENCY RESERVE FUND'));
+  paras.push(...field('CRF Balance','CA$'+crf));
+  paras.push(h('3. RENTAL RESTRICTIONS'));
+  paras.push(...field('Rental Restriction',rental));
+  paras.push(...field('Short-Term Accommodation',strRental));
+  paras.push(h('4. INSURANCE'));
+  paras.push(...field('Insurance Coverage',ins));
+  paras.push(...field('Deductible Responsibility',ded));
+  paras.push(h('5. SPECIAL LEVIES'));
+  paras.push(...field('Current or Pending Special Levies',levy));
+  paras.push(h('6. PENDING BYLAWS'));
+  paras.push(...field('Pending Bylaw Amendments',pendingBylaw));
+  paras.push(h('7. LITIGATION'));
+  paras.push(...field('Current or Pending Litigation',lit));
+  paras.push(h('8. ADDITIONAL MATERIAL FACTS'));
+  paras.push(...field('Other Notes',notes));
+
+  paras.push(h('CERTIFICATION'));
+  paras.push(p('I certify that the information provided in this Form B is accurate to the best of my knowledge based on the records of Strata Corporation '+s.plan+' as of '+date+'.',{after:200}));
+  paras.push(p('_________________________          _________________________',{color:'9CA3AF',after:20}));
+  paras.push(p('Strata Manager                       Date',{size:20,color:'6B7280',after:40}));
+  paras.push(p(mgr+(mgrLic?' — BCFSA Lic. '+mgrLic:''),{size:20,after:20}));
+  paras.push(p(brk,{size:20,color:'6B7280',after:160}));
+  paras.push(p('This form was prepared using Neurata. Recipients should verify currency of information at time of completion. This form does not constitute legal advice.',{size:17,color:'9CA3AF'}));
+
+  var document = new Doc({
+    sections:[{properties:{},children:paras}],
+    styles:{default:{document:{run:{font:'Arial',size:22}}}}
+  });
+  Packer.toBlob(document).then(function(blob){
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=s.plan+'_Form_B_'+date+'.docx'; a.click();
+    closeMo('mo-form-b');
+    nAlert('Form B exported. Review before distributing.','Exported ✓','success');
+  }).catch(function(e){ nAlert('Export failed: '+e.message,'','warn'); });
 }
 
 function renderSCSubscription(s) {
@@ -12450,6 +12820,8 @@ function removeCouncilMember(scId, idx) {
 
 
 function showPg(pg) {
+  // Clear SC selection when navigating away from strata
+  if (pg !== 'strata' && pg !== 'meetings') APP.currentScId = null;
   document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});
   document.querySelectorAll('.t-tab').forEach(function(t){t.classList.remove('on');});
   var el = document.getElementById('pg-'+pg);
