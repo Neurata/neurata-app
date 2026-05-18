@@ -1151,7 +1151,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
           <div class="fb-lbl">Strata Lot (if specific)</div>
-          <input class="cm-input" id="fb-lot" type="text" placeholder="e.g. SL 012" style="width:100%">
+          <select class="cm-select" id="fb-lot" style="width:100%" onchange="formBLotChange(this)">
+            <option value="">— Select strata lot —</option>
+          </select>
         </div>
         <div>
           <div class="fb-lbl">Owner / Applicant Name</div>
@@ -11894,6 +11896,20 @@ function openFormB(scId) {
   document.getElementById('fb-mgrlic').value = fields.mgrLic;
   document.getElementById('fb-brk').value  = fields.brokerage;
   document.getElementById('fb-date').value  = fields.date;
+  // Populate SL dropdown from full lot roster
+  var lotSel = document.getElementById('fb-lot');
+  lotSel.innerHTML = '<option value="">— Select strata lot —</option>';
+  var allLots = (s.councilMembers || []).slice().sort(function(a,b){
+    return (a.sl||'').localeCompare(b.sl||'', undefined, {numeric:true});
+  });
+  allLots.forEach(function(m) {
+    var opt = document.createElement('option');
+    opt.value = m.sl || '';
+    opt.textContent = (m.sl||'') + (m.name ? ' — ' + m.name : '');
+    opt.dataset.name = m.name || '';
+    lotSel.appendChild(opt);
+  });
+  document.getElementById('fb-owner').value = '';
   // Clear AI-populated fields
   ['fb-strataFee','fb-crfBalance','fb-rentalRestriction','fb-strRental','fb-insurance',
    'fb-deductible','fb-specialLevy','fb-pendingBylaws','fb-litigation','fb-notes'].forEach(function(id){
@@ -11903,6 +11919,12 @@ function openFormB(scId) {
   openMo('mo-form-b');
   // Auto-fill immediately on open
   setTimeout(function(){ formBAutoFill(); }, 300);
+}
+
+function formBLotChange(sel) {
+  var opt = sel.options[sel.selectedIndex];
+  var ownerEl = document.getElementById('fb-owner');
+  if (ownerEl) ownerEl.value = opt ? (opt.dataset.name || '') : '';
 }
 
 function formBAutoFill() {
