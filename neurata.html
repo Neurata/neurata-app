@@ -1280,6 +1280,31 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<!-- Enterprise Confirmation Modal -->
+<div class="mo" id="mo-enterprise-confirm">
+  <div class="mo-box" style="max-width:420px">
+    <div class="mo-hd">
+      <div>
+        <div class="mo-t" id="ent-confirm-title">Activate Enterprise</div>
+        <div style="font-size:11px;color:var(--g4)" id="ent-confirm-sub"></div>
+      </div>
+      <button class="mo-x" onclick="cancelEnterpriseToggle()">×</button>
+    </div>
+    <div class="mo-bd" style="display:flex;flex-direction:column;gap:14px">
+      <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-left:3px solid #7C3AED;border-radius:0 6px 6px 0;padding:12px 16px;font-size:13px;color:var(--ch);line-height:1.6" id="ent-confirm-msg"></div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g4);margin-bottom:6px">Type the BCFSA licence number to confirm</div>
+        <input class="cm-input" id="ent-confirm-input" type="text" placeholder="e.g. X099002" style="width:100%;font-family:monospace" oninput="checkEnterpriseConfirm()">
+      </div>
+      <div id="ent-confirm-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    </div>
+    <div class="mo-ft">
+      <button class="btn" onclick="cancelEnterpriseToggle()">Cancel</button>
+      <button class="btn pri" id="ent-confirm-btn" onclick="confirmEnterpriseToggle()" disabled style="background:#7C3AED;opacity:.5">Confirm →</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="mo-sa-trial">
   <div class="mo-box" style="max-width:420px">
     <div class="mo-hd">
@@ -11037,22 +11062,73 @@ function saCreateUser() {
   });
 }
 
+var _entPendingLic = null;
+var _entPendingActivate = false;
+
 function toggleEnterprise(brkLic, activate) {
-  var btn = document.getElementById('sa-enterprise-btn-'+brkLic);
-  if (btn) { btn.disabled = true; btn.textContent = activate ? 'Activating…' : 'Deactivating…'; }
+  // Uncheck the checkbox immediately — wait for confirmation
+  var chk = document.querySelector('input[onchange*="toggleEnterprise(\'' + brkLic + '\'"]');
+  if (chk) chk.checked = !activate; // revert until confirmed
+
+  _entPendingLic = brkLic;
+  _entPendingActivate = activate;
+
+  var b = (APP._allBrokerages||[]).find(function(x){return x.bcfsa_lic===brkLic;});
+  var brkName = b ? b.name : brkLic;
+
+  document.getElementById('ent-confirm-title').textContent = activate ? 'Activate Enterprise' : 'Deactivate Enterprise';
+  document.getElementById('ent-confirm-sub').textContent = brkName;
+  document.getElementById('ent-confirm-msg').innerHTML = activate
+    ? '<strong>This will:</strong><br>· Set brokerage to Enterprise tier<br>· Activate Meeting Mode + Global StrataSphere on ALL strata corps<br>· Hide trial card and usage limits<br>· No emails will be sent to reps'
+    : '<strong>This will:</strong><br>· Remove Enterprise status<br>· Reset ALL strata corps to inactive (trial expired)<br>· Billing must be cancelled separately in Stripe<br>· No emails will be sent to reps';
+  document.getElementById('ent-confirm-input').value = '';
+  document.getElementById('ent-confirm-err').textContent = '';
+  var btn = document.getElementById('ent-confirm-btn');
+  btn.disabled = true;
+  btn.style.opacity = '.5';
+  btn.textContent = activate ? 'Activate Enterprise →' : 'Deactivate Enterprise →';
+  btn.style.background = activate ? '#7C3AED' : '#DC2626';
+  openMo('mo-enterprise-confirm');
+}
+
+function checkEnterpriseConfirm() {
+  var val = (document.getElementById('ent-confirm-input').value||'').trim().toUpperCase();
+  var expected = (_entPendingLic||'').toUpperCase();
+  var btn = document.getElementById('ent-confirm-btn');
+  var err = document.getElementById('ent-confirm-err');
+  if (val === expected) {
+    btn.disabled = false; btn.style.opacity = '1';
+    err.textContent = '';
+  } else {
+    btn.disabled = true; btn.style.opacity = '.5';
+    err.textContent = val.length > 0 ? 'Licence number does not match.' : '';
+  }
+}
+
+function cancelEnterpriseToggle() {
+  _entPendingLic = null;
+  _entPendingActivate = false;
+  closeMo('mo-enterprise-confirm');
+  renderDash(); // re-render to restore checkbox state
+}
+
+function confirmEnterpriseToggle() {
+  var brkLic = _entPendingLic;
+  var activate = _entPendingActivate;
+  if (!brkLic) return;
+  closeMo('mo-enterprise-confirm');
+  _entPendingLic = null;
 
   var db = getSupabase();
   var now = new Date().toISOString();
 
   if (activate) {
-    // 1. Set brokerage to enterprise
     db.from('brokerages').update({
       subscription_status: 'enterprise',
       enterprise_activated_at: now,
       trial_meetings_used: 0
     }).eq('bcfsa_lic', brkLic).then(function(r) {
-      if (r.error) { nAlert('Failed to activate enterprise: '+r.error.message,'','warn'); if(btn){btn.disabled=false;btn.textContent='Activate';} return; }
-      // 2. Bulk-activate all SCs to GSS
+      if (r.error) { nAlert('Failed to activate enterprise: '+r.error.message,'','warn'); return; }
       db.from('strata_corps').update({
         is_subscribed: true,
         mm_activated_at: now,
@@ -11061,32 +11137,28 @@ function toggleEnterprise(brkLic, activate) {
       }).eq('brokerage_id', brkLic).then(function(r2) {
         if (r2.error) { nAlert('Brokerage set to Enterprise but SC activation failed: '+r2.error.message,'','warn'); return; }
         nAlert('Enterprise activated. All SCs set to Global StrataSphere.','Enterprise Active ✓','success');
-        // Update in-memory
         if (APP.brokerage && APP.brokerage.lic === brkLic) {
           APP.brokerage.subscriptionStatus = 'enterprise';
           APP.brokerage.isEnterprise = true;
           APP.brokerage.enterpriseActivatedAt = now;
-          APP.sc.forEach(function(s) {
-            s.isSubscribed = true; s.ssTier = 'global';
-            s.ssGlobalActivatedAt = now; s.mmStatus = 'ACTIVE';
+          APP.sc.forEach(function(s){
+            s.isSubscribed=true; s.ssTier='global';
+            s.ssGlobalActivatedAt=now; s.mmStatus='ACTIVE';
           });
         }
-        // Refresh SA dashboard
         var b = APP._allBrokerages && APP._allBrokerages.find(function(x){return x.bcfsa_lic===brkLic;});
         if (b) { b.subscription_status='enterprise'; b.enterprise_activated_at=now; }
         renderDash();
       });
     });
   } else {
-    // Deactivate — set brokerage back to trial (expired), freeze all SCs
     db.from('brokerages').update({
       subscription_status: 'trial',
-      trial_meetings_used: 99, // effectively expired
+      trial_meetings_used: 99,
       trial_meetings_allowed: 5,
       enterprise_activated_at: null
     }).eq('bcfsa_lic', brkLic).then(function(r) {
-      if (r.error) { nAlert('Failed to deactivate enterprise: '+r.error.message,'','warn'); if(btn){btn.disabled=false;btn.textContent='Deactivate';} return; }
-      // Reset all SCs
+      if (r.error) { nAlert('Failed to deactivate enterprise: '+r.error.message,'','warn'); return; }
       db.from('strata_corps').update({
         is_subscribed: false,
         mm_activated_at: null,
@@ -11099,9 +11171,9 @@ function toggleEnterprise(brkLic, activate) {
           APP.brokerage.subscriptionStatus = 'trial';
           APP.brokerage.isEnterprise = false;
           APP.brokerage.enterpriseActivatedAt = null;
-          APP.sc.forEach(function(s) {
-            s.isSubscribed = false; s.ssTier = null;
-            s.ssGlobalActivatedAt = null; s.mmStatus = '';
+          APP.sc.forEach(function(s){
+            s.isSubscribed=false; s.ssTier=null;
+            s.ssGlobalActivatedAt=null; s.mmStatus='';
           });
         }
         var b = APP._allBrokerages && APP._allBrokerages.find(function(x){return x.bcfsa_lic===brkLic;});
