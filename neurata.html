@@ -9280,13 +9280,15 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
   html += '<div class="ch_"><div class="ct">Strata Corporations</div></div>';
   html += '<div class="cb" style="padding:0">';
   var allSCs = getVisibleSCs();
+  var isEnterpriseBro = APP.brokerage && APP.brokerage.isEnterprise;
   if (!allSCs.length) {
     html += '<div style="padding:16px;color:var(--g4);font-size:13px">No strata corporations yet.</div>';
   } else {
     var totalMonthly = 0;
     html += '<table class="tbl"><thead><tr>'
       + '<th>Strata Corporation</th><th>Address</th><th style="text-align:center">Lots</th>'
-      + '<th>Status</th><th>Activated</th><th style="text-align:right">Monthly Cost</th>'
+      + '<th>Status</th><th>Activated</th>'
+      + (!isEnterpriseBro ? '<th style="text-align:right">Monthly Cost</th>' : '')
       + '</tr></thead><tbody>';
 
     allSCs.forEach(function(s) {
@@ -9294,7 +9296,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
       var isPaidActive = s.mmStatus === 'ACTIVE' || s.mmActive || s.ssTier === 'global';
       var tier  = scSsTier(s);
       var monthlyRate = 0;
-      if (isPaidActive) {
+      if (isPaidActive && !isEnterpriseBro) {
         var lotRate = tier === 'global' ? PRICING.perLotGlobal : PRICING.perLotLocal;
         monthlyRate = PRICING.perBuilding + (lotRate * lots);
         totalMonthly += monthlyRate;
@@ -9307,17 +9309,24 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
         + '<td style="text-align:center;font-size:13px">'+lots+'</td>'
         + '<td>'+scStatusPill(s, 'md', 'tag')+'</td>'
         + '<td style="font-size:12px;color:var(--ch3);white-space:nowrap">'+(s.mmActivatedAt ? s.mmActivatedAt.slice(0,10) : s.ssGlobalActivatedAt ? s.ssGlobalActivatedAt.slice(0,10) : '—')+'</td>'
-        + '<td style="text-align:right;font-size:13px;font-weight:600;color:var(--ch)">'
+        + (!isEnterpriseBro ? '<td style="text-align:right;font-size:13px;font-weight:600;color:var(--ch)">'
         +   (isPaidActive ? 'CA$'+monthlyRate.toFixed(2)+'/mo' : '—')
-        + '</td>'
+        + '</td>' : '')
         + '</tr>';
     });
 
-    // Total row
-    html += '<tr style="background:var(--g1)">'
-      + '<td colspan="5" style="font-size:12px;font-weight:700;color:var(--ch3);text-align:right;padding-right:16px">Total Monthly Subscription</td>'
-      + '<td style="text-align:right;font-size:14px;font-weight:800;color:var(--org)">CA$'+totalMonthly.toFixed(2)+'/mo</td>'
-      + '</tr>';
+    // Total row — hidden for enterprise, replaced with flat annual note
+    if (isEnterpriseBro) {
+      html += '<tr style="background:var(--g1)">'
+        + '<td colspan="5" style="font-size:12px;color:var(--g4);padding:12px 16px">'
+        + '&#x2139;&#xFE0F; Enterprise Plan — flat annual contract. Billing is managed directly by Neurata. Contact your account manager for invoice inquiries.'
+        + '</td></tr>';
+    } else {
+      html += '<tr style="background:var(--g1)">'
+        + '<td colspan="5" style="font-size:12px;font-weight:700;color:var(--ch3);text-align:right;padding-right:16px">Total Monthly Subscription</td>'
+        + '<td style="text-align:right;font-size:14px;font-weight:800;color:var(--org)">CA$'+totalMonthly.toFixed(2)+'/mo</td>'
+        + '</tr>';
+    }
 
     html += '</tbody></table>';
   }
