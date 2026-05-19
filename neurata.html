@@ -2298,6 +2298,7 @@ function scCanUseMM(s) {
 function scStatusPill(s, size, style) {
   var fs  = (size === 'md') ? '11px' : '9px';
   var cls = (style === 'tag') ? 'tag' : 's-bdg';
+  var isEnterprise = APP.brokerage && APP.brokerage.isEnterprise;
   var isAcssPending = APP.brokerage && APP.brokerage.stripeCustomerId && !APP.brokerage.billingSetup && APP.brokerage.payMethod === 'acss';
   var isPaid = s.mmActive === true || s.mmStatus === 'ACTIVE' || s.ssTier === 'global';
   var mmOn   = scMmActive(s);
@@ -2305,7 +2306,9 @@ function scStatusPill(s, size, style) {
   var trialDone = scTrialExhausted();
 
   var label, bg, color;
-  if (isAcssPending) {
+  if (isEnterprise) {
+    label = 'Enterprise';   bg = '#EDE9FE'; color = '#7C3AED';
+  } else if (isAcssPending) {
     label = 'Pending';      bg = 'var(--ambl)'; color = 'var(--amb)';
   } else if (s.mmPendingCancel) {
     label = 'Cancelling';   bg = 'var(--redl)'; color = 'var(--red)';
@@ -8891,7 +8894,9 @@ function adminEnterBrokerage(brkLic) {
     subscriptionStatus:   b.subscription_status||'trial',
     billingSetup:       b.billing_setup||false,
     stripeCustomerId:   b.stripe_customer_id||null,
-    payMethod:          b.pay_method||'acss'
+    payMethod:          b.pay_method||'acss',
+    isEnterprise:       b.subscription_status === 'enterprise',
+    enterpriseActivatedAt: b.enterprise_activated_at||null
   };
   var db = getSupabase();
   // Load SCs
@@ -11032,6 +11037,81 @@ function saCreateUser() {
   });
 }
 
+function toggleEnterprise(brkLic, activate) {
+  var btn = document.getElementById('sa-enterprise-btn-'+brkLic);
+  if (btn) { btn.disabled = true; btn.textContent = activate ? 'Activating…' : 'Deactivating…'; }
+
+  var db = getSupabase();
+  var now = new Date().toISOString();
+
+  if (activate) {
+    // 1. Set brokerage to enterprise
+    db.from('brokerages').update({
+      subscription_status: 'enterprise',
+      enterprise_activated_at: now,
+      trial_meetings_used: 0
+    }).eq('bcfsa_lic', brkLic).then(function(r) {
+      if (r.error) { nAlert('Failed to activate enterprise: '+r.error.message,'','warn'); if(btn){btn.disabled=false;btn.textContent='Activate';} return; }
+      // 2. Bulk-activate all SCs to GSS
+      db.from('strata_corps').update({
+        is_subscribed: true,
+        mm_activated_at: now,
+        ss_tier: 'global',
+        ss_global_activated_at: now
+      }).eq('brokerage_id', brkLic).then(function(r2) {
+        if (r2.error) { nAlert('Brokerage set to Enterprise but SC activation failed: '+r2.error.message,'','warn'); return; }
+        nAlert('Enterprise activated. All SCs set to Global StrataSphere.','Enterprise Active ✓','success');
+        // Update in-memory
+        if (APP.brokerage && APP.brokerage.lic === brkLic) {
+          APP.brokerage.subscriptionStatus = 'enterprise';
+          APP.brokerage.isEnterprise = true;
+          APP.brokerage.enterpriseActivatedAt = now;
+          APP.sc.forEach(function(s) {
+            s.isSubscribed = true; s.ssTier = 'global';
+            s.ssGlobalActivatedAt = now; s.mmStatus = 'ACTIVE';
+          });
+        }
+        // Refresh SA dashboard
+        var b = APP._allBrokerages && APP._allBrokerages.find(function(x){return x.bcfsa_lic===brkLic;});
+        if (b) { b.subscription_status='enterprise'; b.enterprise_activated_at=now; }
+        renderDash();
+      });
+    });
+  } else {
+    // Deactivate — set brokerage back to trial (expired), freeze all SCs
+    db.from('brokerages').update({
+      subscription_status: 'trial',
+      trial_meetings_used: 99, // effectively expired
+      trial_meetings_allowed: 5,
+      enterprise_activated_at: null
+    }).eq('bcfsa_lic', brkLic).then(function(r) {
+      if (r.error) { nAlert('Failed to deactivate enterprise: '+r.error.message,'','warn'); if(btn){btn.disabled=false;btn.textContent='Deactivate';} return; }
+      // Reset all SCs
+      db.from('strata_corps').update({
+        is_subscribed: false,
+        mm_activated_at: null,
+        ss_tier: null,
+        ss_global_activated_at: null
+      }).eq('brokerage_id', brkLic).then(function(r2) {
+        if (r2.error) { nAlert('Brokerage deactivated but SC reset failed: '+r2.error.message,'','warn'); return; }
+        nAlert('Enterprise deactivated. All SCs reset to trial expired.','Enterprise Removed','warn');
+        if (APP.brokerage && APP.brokerage.lic === brkLic) {
+          APP.brokerage.subscriptionStatus = 'trial';
+          APP.brokerage.isEnterprise = false;
+          APP.brokerage.enterpriseActivatedAt = null;
+          APP.sc.forEach(function(s) {
+            s.isSubscribed = false; s.ssTier = null;
+            s.ssGlobalActivatedAt = null; s.mmStatus = '';
+          });
+        }
+        var b = APP._allBrokerages && APP._allBrokerages.find(function(x){return x.bcfsa_lic===brkLic;});
+        if (b) { b.subscription_status='trial'; b.enterprise_activated_at=null; }
+        renderDash();
+      });
+    });
+  }
+}
+
 function saTrialSave() {
   var status    = document.getElementById('sa-trial-status').value;
   var usedVal   = parseInt(document.getElementById('sa-trial-used-input').value) || 0;
@@ -11348,23 +11428,24 @@ function renderSuperAdminDashboard(el) {
           + ' onclick="adminEnterBrokerage(\'' + escHtml(b.bcfsa_lic) + '\')"'
           + ' onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.1)\'"'
           + ' onmouseout="this.style.boxShadow=\'\'">'
-          + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">'
-          + '<div>'
-          + '<div style="font-size:14px;font-weight:700;color:var(--ch)">'+escHtml(b.name||'—')+'</div>'
-          + '<div style="font-size:11px;color:var(--g4);margin-top:1px">'+escHtml(b.bcfsa_lic||'')+'</div>'
-          + '</div>'+statusTag+'</div>'
-          + '<div style="display:flex;gap:16px;font-size:12px;color:var(--g4);margin-bottom:10px">'
-          + '<span>'+bCorps.length+' corps</span>'
-          + '<span>'+bMM+' MM active</span>'
-          + '<span style="color:'+aiColor+';font-weight:'+(bAiPct>=80?700:400)+'">AI: '+bAiPct+'%</span>'
-          + '<span>'+(b.trial_meetings_used||0)+'/'+(b.trial_meetings_allowed||PRICING.trialMeetings)+' trial</span>'
-          + '</div>'
-          + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '<div style="font-size:11px;color:var(--red);margin-bottom:10px">No address on file</div>')
-          + '<div style="display:flex;justify-content:flex-end;gap:6px">'
-          + '<button class="btn xs" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="event.stopPropagation();syncBrokerageInfo(this.dataset.lic,this)">Sync</button>'
-          + '<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\'' + escHtml(b.bcfsa_lic) + '\',\'' + escHtml(b.name||'') + '\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ',' + (b.trial_meetings_allowed||PRICING.trialMeetings) + ',\'' + (b.trial_expires_at||'') + '\')">Manage Trial</button>'
-          + '</div>'
-          + '</div>';
+           + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">'
+           + '<div>'
+           + '<div style="font-size:14px;font-weight:700;color:var(--ch)">'+escHtml(b.name||'—')+'</div>'
+           + '<div style="font-size:11px;color:var(--g4);margin-top:1px">'+escHtml(b.bcfsa_lic||'')+'</div>'
+           + '</div>'+(status==='enterprise'?'<span class="tag" style="background:#7C3AED;color:#fff;font-size:10px">Enterprise</span>':status==='active'?'<span class="tag grn">Active</span>':'<span class="tag amb">Trial</span>')+'</div>'
+           + '<div style="display:flex;gap:16px;font-size:12px;color:var(--g4);margin-bottom:10px">'
+           + '<span>'+bCorps.length+' corps</span>'
+           + '<span>'+bMM+' MM active</span>'
+           + '<span style="color:'+aiColor+';font-weight:'+(bAiPct>=80?700:400)+'">AI: '+bAiPct+'%</span>'
+           + (status!=='enterprise'?'<span>'+(b.trial_meetings_used||0)+'/'+(b.trial_meetings_allowed||PRICING.trialMeetings)+' trial</span>':'<span style="color:#7C3AED;font-weight:600">Enterprise</span>')
+           + '</div>'
+           + (b.address ? '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">'+escHtml(b.address)+'</div>' : '<div style="font-size:11px;color:var(--red);margin-bottom:10px">No address on file</div>')
+           + '<div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">'
+           + '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--g4);cursor:pointer;margin-right:auto">'+(status==='enterprise'?'<input type="checkbox" checked onchange="event.stopPropagation();toggleEnterprise(\''+escHtml(b.bcfsa_lic)+'\',this.checked)" style="accent-color:#7C3AED;cursor:pointer">':'<input type="checkbox" onchange="event.stopPropagation();toggleEnterprise(\''+escHtml(b.bcfsa_lic)+'\',this.checked)" style="accent-color:#7C3AED;cursor:pointer">')+'Enterprise</label>'
+           + '<button class="btn xs" data-lic="'+escHtml(b.bcfsa_lic)+'" onclick="event.stopPropagation();syncBrokerageInfo(this.dataset.lic,this)">Sync</button>'
+           + (status!=='enterprise'?'<button class="btn xs" onclick="event.stopPropagation();saManageTrial(\''+escHtml(b.bcfsa_lic)+'\',\''+escHtml(b.name||'')+'\',' + (b.trial_meetings_used||0) + ',' + (status==='active'?'true':'false') + ',' + (b.trial_meetings_allowed||PRICING.trialMeetings) + ',\'' + (b.trial_expires_at||'') + '\')" >Manage Trial</button>':'')
+           + '</div>'
+           + '</div>';
       });
       html += '</div>';
     }
@@ -11404,7 +11485,7 @@ function renderDash() {
     var gsDone0   = gsTasks0.filter(function(t){return t.done;}).length;
     var gsTotal0  = gsTasks0.length;
     var gsAllDone0 = gsDone0 === gsTotal0;
-    var isActive0 = APP.brokerage.subscriptionStatus === 'active';
+    var isActive0 = APP.brokerage.subscriptionStatus === 'active' || APP.brokerage.subscriptionStatus === 'enterprise';
     var topHtml = '';
     if (!isActive0 || !gsAllDone0) {
       topHtml += '<div style="display:grid;grid-template-columns:' + (!isActive0 && !gsAllDone0 ? '1fr 1fr' : '1fr') + ';gap:14px;margin-bottom:14px">';
@@ -11490,7 +11571,7 @@ function renderDash() {
   html += '</div>';
 
   // ── Trial + Getting Started row ────────────────────────────────────
-  var isActive = APP.brokerage.subscriptionStatus === 'active';
+  var isActive = APP.brokerage.subscriptionStatus === 'active' || APP.brokerage.subscriptionStatus === 'enterprise';
   var gsTasks  = getGSTasks();
   var gsDone   = gsTasks.filter(function(t){return t.done;}).length;
   var gsTotal  = gsTasks.length;
@@ -11725,7 +11806,7 @@ function renderSCDetail(scId) {
   } else if (_scDetailTab === 'subscription') {
     // Use already-loaded SC data — it was fetched fresh on login/brokerage load.
     // Just sync brokerage subscription status from SC state.
-    if (s.isSubscribed && APP.brokerage.subscriptionStatus !== 'trial') APP.brokerage.subscriptionStatus = 'active';
+    if (s.isSubscribed && APP.brokerage.subscriptionStatus !== 'trial' && APP.brokerage.subscriptionStatus !== 'enterprise') APP.brokerage.subscriptionStatus = 'active';
     html += renderSCSubscription(s);
   }
 
@@ -12160,6 +12241,27 @@ function exportFormB() {
 }
 
 function renderSCSubscription(s) {
+  // Enterprise — show locked card
+  var isEnterprise = APP.brokerage && APP.brokerage.isEnterprise;
+  if (isEnterprise) {
+    var activatedDate = APP.brokerage.enterpriseActivatedAt
+      ? new Date(APP.brokerage.enterpriseActivatedAt).toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'})
+      : '—';
+    return '<div style="padding:28px 32px;max-width:560px">'
+      + '<div style="background:linear-gradient(135deg,#7C3AED,#5B21B6);border-radius:12px;padding:32px 28px;color:#fff;margin-bottom:20px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+      + '<span style="background:rgba(255,255,255,.15);border-radius:20px;padding:3px 13px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Enterprise</span>'
+      + '</div>'
+      + '<div style="font-size:22px;font-weight:800;margin-bottom:6px;font-family:var(--display)">All Features Active</div>'
+      + '<div style="font-size:13px;opacity:.8;margin-bottom:20px">Meeting Mode · Local StrataSphere · Global StrataSphere</div>'
+      + '<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:14px 16px;font-size:12px;opacity:.85">'
+      + 'Enterprise contract active since <strong>' + activatedDate + '</strong>. '
+      + 'All features are enabled for this strata corporation. Contact your account manager for billing inquiries.'
+      + '</div></div>'
+      + '<div style="font-size:12px;color:var(--g4);text-align:center">Managed by Neurata · Enterprise Plan</div>'
+      + '</div>';
+  }
+
   var isPaidSub  = !!(s.isSubscribed || (s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId)); // paid or SA-activated
   var mmOn       = isPaidSub;
   var ssTier     = scSsTier(s);
@@ -12933,7 +13035,7 @@ function showPg(pg) {
             if (row.is_subscribed) anyActive = true;
           }
         });
-        if (anyActive && APP.brokerage.subscriptionStatus !== 'trial') APP.brokerage.subscriptionStatus = 'active';
+        if (anyActive && APP.brokerage.subscriptionStatus !== 'trial' && APP.brokerage.subscriptionStatus !== 'enterprise') APP.brokerage.subscriptionStatus = 'active';
         // Re-render if subscription tab is open
         if (_scDetailTab === 'subscription' && APP.currentScId) renderSCDetail(APP.currentScId);
         renderSidebar('strata');
