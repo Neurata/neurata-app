@@ -13349,7 +13349,7 @@ function renderSidebar(activePg) {
   tabs.forEach(function(t) {
     var isc = (activePg === t) ? ' on' : '';
     var badge = '';
-    if (t === 'billing' && isMB && !isSubscribed) {
+    if (t === 'billing' && isMB && !isSubscribed && !APP.brokerage.isEnterprise) {
       badge = adjCount < PRICING.trialMeetings
         ? '<span class="s-bdg" style="background:var(--ambl);color:var(--amb)">Trial '+adjCount+'/'+PRICING.trialMeetings+'</span>'
         : '<span class="s-bdg" style="background:var(--redl);color:var(--red)">Trial Ended</span>';
