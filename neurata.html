@@ -13280,7 +13280,9 @@ function updateMtgHeaderBtn(tab, hasContent) {
 
 function renderMinutesList(sc, el) {
   var adjourned = (sc.meetings||[]).filter(function(m){return (m.status==='ADJOURNED'&&m.minutes)||(m.minutesState&&m.minutes);});
-  if (!adjourned.length) {
+  var historicDocs = (sc.docs||[]).filter(function(d){return d.source==='historic-minutes';});
+
+  if (!adjourned.length && !historicDocs.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No minutes yet</div>'
       + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
@@ -13288,10 +13290,13 @@ function renderMinutesList(sc, el) {
       + '</div>';
     return;
   }
+
   var html = '';
+
+  // Meeting Mode final minutes
   adjourned.forEach(function(m) {
     var isFinal = m.minutesState === 'FINAL' || (m.minutes && m.minutes.status === 'FINAL');
-    if (!isFinal) return; // drafts live on the Meetings tab only
+    if (!isFinal) return;
     var typeMap  = {council:'Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
     var typeLabel = typeMap[m.type] || m.type || 'Meeting';
     html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
@@ -13305,10 +13310,30 @@ function renderMinutesList(sc, el) {
       +'<button class="btn sm" onclick="exportMin(\'pdf\',\''+sc.id+'\',\''+m.id+'\')">Export .pdf</button>'
       +'</div></div></div>';
   });
+
+  // Historic minutes — sorted by name descending (newest first by filename)
+  historicDocs.slice().sort(function(a,b){return (b.name||'').localeCompare(a.name||'');}).forEach(function(doc) {
+    var label = (doc.name||'').replace(/\.pdf$/i,'').replace(/_/g,' ');
+    html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600">'+escHtml(label)+'</div>'
+      +'<div style="font-size:11px;color:var(--g4);margin-top:2px">'+escHtml(sc.plan)+' &middot; Historic Minutes</div>'
+      +'</div>'
+      +'<span class="tag gy" style="white-space:nowrap">Historic</span>'
+      +'<div class="br" style="flex-shrink:0">'
+      +(doc.storagePath
+        ? '<button class="btn sm" data-path="'+escHtml(doc.storagePath)+'" data-name="'+escHtml(doc.name||'')+'" onclick="downloadDocSigned(this)">Download</button>'
+        : (doc.url ? '<a class="btn sm" href="'+escHtml(doc.url)+'" target="_blank" rel="noopener">Download</a>' : ''))
+      +'</div></div></div>';
+  });
+
   if (!html) {
-    html = '<div style="font-size:12px;color:var(--g4);padding:12px 0">No finalized minutes yet. Run a meeting and finalize the minutes to see them here.</div>'
-      + '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>';
+    html = '<div style="font-size:12px;color:var(--g4);padding:12px 0">No finalized minutes yet.</div>';
   }
+
+  // Upload button at bottom
+  html += '<div style="margin-top:12px"><button class="btn" onclick="openHistoricMins()">+ Upload Historic Minutes</button></div>';
+
   el.innerHTML = html;
 }
 
@@ -14495,6 +14520,7 @@ function _addDocLocally(sc_, name, url, path, mime, decCount) {
     source:      'historic-minutes',
     sourceLabel: 'Historic Minutes',
     url:         url || '',
+    storagePath: path || '',
     mime:        mime,
     date:        new Date().toLocaleDateString()
   });
@@ -14503,12 +14529,11 @@ function _addDocLocally(sc_, name, url, path, mime, decCount) {
 }
 
 function _goToMinutesTab(decCount) {
-  // Navigate to the meetings page, documents tab
   showPg('meetings');
   setTimeout(function(){
-    var tab = document.getElementById('mtgtab-documents');
-    if (tab) switchMtgTab('documents', tab);
-    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Documents tab.', 'Saved ✓', 'success');
+    var tab = document.getElementById('mtgtab-minutes');
+    if (tab) switchMtgTab('minutes', tab);
+    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Minutes tab.', 'Saved ✓', 'success');
   }, 150);
 }
 
