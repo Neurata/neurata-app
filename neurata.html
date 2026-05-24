@@ -13331,8 +13331,7 @@ function renderMinutesList(sc, el) {
     html = '<div style="font-size:12px;color:var(--g4);padding:12px 0">No finalized minutes yet.</div>';
   }
 
-  // Upload button at bottom
-  html += '<div style="margin-top:12px"><button class="btn" onclick="openHistoricMins()">+ Upload Historic Minutes</button></div>';
+  // Upload button removed — available in page header instead
 
   el.innerHTML = html;
 }
@@ -14529,12 +14528,30 @@ function _addDocLocally(sc_, name, url, path, mime, decCount) {
 }
 
 function _goToMinutesTab(decCount) {
-  showPg('meetings');
-  setTimeout(function(){
-    var tab = document.getElementById('mtgtab-minutes');
-    if (tab) switchMtgTab('minutes', tab);
-    nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Minutes tab.', 'Saved ✓', 'success');
-  }, 150);
+  var sc_ = APP.sc.find(function(s){return s.id===APP.currentScId;});
+  // Reload docs from DB so newly uploaded historic minutes appear immediately
+  if (sc_) {
+    getSupabase().from('documents').select('*').eq('sc_id', sc_.plan).then(function(r) {
+      if (r.data) {
+        sc_.docs = r.data.map(function(d) {
+          return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'', url:d.public_url||'' };
+        });
+      }
+      showPg('meetings');
+      setTimeout(function(){
+        var tab = document.getElementById('mtgtab-minutes');
+        if (tab) switchMtgTab('minutes', tab);
+        nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Minutes tab.', 'Saved ✓', 'success');
+      }, 150);
+    });
+  } else {
+    showPg('meetings');
+    setTimeout(function(){
+      var tab = document.getElementById('mtgtab-minutes');
+      if (tab) switchMtgTab('minutes', tab);
+      nAlert(decCount+' decision(s) added to StrataSphere. Document saved to the Minutes tab.', 'Saved ✓', 'success');
+    }, 150);
+  }
 }
 
 function mmConfirmDecisionPrompt() {
