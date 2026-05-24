@@ -13472,8 +13472,8 @@ function renderLedger(sc, el) {
 }
 
 function renderDocsList(sc, el) {
-  // Single source of truth — all docs in sc.docs regardless of origin
-  var docs = (sc.docs || []).slice().reverse(); // newest first
+  // Exclude historic-minutes — those live on the Minutes tab
+  var docs = (sc.docs || []).filter(function(d){ return d.source !== 'historic-minutes'; }).slice().reverse(); // newest first
 
   var scIdForDoc = sc.id;
 
