@@ -8527,32 +8527,39 @@ function syncBrokerageReps() {
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(data){
     if (data.reps && data.reps.length) {
-      APP.reps = data.reps;
       var brkLic = APP.brokerage.lic || APP.currentUser.brkLic;
       var repRows = data.reps.map(function(r) {
         return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
       });
-      // Upsert BCFSA reps — then delete only those not in BCFSA AND without accounts
       var syncedLics = repRows.map(function(r){ return r.bcfsa_lic; });
-      // 1. Upsert all BCFSA reps
+
+      // Preserve in-memory reps who have accounts but aren't in BCFSA results
+      var existingReps = APP.reps || [];
+      var protectedReps = existingReps.filter(function(r) {
+        return syncedLics.indexOf(r.lic) === -1 && r.status === 'Active';
+      });
+      // Merge: BCFSA reps + protected account holders
+      APP.reps = data.reps.concat(protectedReps.map(function(r) {
+        return { name: r.name, lic: r.lic, title: r.title, email: r.email||'', status: 'Active' };
+      }));
+
+      // DB: upsert BCFSA reps, then delete stale reps who have no accounts
       getSupabase().from('reps').upsert(repRows, {onConflict:'brokerage_id,bcfsa_lic'})
       .then(function() {
-        // 2. Find all reps for this brokerage not in the BCFSA results
-        getSupabase().from('reps').select('bcfsa_lic').eq('brokerage_id', brkLic)
-        .then(function(existing) {
-          var staleReps = (existing.data||[]).map(function(r){ return r.bcfsa_lic; })
-            .filter(function(l){ return syncedLics.indexOf(l) === -1; });
-          if (!staleReps.length) return;
-          // 3. Only delete stale reps who have NO account in public.users
-          getSupabase().from('users').select('bcfsa_lic').eq('brokerage_id', brkLic)
-          .then(function(users) {
-            var accountLics = (users.data||[]).map(function(u){ return u.bcfsa_lic; });
-            var toDelete = staleReps.filter(function(l){ return accountLics.indexOf(l) === -1; });
+        getSupabase().from('users').select('bcfsa_lic').eq('brokerage_id', brkLic)
+        .then(function(users) {
+          var accountLics = (users.data||[]).map(function(u){ return u.bcfsa_lic; });
+          // Find reps in DB not in BCFSA results and without accounts — delete those only
+          getSupabase().from('reps').select('bcfsa_lic').eq('brokerage_id', brkLic)
+          .then(function(existing) {
+            var toDelete = (existing.data||[])
+              .map(function(r){ return r.bcfsa_lic; })
+              .filter(function(l){
+                return syncedLics.indexOf(l) === -1 && accountLics.indexOf(l) === -1;
+              });
             toDelete.forEach(function(l) {
               getSupabase().from('reps').delete()
-                .eq('brokerage_id', brkLic)
-                .eq('bcfsa_lic', l)
-                .then(function(){});
+                .eq('brokerage_id', brkLic).eq('bcfsa_lic', l).then(function(){});
             });
           });
         });
