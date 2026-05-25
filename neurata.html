@@ -9783,37 +9783,111 @@ function doLogin(){
 
 // ── PASSWORD RESET ────────────────────────────────────────────────────
 function showNewPasswordPrompt() {
-  // Show a dialog to set the new password
-  _dlgShow({
-    type: 'info',
-    title: 'Set New Password',
-    msg: 'Enter your new password (minimum 8 characters).',
-    input: true,
-    inputType: 'password',
-    inputPlaceholder: 'New password',
-    buttons: [
-      {label: 'Save Password', style: 'pri', value: true}
-    ],
-    cb: function(val) {
-      if (!val || val.length < 8) {
-        nAlert('Password must be at least 8 characters.', 'Too Short', 'warn');
+  // Build a custom modal with two fields + rules checklist
+  var overlay = document.createElement('div');
+  overlay.id = 'pw-reset-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit;">'
+    + '<h2 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#111827;">Set your new password</h2>'
+    + '<p style="margin:0 0 24px;font-size:14px;color:#6B7280;">Choose a strong password to secure your Neurata account.</p>'
+    + '<div style="margin-bottom:16px;">'
+    +   '<label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">New password</label>'
+    +   '<input id="pwr-pw1" type="password" placeholder="Enter new password" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:15px;outline:none;" />'
+    + '</div>'
+    + '<div style="margin-bottom:20px;">'
+    +   '<label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Confirm password</label>'
+    +   '<input id="pwr-pw2" type="password" placeholder="Repeat new password" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:15px;outline:none;" />'
+    + '</div>'
+    + '<div id="pwr-rules" style="margin-bottom:20px;padding:12px 16px;background:#F9FAFB;border-radius:8px;font-size:13px;line-height:2;">'
+    +   '<div id="pwr-r-len"  style="color:#9CA3AF;">○ At least 8 characters</div>'
+    +   '<div id="pwr-r-up"   style="color:#9CA3AF;">○ One uppercase letter</div>'
+    +   '<div id="pwr-r-num"  style="color:#9CA3AF;">○ One number</div>'
+    +   '<div id="pwr-r-sym"  style="color:#9CA3AF;">○ One special character (!@#$%^&*)</div>'
+    +   '<div id="pwr-r-mat"  style="color:#9CA3AF;">○ Passwords match</div>'
+    + '</div>'
+    + '<div id="pwr-err" style="display:none;margin-bottom:16px;padding:10px 14px;background:#FEF2F2;border-radius:6px;font-size:13px;color:#DC2626;"></div>'
+    + '<button id="pwr-btn" disabled onclick="doPasswordReset()" style="width:100%;padding:12px;background:#F97316;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;opacity:.5;">Save Password</button>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+
+  var pw1 = document.getElementById('pwr-pw1');
+  var pw2 = document.getElementById('pwr-pw2');
+  var btn = document.getElementById('pwr-btn');
+
+  function checkRules() {
+    var p = pw1.value;
+    var c = pw2.value;
+    var rLen = p.length >= 8;
+    var rUp  = /[A-Z]/.test(p);
+    var rNum = /[0-9]/.test(p);
+    var rSym = /[^A-Za-z0-9]/.test(p);
+    var rMat = p.length > 0 && p === c;
+
+    function setRule(id, pass) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.color = pass ? '#16A34A' : '#9CA3AF';
+      el.textContent = (pass ? '✓ ' : '○ ') + el.textContent.replace(/^[✓○] /, '');
+    }
+    setRule('pwr-r-len', rLen);
+    setRule('pwr-r-up',  rUp);
+    setRule('pwr-r-num', rNum);
+    setRule('pwr-r-sym', rSym);
+    setRule('pwr-r-mat', rMat);
+
+    var allPass = rLen && rUp && rNum && rSym && rMat;
+    btn.disabled = !allPass;
+    btn.style.opacity = allPass ? '1' : '.5';
+    btn.style.cursor  = allPass ? 'pointer' : 'default';
+  }
+
+  pw1.addEventListener('input', checkRules);
+  pw2.addEventListener('input', checkRules);
+  pw2.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !btn.disabled) doPasswordReset(); });
+  pw1.focus();
+}
+
+window.doPasswordReset = function() {
+  var pw1 = document.getElementById('pwr-pw1');
+  var pw2 = document.getElementById('pwr-pw2');
+  var btn = document.getElementById('pwr-btn');
+  var err = document.getElementById('pwr-err');
+  if (!pw1 || !pw2) return;
+
+  var password = pw1.value;
+  if (password !== pw2.value) { err.style.display=''; err.textContent='Passwords do not match.'; return; }
+  if (password.length < 8)    { err.style.display=''; err.textContent='Password must be at least 8 characters.'; return; }
+
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+  err.style.display = 'none';
+
+  getSupabase().auth.updateUser({ password: password })
+    .then(function(result) {
+      if (result.error) {
+        err.style.display = '';
+        err.textContent = 'Could not update password: ' + result.error.message;
+        btn.textContent = 'Save Password';
+        btn.disabled = false;
         return;
       }
-      getSupabase().auth.updateUser({password: val})
-        .then(function(result) {
-          if (result.error) {
-            nAlert('Could not update password. Please try again.', 'Error', 'warn');
-            return;
-          }
-          nAlert('Password updated successfully. You are now signed in.', 'Password Updated ✓', 'success');
-          // Load the user profile now that password is set
-          getSupabase().auth.getUser().then(function(u) {
-            if (u.data && u.data.user) loadUserProfile(u.data.user.id);
-          });
-        });
-    }
-  });
-}
+      // Success — remove overlay and load user
+      var overlay = document.getElementById('pw-reset-overlay');
+      if (overlay) overlay.remove();
+      nAlert('Password updated successfully. You are now signed in.', 'Password Updated ✓', 'success');
+      getSupabase().auth.getUser().then(function(u) {
+        if (u.data && u.data.user) loadUserProfile(u.data.user.id);
+      });
+    })
+    .catch(function(e) {
+      err.style.display = '';
+      err.textContent = 'Unexpected error. Please try again.';
+      btn.textContent = 'Save Password';
+      btn.disabled = false;
+    });
+};
 
 
 function showForgotPassword() {
