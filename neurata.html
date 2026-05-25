@@ -8532,11 +8532,28 @@ function syncBrokerageReps() {
       var repRows = data.reps.map(function(r) {
         return { brokerage_id: brkLic, name: r.name, bcfsa_lic: r.lic, role: r.title, email: r.email||'' };
       });
-      // Delete existing reps for this brokerage then re-insert fresh from BCFSA
-      getSupabase().from('reps').delete().eq('brokerage_id', brkLic)
-      .then(function() {
-        getSupabase().from('reps').insert(repRows).then(function(r) {
-          if (r.error) console.error('Could not save reps:', r.error);
+      // Delete existing reps for this brokerage, but preserve any who have active Neurata accounts
+      // (i.e. reps added manually who may not be in the BCFSA registry for this brokerage)
+      var syncedLics = repRows.map(function(r){ return r.bcfsa_lic; });
+      getSupabase().from('reps').select('bcfsa_lic').eq('brokerage_id', brkLic)
+      .then(function(existing) {
+        var existingLics = (existing.data||[]).map(function(r){ return r.bcfsa_lic; });
+        // Find manually-added reps not in BCFSA results — check if they have accounts
+        var manualLics = existingLics.filter(function(l){ return syncedLics.indexOf(l) === -1; });
+        getSupabase().from('users').select('bcfsa_lic').eq('brokerage_id', brkLic)
+        .then(function(users) {
+          var accountLics = (users.data||[]).map(function(u){ return u.bcfsa_lic; });
+          var protectedLics = manualLics.filter(function(l){ return accountLics.indexOf(l) !== -1; });
+          // Delete only reps who are NOT protected
+          var deleteQuery = getSupabase().from('reps').delete().eq('brokerage_id', brkLic);
+          if (protectedLics.length) {
+            deleteQuery = deleteQuery.not('bcfsa_lic', 'in', '('+protectedLics.map(function(l){return '"'+l+'"';}).join(',')+')');
+          }
+          deleteQuery.then(function() {
+            getSupabase().from('reps').insert(repRows).then(function(r) {
+              if (r.error) console.error('Could not save reps:', r.error);
+            });
+          });
         });
       });
     }
