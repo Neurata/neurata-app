@@ -12665,8 +12665,8 @@ function renderLotsPlan(s) {
     + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
     + '<div style="display:flex;gap:6px;align-items:center">'
     + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')"> Template</button>'
-    + '<button class="btn xs" onclick="downloadCurrentRoster(\''+s.id+'\')"> Download Roster</button>'
     + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()"> Upload Roster</button>'
+    + '<button class="btn xs" onclick="downloadCurrentRoster(\''+s.id+'\')"> Download Roster</button>'
     + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
     + '<button class="btn xs'+(isListView?'':' pri')+'" onclick="APP._lotsView=\'grid\';renderSCDetail(\''+s.id+'\')" title="Grid view">⊞</button>'
     + '<button class="btn xs'+(isListView?' pri':'')+'" onclick="APP._lotsView=\'list\';renderSCDetail(\''+s.id+'\')" title="List view">☰</button>'
@@ -12856,41 +12856,19 @@ function saveOwnerInfo() {
 
 function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
-  function _buildTemplate() {
-    var lots = s.lots || 20;
-    var wb = XLSX.utils.book_new();
-
-    // Columns: Strata Lot, Owner Name, Email, Unit Entitlement, Parking Stall(s), Storage Locker(s)
-    // Council Role and Owner Type are set in the app, not via roster upload
-    var rows = [['Strata Lot','Owner Name','Email','Unit Entitlement','Parking Stall(s)','Storage Locker(s)']];
-    for (var i = 1; i <= lots; i++) {
-      rows.push(['SL'+String(i).padStart(3,'0'),'','','','','']);
-    }
-    var ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:14},{wch:24},{wch:28},{wch:18},{wch:22},{wch:22}];
-
-    // Unit Entitlement comment — tooltip on hover
-    if (!ws['D1'].c) ws['D1'].c = [];
-    ws['D1'].c.push({ a:'Neurata', t:'Optional. Enter the numeric unit entitlement for this strata lot.', hidden:true });
-
-    // Hidden lists sheet for any future validation
-    var wsLists = XLSX.utils.aoa_to_sheet([['Notes'],['Council role and owner type are set in the Neurata app.']]);
-    XLSX.utils.book_append_sheet(wb, wsLists, '_lists');
-    XLSX.utils.book_append_sheet(wb, ws, 'Owner Roster');
-    wb.SheetNames = ['Owner Roster', '_lists'];
-
-    XLSX.writeFile(wb, s.plan.replace(/\s+/g,'-') + '-owner-roster-template.xlsx');
+  var lots = s.lots || 20;
+  var rows = [
+    '# Columns: Strata Lot, Owner Name, Email, Unit Entitlement, Parking Stall(s), Storage Locker(s)',
+    '# Council role and owner type are set directly in the app.',
+    'Strata Lot,Owner Name,Email,Unit Entitlement,Parking Stall(s),Storage Locker(s)'
+  ];
+  for (var i = 1; i <= lots; i++) {
+    rows.push('SL'+String(i).padStart(3,'0')+',,,,,');
   }
-
-  if (typeof XLSX !== 'undefined') {
-    _buildTemplate();
-  } else {
-    var scr = document.createElement('script');
-    scr.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    scr.onload = _buildTemplate;
-    scr.onerror = function() { nAlert('Could not load spreadsheet library. Please try again.','','warn'); };
-    document.head.appendChild(scr);
-  }
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.join('\n'));
+  a.download = s.plan.replace(/\s+/g,'-') + '-owner-roster-template.csv';
+  a.click();
 }
 
 function importOwnerRoster(input, scId) {
