@@ -12744,7 +12744,7 @@ function openEditSC(scId) {
   document.getElementById('edit-sc-plan-label').textContent = s.plan + (s.lots ? ' · ' + s.lots + ' strata lots' : '');
 
   // Upload Strata Plan button — SA only (extend to other roles here when needed)
-  var canUploadPlan = APP.currentUser && APP.currentUser.global_ss === true;
+  var canUploadPlan = APP.currentUser && APP.currentUser.isSuperAdmin === true;
   var hasPlan = (s.docs||[]).some(function(d){ return d.source === 'strata-plan'; });
   var wrap = document.getElementById('edit-sc-plan-upload-wrap');
   var btn  = document.getElementById('edit-sc-plan-upload-btn');
@@ -16098,7 +16098,7 @@ init();
       <!-- SA-only: strata plan upload status -->
       <div id="edit-sc-plan-status" style="display:none;font-size:12px;margin-top:8px"></div>
     </div>
-    <div class="mo-ft" style="justify-content:space-between;align-items:center">
+    <div class="mo-ft" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
       <!-- SA-only Upload Strata Plan — hidden for non-SA roles; set display via openEditSC() -->
       <div id="edit-sc-plan-upload-wrap" style="display:none">
         <label id="edit-sc-plan-upload-btn" class="btn xs" style="cursor:pointer;margin:0" title="Upload the registered LTSA strata plan PDF to verify lot count and index for StrataSphere">
@@ -16107,7 +16107,7 @@ init();
         </label>
         <div id="edit-sc-plan-has" style="display:none;font-size:11px;color:var(--g4);margin-top:4px">✓ Strata plan on file</div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn" onclick="closeMo('mo-edit-sc')">Cancel</button>
         <button class="btn pri" onclick="saveEditSC()">Save</button>
       </div>
