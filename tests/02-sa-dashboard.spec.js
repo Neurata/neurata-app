@@ -20,16 +20,15 @@ test.describe('SA Dashboard', () => {
   });
 
   test('Add Brokerage button opens modal', async ({ page }) => {
-    await page.locator('#dash-hdr-actions button').click();
+    await page.locator('#dash-hdr-actions button[onclick*="CreateBrk"], #dash-hdr-actions button[onclick*="create-brk"], #dash-hdr-actions button:not([onclick*="CreateUser"])').first().click();
     await expect(page.locator('#mo-create-brk')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#crk-lic')).toBeVisible();
   });
 
   test('BCFSA brokerage lookup works', async ({ page }) => {
-    await page.locator('#dash-hdr-actions button').click();
-    await page.fill('#crk-lic', 'X025017');
+    await page.locator('#dash-hdr-actions button:not([onclick*="CreateUser"])').first().click();
+    await page.fill('#crk-lic', 'X099001');
     await page.locator('#mo-create-brk button:has-text("Look Up")').click();
-    // Either shows result or shows "already registered" error - both are valid
     await page.waitForFunction(
       () => {
         const result = document.getElementById('crk-result');
@@ -39,7 +38,6 @@ test.describe('SA Dashboard', () => {
       },
       { timeout: 20000 }
     );
-    // At least one of result or error should have content
     const resultVisible = await page.evaluate(() => {
       const r = document.getElementById('crk-result');
       const e = document.getElementById('crk-err');
@@ -54,7 +52,6 @@ test.describe('SA Dashboard', () => {
   });
 
   test('SA can enter a brokerage and see role filter buttons', async ({ page }) => {
-    // Enter any brokerage in the list
     const enterBtn = page.locator('[onclick*="adminEnterBrokerage"]').first();
     const count = await enterBtn.count();
     if (count === 0) {

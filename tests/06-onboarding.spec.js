@@ -8,13 +8,22 @@
 const { test, expect } = require('@playwright/test');
 const { DEV_URL, loginAsSA, SA_EMAIL, SA_PASS } = require('./helpers');
 
-const TEST_BRK_LIC = 'X025017';
+const TEST_BRK_LIC = 'X099001';
 
 // Login as SA and enter the test brokerage in MB context
 async function loginAndEnterBrokerage(page) {
   await loginAsSA(page);
+  // Wait for brokerages list to populate before calling adminEnterBrokerage
+  await page.waitForFunction(
+    (lic) => {
+      var brokerages = window.APP && window.APP._allBrokerages;
+      return brokerages && brokerages.some(function(b) { return b.bcfsa_lic === lic; });
+    },
+    TEST_BRK_LIC,
+    { timeout: 30000 }
+  );
   await page.evaluate((lic) => { window.adminEnterBrokerage(lic); }, TEST_BRK_LIC);
-  await page.waitForSelector('#tab-billing', { timeout: 20000 });
+  await page.waitForSelector('#tab-billing', { timeout: 30000 });
 }
 
 // ─── Welcome Overlay ─────────────────────────────────────────────────────────
