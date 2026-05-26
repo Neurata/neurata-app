@@ -3403,6 +3403,21 @@ function eiOpen(it) {
   eiRenderAtts();
   eiToggleMotionFields(it.type || 'FOR_INFORMATION');
   document.getElementById('ei-rtype').onchange = function(){ eiToggleMotionFields(this.value); };
+
+  // Hide irrelevant fields for Next Meeting Date and Adjournment
+  var titleLower = (it.text || '').toLowerCase();
+  var isNextMeeting  = titleLower.indexOf('next meeting') >= 0 || titleLower.indexOf('set next') >= 0;
+  var isAdjournment  = titleLower.indexOf('adjourn') >= 0;
+  var isSimpleItem   = isNextMeeting || isAdjournment;
+  var bgRow   = document.getElementById('ei-bg')   && document.getElementById('ei-bg').closest('.fg');
+  var finRow  = document.getElementById('ei-fin')  && document.getElementById('ei-fin').closest('.fg');
+  var riskRow = document.getElementById('ei-risk') && document.getElementById('ei-risk').closest('.fg');
+  var rtypeRow = document.getElementById('ei-rtype') && document.getElementById('ei-rtype').closest('.fg');
+  if (bgRow)    bgRow.style.display    = isSimpleItem ? 'none' : '';
+  if (finRow)   finRow.style.display   = isSimpleItem ? 'none' : '';
+  if (riskRow)  riskRow.style.display  = isSimpleItem ? 'none' : '';
+  if (rtypeRow) rtypeRow.style.display = isSimpleItem ? 'none' : '';
+
   // Reset file input value so same file can be selected again
   var inp = document.getElementById('ei-att-input');
   if (inp) inp.value = '';
