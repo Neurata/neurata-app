@@ -12825,7 +12825,9 @@ function editScUploadPlan(file) {
           if (docId) extractAndStoreDocText(file, docId, s.plan);
           if (stat) { stat.style.color = 'var(--grn)'; stat.textContent = '✓ Strata plan uploaded and indexed.'; }
           var has = document.getElementById('edit-sc-plan-has');
-          if (has) has.style.display = '';
+          if (has) { has.style.display = ''; }
+          if (btn) btn.style.display = 'none';
+          // Re-render SC detail so doc appears in Documents tab
           renderSCDetail(_editScId);
         })
         .catch(function(err) {
@@ -13964,7 +13966,17 @@ function extractAndStoreDocText(file, docId, scId) {
       }, Promise.resolve([]));
     }).then(function(texts) {
       var fullText = texts.join('\n\n').trim();
-      if (fullText) _classifyAndSaveDocText(docId, scId, fullText, null);
+      if (fullText) {
+        _classifyAndSaveDocText(docId, scId, fullText, null);
+      } else {
+        // No text layer — scanned PDF. Use Claude vision via multi-pass extraction.
+        var r4 = new FileReader();
+        r4.onload = function(ev){
+          var b64 = ev.target.result.split(',')[1];
+          _extractDocTextMultiPass(b64, docId, scId, '', 1);
+        };
+        r4.readAsDataURL(file);
+      }
     }).catch(function(e){ console.warn('PDF.js extraction error:', e); });
   };
   r3.readAsArrayBuffer(file);
@@ -14345,7 +14357,27 @@ function docExtractText(btn) {
     }
   })
   .then(function(fullText) {
-    if (!fullText || !fullText.trim()) throw new Error('No text found in this document. If it is a scanned image, text extraction is not supported — please use a text-based PDF or Word document.');
+    if (!fullText || !fullText.trim()) {
+      // PDF.js found no text — likely a scanned image PDF. Fall through to Claude vision extraction.
+      var dbIdLocal = dbId; var scIdLocal = scId;
+      var storagePath2 = doc && doc.storagePath || '';
+      fetch(getSupabase().storage.from('neurata-documents').getPublicUrl(storagePath2).data.publicUrl || '')
+        .then(function(r2){ return r2.blob(); })
+        .then(function(blob){
+          var reader = new FileReader();
+          reader.onload = function(ev){
+            var b64 = ev.target.result.split(',')[1];
+            if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
+            _extractDocTextMultiPassBtn(b64, dbIdLocal, scIdLocal, '', 1);
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(function(e){
+          if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+          nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
+        });
+      return;
+    }
     _finaliseDocExtract(dbId, scId, fullText.trim(), null);
   })
   .catch(function(e) {
