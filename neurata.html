@@ -12761,7 +12761,21 @@ function openOwnerInfo(scId, sl) {
   var roleRow = document.getElementById('oi-council-role-row');
   roleRow.style.display = ck.checked ? '' : 'none';
   var roleSel = document.getElementById('oi-role');
+  // Exclusive roles — can only be held by one person at a time
+  var exclusiveRoles = ['President','Vice President','Treasurer','Secretary'];
+  var takenRoles = (s.councilMembers||[])
+    .filter(function(m){ return m.sl !== sl && m.isCouncil && exclusiveRoles.indexOf(m.role) >= 0; })
+    .map(function(m){ return m.role; });
+  Array.from(roleSel.options).forEach(function(opt) {
+    var isTaken = takenRoles.indexOf(opt.value) >= 0;
+    opt.disabled = isTaken;
+    opt.textContent = opt.value + (isTaken ? ' (assigned)' : '');
+  });
   roleSel.value = (existing && existing.role) || 'Member at Large';
+  // If saved role is somehow taken (edge case), fall back to Member at Large
+  if (roleSel.value !== ((existing && existing.role) || 'Member at Large')) {
+    roleSel.value = 'Member at Large';
+  }
   ck.onchange = function(){ roleRow.style.display = ck.checked ? '' : 'none'; };
   // More Info fields
   var ue = document.getElementById('oi-ue');
@@ -12846,52 +12860,23 @@ function downloadRosterTemplate(scId) {
     var lots = s.lots || 20;
     var wb = XLSX.utils.book_new();
 
-    // ── Main sheet ──────────────────────────────────────────────────────────
-    var rows = [['Strata Lot','Owner Name','Email','Council Role','Unit Entitlement','Owner Type','Parking Stall(s)','Storage Locker(s)']];
+    // Columns: Strata Lot, Owner Name, Email, Unit Entitlement, Parking Stall(s), Storage Locker(s)
+    // Council Role and Owner Type are set in the app, not via roster upload
+    var rows = [['Strata Lot','Owner Name','Email','Unit Entitlement','Parking Stall(s)','Storage Locker(s)']];
     for (var i = 1; i <= lots; i++) {
-      rows.push(['SL'+String(i).padStart(3,'0'),'','','','','','','']);
+      rows.push(['SL'+String(i).padStart(3,'0'),'','','','','']);
     }
     var ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:14},{wch:24},{wch:28},{wch:18},{wch:18},{wch:18},{wch:20},{wch:20}];
+    ws['!cols'] = [{wch:14},{wch:24},{wch:28},{wch:18},{wch:22},{wch:22}];
 
-    // Cell comment on D1 — tooltip on hover, not blocking
+    // Unit Entitlement comment — tooltip on hover
     if (!ws['D1'].c) ws['D1'].c = [];
-    ws['D1'].c.push({ a:'Neurata', t:'Leave blank for non-council owners.\nAccepted: President, Vice President, Treasurer, Secretary, Member', hidden:true });
+    ws['D1'].c.push({ a:'Neurata', t:'Optional. Enter the numeric unit entitlement for this strata lot.', hidden:true });
 
-    // ── Validation lists sheet (hidden) ─────────────────────────────────────
-    var listsData = [
-      ['CouncilRole','OwnerType'],
-      ['President','Owner Occupant'],
-      ['Vice President','Owner Absentee'],
-      ['Treasurer','Developer'],
-      ['Secretary',''],
-      ['Member','']
-    ];
-    var wsLists = XLSX.utils.aoa_to_sheet(listsData);
+    // Hidden lists sheet for any future validation
+    var wsLists = XLSX.utils.aoa_to_sheet([['Notes'],['Council role and owner type are set in the Neurata app.']]);
     XLSX.utils.book_append_sheet(wb, wsLists, '_lists');
-
-    // ── Data validation via !dataValidation (SheetJS Pro) falls back to XML ─
-    // Use raw XML injection for data validation — works with SheetJS CE
-    var dvXml = '<dataValidations count="'+(lots*2)+'">';
-    for (var r = 2; r <= lots+1; r++) {
-      // Council Role — col D
-      dvXml += '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"'
-        + ' sqref="D'+r+'">'
-        + '<formula1>_lists!$A$2:$A$6</formula1>'
-        + '</dataValidation>';
-      // Owner Type — col F
-      dvXml += '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"'
-        + ' sqref="F'+r+'">'
-        + '<formula1>_lists!$B$2:$B$4</formula1>'
-        + '</dataValidation>';
-    }
-    dvXml += '</dataValidations>';
-    if (!ws['!xml']) ws['!xml'] = {};
-    ws['!xml'].dataValidations = dvXml;
-
     XLSX.utils.book_append_sheet(wb, ws, 'Owner Roster');
-
-    // Move Owner Roster to first position
     wb.SheetNames = ['Owner Roster', '_lists'];
 
     XLSX.writeFile(wb, s.plan.replace(/\s+/g,'-') + '-owner-roster-template.xlsx');
@@ -13000,18 +12985,27 @@ function _parseRosterCSV(csv, s) {
     var email = cols[2]||'';
     if(!name){ skipped++; return; }
 
-    // Col 3 = Council Role (optional). If it's a number it's unit entitlement in wrong col — ignore.
-    var councilRoleRaw = cols[3] || '';
+    // Template columns: SL, Name, Email, Unit Entitlement, Parking, Storage
+    // Council Role and Owner Type are NOT in the upload template — set in app only
+    // Still preserve them if uploading a full Download Roster export (8 cols)
+    var isFullExport = cols.length >= 8;
+
+    var councilRoleRaw = isFullExport ? (cols[3] || '') : '';
     var isCouncilCol   = councilRoleRaw && isNaN(parseFloat(councilRoleRaw));
     var councilRole    = isCouncilCol ? councilRoleRaw.trim() : '';
     var isCouncil      = councilRole.length > 0;
 
-    // Cols 4–7: unit entitlement, owner type, parking, storage — all optional
-    var ueRaw   = cols[4] || '';
-    var ue      = ueRaw && !isNaN(parseFloat(ueRaw)) ? parseFloat(ueRaw) : null;
-    var ownerType = cols[5] || '';
-    var parking   = (cols[6] || '').replace(/;/g, ','); // semicolons allowed as separators
-    var storage   = (cols[7] || '').replace(/;/g, ',');
+    // Unit entitlement, owner type, parking, storage
+    var ueCol     = isFullExport ? 4 : 3;
+    var otCol     = isFullExport ? 5 : -1;
+    var pkCol     = isFullExport ? 6 : 4;
+    var stCol     = isFullExport ? 7 : 5;
+
+    var ueRaw     = cols[ueCol] || '';
+    var ue        = ueRaw && !isNaN(parseFloat(ueRaw)) ? parseFloat(ueRaw) : null;
+    var ownerType = otCol >= 0 ? (cols[otCol] || '') : '';
+    var parking   = ((cols[pkCol] || '')).replace(/;/g, ',');
+    var storage   = ((cols[stCol] || '')).replace(/;/g, ',');
 
     var idx      = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
