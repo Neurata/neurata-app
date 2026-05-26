@@ -3409,10 +3409,14 @@ function eiOpen(it) {
   var isNextMeeting  = titleLower.indexOf('next meeting') >= 0 || titleLower.indexOf('set next') >= 0;
   var isAdjournment  = titleLower.indexOf('adjourn') >= 0;
   var isSimpleItem   = isNextMeeting || isAdjournment;
-  var bgRow   = document.getElementById('ei-bg')   && document.getElementById('ei-bg').closest('.fg');
-  var finRow  = document.getElementById('ei-fin')  && document.getElementById('ei-fin').closest('.fg');
-  var riskRow = document.getElementById('ei-risk') && document.getElementById('ei-risk').closest('.fg');
-  var rtypeRow = document.getElementById('ei-rtype') && document.getElementById('ei-rtype').closest('.fg');
+  var bgEl    = document.getElementById('ei-bg');
+  var finEl   = document.getElementById('ei-fin');
+  var riskEl  = document.getElementById('ei-risk');
+  var rtypeEl = document.getElementById('ei-rtype');
+  var bgRow    = bgEl    && bgEl.closest   ? bgEl.closest('.fg')    : null;
+  var finRow   = finEl   && finEl.closest  ? finEl.closest('.fg')   : null;
+  var riskRow  = riskEl  && riskEl.closest ? riskEl.closest('.fg')  : null;
+  var rtypeRow = rtypeEl && rtypeEl.closest? rtypeEl.closest('.fg') : null;
   if (bgRow)    bgRow.style.display    = isSimpleItem ? 'none' : '';
   if (finRow)   finRow.style.display   = isSimpleItem ? 'none' : '';
   if (riskRow)  riskRow.style.display  = isSimpleItem ? 'none' : '';
@@ -12738,6 +12742,21 @@ function openEditSC(scId) {
   document.getElementById('edit-sc-name').value  = s.name || '';
   document.getElementById('edit-sc-addr').value  = s.addr || '';
   document.getElementById('edit-sc-plan-label').textContent = s.plan + (s.lots ? ' · ' + s.lots + ' strata lots' : '');
+
+  // Upload Strata Plan button — SA only (extend to other roles here when needed)
+  var canUploadPlan = APP.currentUser && APP.currentUser.global_ss === true;
+  var hasPlan = (s.docs||[]).some(function(d){ return d.source === 'strata-plan'; });
+  var wrap = document.getElementById('edit-sc-plan-upload-wrap');
+  var btn  = document.getElementById('edit-sc-plan-upload-btn');
+  var has  = document.getElementById('edit-sc-plan-has');
+  var stat = document.getElementById('edit-sc-plan-status');
+  if (wrap) wrap.style.display = canUploadPlan ? '' : 'none';
+  if (btn)  btn.style.display  = hasPlan ? 'none' : '';
+  if (has)  has.style.display  = hasPlan ? ''     : 'none';
+  if (stat) { stat.style.display = 'none'; stat.textContent = ''; }
+  // Reset file input
+  var fi = document.getElementById('edit-sc-plan-file'); if (fi) fi.value = '';
+
   openMo('mo-edit-sc');
 }
 function saveEditSC() {
@@ -12758,6 +12777,87 @@ function saveEditSC() {
   renderSCDetail(_editScId);
   // Update sidebar and header too
   renderSidebar(APP.activePg);
+}
+
+// SA-only: upload strata plan PDF to an existing SC
+// To enable for other roles, add their check to openEditSC canUploadPlan condition
+function editScUploadPlan(file) {
+  if (!file || file.type !== 'application/pdf') { nAlert('Please select a PDF file.','','warn'); return; }
+  var s = APP.sc.find(function(x){return x.id===_editScId;}); if(!s) return;
+
+  var btn  = document.getElementById('edit-sc-plan-upload-btn');
+  var stat = document.getElementById('edit-sc-plan-status');
+  if (btn)  btn.style.display = 'none';
+  if (stat) { stat.style.display = ''; stat.style.color = 'var(--g4)'; stat.textContent = 'Parsing strata plan…'; }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var b64 = e.target.result.split(',')[1];
+    scParsePlan(b64, file.name, function(parsed) {
+      var proceed = function() {
+        // Upload to strata-plans/ bucket
+        if (stat) stat.textContent = 'Uploading…';
+        var path = 'strata-plans/' + s.plan.replace(/\s+/g, '-') + '/' + file.name;
+        getSupabase().storage.from('neurata-documents').upload(path, file, {upsert: true})
+        .then(function(ur) {
+          if (ur.error) { throw new Error(ur.error.message); }
+          // Store doc record
+          return getSupabase().from('documents').insert({
+            sc_id:        s.plan,
+            name:         file.name,
+            source:       'strata-plan',
+            source_label: 'Strata Plan',
+            mime_type:    'application/pdf',
+            storage_path: path,
+            doc_type:     'strata-plan',
+            uploaded_at:  new Date().toISOString()
+          }).select('id').single();
+        })
+        .then(function(dr) {
+          var docId = dr.data && dr.data.id;
+          var docEntry = { dbId: docId, name: file.name, sourceLabel: 'Strata Plan', source: 'strata-plan',
+            mime: 'application/pdf', date: new Date().toLocaleDateString('en-CA'),
+            documentText: '', docType: 'strata-plan', storagePath: path };
+          if (!s.docs) s.docs = [];
+          s.docs.push(docEntry);
+          sv('sc_'+s.id, s);
+          // Index for StrataSphere
+          if (docId) extractAndStoreDocText(file, docId, s.plan);
+          if (stat) { stat.style.color = 'var(--grn)'; stat.textContent = '✓ Strata plan uploaded and indexed.'; }
+          var has = document.getElementById('edit-sc-plan-has');
+          if (has) has.style.display = '';
+          renderSCDetail(_editScId);
+        })
+        .catch(function(err) {
+          if (stat) { stat.style.color = 'var(--red)'; stat.textContent = 'Upload failed: ' + err.message; }
+          if (btn) btn.style.display = '';
+        });
+      };
+
+      // Check for lot count discrepancy
+      if (parsed && parsed.lots && parseInt(parsed.lots) !== parseInt(s.lots)) {
+        var parsedLots = parseInt(parsed.lots);
+        var storedLots = parseInt(s.lots);
+        nConfirm(
+          'The strata plan shows ' + parsedLots + ' strata lots, but this SC is recorded as having ' + storedLots + '.\n\nUpdate the lot count to ' + parsedLots + '?',
+          function(ok) {
+            if (ok) {
+              s.lots = parsedLots;
+              getSupabase().from('strata_corps').update({ lots: parsedLots }).eq('plan_number', s.plan)
+                .then(function(r){ if (r.error) console.error('lot count update error:', r.error); });
+              document.getElementById('edit-sc-lots').value = parsedLots;
+              document.getElementById('edit-sc-plan-label').textContent = s.plan + ' · ' + parsedLots + ' strata lots';
+            }
+            proceed();
+          },
+          'Lot Count Discrepancy', 'warn'
+        );
+      } else {
+        proceed();
+      }
+    });
+  };
+  reader.readAsDataURL(file);
 }
 
 function openOwnerInfo(scId, sl) {
@@ -15995,10 +16095,22 @@ init();
       </div>
       <div class="fg"><label>Corporation Name</label><input type="text" id="edit-sc-name" placeholder="e.g. The Selkirks"/></div>
       <div class="fg"><label>Civic Address</label><input type="text" id="edit-sc-addr" placeholder="e.g. 123 Main St, Vancouver, BC"/></div>
+      <!-- SA-only: strata plan upload status -->
+      <div id="edit-sc-plan-status" style="display:none;font-size:12px;margin-top:8px"></div>
     </div>
-    <div class="mo-ft">
-      <button class="btn" onclick="closeMo('mo-edit-sc')">Cancel</button>
-      <button class="btn pri" onclick="saveEditSC()">Save</button>
+    <div class="mo-ft" style="justify-content:space-between;align-items:center">
+      <!-- SA-only Upload Strata Plan — hidden for non-SA roles; set display via openEditSC() -->
+      <div id="edit-sc-plan-upload-wrap" style="display:none">
+        <label id="edit-sc-plan-upload-btn" class="btn xs" style="cursor:pointer;margin:0" title="Upload the registered LTSA strata plan PDF to verify lot count and index for StrataSphere">
+          ⬆ Upload Strata Plan
+          <input type="file" id="edit-sc-plan-file" accept=".pdf" style="display:none" onchange="editScUploadPlan(this.files[0])"/>
+        </label>
+        <div id="edit-sc-plan-has" style="display:none;font-size:11px;color:var(--g4);margin-top:4px">✓ Strata plan on file</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeMo('mo-edit-sc')">Cancel</button>
+        <button class="btn pri" onclick="saveEditSC()">Save</button>
+      </div>
     </div>
   </div>
 </div>
