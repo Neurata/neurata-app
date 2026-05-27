@@ -14358,18 +14358,30 @@ function docExtractText(btn) {
   })
   .then(function(fullText) {
     if (!fullText || !fullText.trim()) {
-      // PDF.js found no text — likely a scanned image PDF. Fall through to Claude vision extraction.
+      // No text layer — scanned PDF. Use Claude vision via multi-pass extraction.
       var dbIdLocal = dbId; var scIdLocal = scId;
-      var storagePath2 = doc && doc.storagePath || '';
-      fetch(getSupabase().storage.from('neurata-documents').getPublicUrl(storagePath2).data.publicUrl || '')
+      var storagePath2 = doc && doc.storagePath || doc && doc.storage_path || '';
+      if (!storagePath2) {
+        if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+        nAlert('Could not index document: storage path missing.', 'Index Failed', 'warn');
+        return;
+      }
+      // Use signed URL (bucket is private)
+      getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath2, 300)
+        .then(function(sr){
+          if (sr.error || !sr.data || !sr.data.signedUrl) throw new Error('Could not generate signed URL');
+          return fetch(sr.data.signedUrl);
+        })
         .then(function(r2){ return r2.blob(); })
         .then(function(blob){
           var reader = new FileReader();
           reader.onload = function(ev){
             var b64 = ev.target.result.split(',')[1];
+            if (!b64) throw new Error('Empty PDF data');
             if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
             _extractDocTextMultiPassBtn(b64, dbIdLocal, scIdLocal, '', 1);
           };
+          reader.onerror = function(){ nAlert('Could not read document for indexing.', 'Index Failed', 'warn'); };
           reader.readAsDataURL(blob);
         })
         .catch(function(e){
