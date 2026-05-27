@@ -10631,8 +10631,7 @@ function getGSTasks() {
   var hasMeeting   = sc.some(function(s){ return s.meetings && s.meetings.length > 0; });
   var hasMinutes   = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='historic-minutes'||d.docType==='historic-minutes'; }); });
   var hasBylaws    = sc.some(function(s){ return (s.docs||[]).some(function(d){ return d.source==='upload'||d.source==='bylaws'||d.docType==='bylaws'||d.sourceLabel==='Bylaws'; }); });
-  var _ssKey = 'ss_query_' + (APP.currentUser && APP.currentUser.id || '') + '_' + (APP.brokerage && APP.brokerage.lic || '');
-  var hasSSQuery   = APP[_ssKey] || false;
+  var hasSSQuery   = APP._hasSSQuery || false;
   var hasInvited   = sc.some(function(s){ return (s.repIds||[]).some(function(lic){ return lic !== APP.currentUser.lic; }); });
   var hasBilling   = brk.billingSetup || false;
   var hasSubReq    = APP._hasSubRequest || false;
@@ -10711,8 +10710,7 @@ function refreshGSCard() {
 
 // Call this after a StrataSphere query to mark it done
 function markSSQueryDone() {
-  var _ssKey = 'ss_query_' + (APP.currentUser && APP.currentUser.id || '') + '_' + (APP.brokerage && APP.brokerage.lic || '');
-  APP[_ssKey] = true;
+  APP._hasSSQuery = true;
   refreshGSCard();
 }
 
