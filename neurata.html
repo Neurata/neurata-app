@@ -13703,64 +13703,96 @@ function renderLedger(sc, el) {
   el.innerHTML = html;
 }
 
+var SC_DOC_FOLDERS = [
+  'Building & Construction',
+  'Contracts & Service Agreements',
+  'Correspondence',
+  'Financial & Accounting',
+  'Insurance',
+  'Legal & Governance',
+  'Meetings & Records',
+  'Operations'
+];
+
 function renderDocsList(sc, el) {
   // Exclude historic-minutes — those live on the Minutes tab
-  var docs = (sc.docs || []).filter(function(d){ return d.source !== 'historic-minutes'; }).slice().reverse(); // newest first
-
+  var docs = (sc.docs || []).filter(function(d){ return d.source !== 'historic-minutes'; }).slice().reverse();
   var scIdForDoc = sc.id;
 
   if (!docs.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No documents yet</div>'
       + '<div class="empty-s">Upload documents here, add attachments to agenda items, or upload historic minutes — all appear in this library and feed StrataSphere.</div>'
-      + '<div style="font-size:11px;color:var(--g4);margin-bottom:14px;background:var(--g1);padding:8px 12px;border-radius:6px;text-align:left"> <strong>Indexing note:</strong> Only PDF, Word (.doc/.docx), and text (.txt) files can be indexed for StrataSphere. Images and other files are stored for reference only.</div>'
+      + '<div style="font-size:11px;color:var(--g4);margin-bottom:14px;background:var(--g1);padding:8px 12px;border-radius:6px;text-align:left"><strong>Indexing note:</strong> Only PDF, Word (.doc/.docx), and text (.txt) files can be indexed for StrataSphere. Images and other files are stored for reference only.</div>'
       + '<button class="btn pri" onclick="scUploadDoc(\'' + scIdForDoc + '\')">+ Upload Document</button>'
       + '</div>';
     return;
   }
 
-  el.innerHTML = '<div style="font-size:11px;color:var(--g4);margin-bottom:10px">PDF, Word, and text files can be indexed for StrataSphere AI. Images and other files are stored for reference only.</div>'
-    + '<div id="docs-list"></div>';
-  el = document.getElementById('docs-list');
+  // Group docs by folder (sourceLabel)
+  var folderMap = {};
+  SC_DOC_FOLDERS.forEach(function(f){ folderMap[f] = []; });
+  folderMap['Other'] = [];
 
-  var html = '';
   docs.forEach(function(doc) {
-    var ext  = (doc.name || '').split('.').pop().toLowerCase();
-    var icon = ext === 'pdf' ? '' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? '' : ext === 'doc' || ext === 'docx' ? '' : ext === 'txt' ? '' : '';
-    var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
-    var hasText = doc.documentText && doc.documentText.trim().length > 0;
-
-    var statusPill = '';
-    if (doc._indexing) {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px"><span class="spin" style="width:9px;height:9px;margin-right:4px;border-top-color:var(--amb);vertical-align:middle"></span>Indexing…</span>';
-    } else if (!isIndexable) {
-      statusPill = '';
-    } else if (!hasText) {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
-    } else {
-      statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
-    }
-
-    var downloadHref = ''; // always use signed URLs — bucket is private
-    var useSignedUrl = !!doc.storagePath;
-
-    html += '<div class="card fi" style="margin-bottom:8px"><div class="ch_" style="flex-wrap:wrap;gap:8px">'
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:13px;font-weight:600">' + escHtml(doc.name) + '</div>'
-      + '<div style="font-size:11px;color:var(--g4);margin-top:2px">'
-      + escHtml(doc.sourceLabel || doc.source || 'Document')
-      + (doc.date ? ' · ' + escHtml(doc.date) : '')
-      + '</div></div>'
-      + (statusPill || '')
-      + '<div class="br" style="flex-shrink:0">'
-      + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)">Index</button>' : '')
-      + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="'+escHtml(doc.storagePath)+'" data-dbid="'+escHtml(doc.dbId||'')+'" data-scid="'+escHtml(sc.plan||'')+'" onclick="docExtractText(this)" style="color:var(--g4)" title="Re-index">Index Again</button>' : '')
-      + (useSignedUrl ? '<button class="btn sm" data-path="'+escHtml(doc.storagePath)+'" data-name="'+escHtml(doc.name)+'" onclick="downloadDocSigned(this)">Download</button>' : '')
-      + (downloadHref ? '<button class="btn sm" onclick="downloadDoc(this)" data-name="'+escHtml(doc.name)+'" data-href="'+escHtml(downloadHref)+'">Download</button>' : '')
-      + '</div>'
-      + '</div></div>';
+    if (doc.source === 'strata-plan') { folderMap['Building & Construction'].push(doc); return; }
+    if (doc.source === 'agenda-attachment') { folderMap['Meetings & Records'].push(doc); return; }
+    var label = doc.sourceLabel || doc.source_label || '';
+    if (folderMap[label] !== undefined) { folderMap[label].push(doc); }
+    else { folderMap['Other'].push(doc); }
   });
-  if (el) el.innerHTML = html;
+
+  var html = '<div style="font-size:11px;color:var(--g4);margin-bottom:12px">PDF, Word, and text files are indexed for StrataSphere AI. Images and other files are stored for reference only.</div>';
+
+  SC_DOC_FOLDERS.concat(['Other']).forEach(function(folder) {
+    var folderDocs = folderMap[folder];
+    if (!folderDocs || !folderDocs.length) return;
+    var folderId = 'folder-' + folder.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+
+    html += '<div style="margin-bottom:8px;border:1px solid var(--g2);border-radius:8px;overflow:hidden">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g1);cursor:pointer" onclick="toggleDocFolder(\'' + folderId + '\')">'
+      + '<div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--g5)"> ' + folder + ' <span style="font-size:11px;font-weight:400;color:var(--g4)">(' + folderDocs.length + ')</span></div>'
+      + '<span id="' + folderId + '-tog" style="color:var(--g4);font-size:11px">▼</span>'
+      + '</div>'
+      + '<div id="' + folderId + '">';
+
+    folderDocs.forEach(function(doc) {
+      var ext  = (doc.name || '').split('.').pop().toLowerCase();
+      var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
+      var hasText = doc.documentText && doc.documentText.trim().length > 0;
+      var useSignedUrl = !!doc.storagePath;
+      var statusPill = '';
+      if (doc._indexing) {
+        statusPill = '<span style="font-size:10px;font-weight:600;background:var(--ambl);color:var(--amb);padding:2px 7px;border-radius:10px"><span class="spin" style="width:9px;height:9px;margin-right:4px;border-top-color:var(--amb);vertical-align:middle"></span>Indexing…</span>';
+      } else if (isIndexable && !hasText) {
+        statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
+      } else if (isIndexable && hasText) {
+        statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
+      }
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--g2)">'
+        + '<div style="min-width:0;flex:1">'
+        + '<div style="font-size:13px;font-weight:500;color:var(--g5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(doc.name||'') + '">' + escHtml(doc.name||'') + '</div>'
+        + '<div style="font-size:11px;color:var(--g4);margin-top:2px">' + escHtml(doc.date||'') + (statusPill ? ' ' + statusPill : '') + '</div>'
+        + '</div>'
+        + '<div class="br" style="flex-shrink:0">'
+        + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="' + escHtml(doc.storagePath) + '" data-dbid="' + escHtml(doc.dbId||'') + '" data-scid="' + escHtml(sc.plan||'') + '" onclick="docExtractText(this)">Index</button>' : '')
+        + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="' + escHtml(doc.storagePath) + '" data-dbid="' + escHtml(doc.dbId||'') + '" data-scid="' + escHtml(sc.plan||'') + '" onclick="docExtractText(this)" style="color:var(--g4)" title="Re-index">Index Again</button>' : '')
+        + (useSignedUrl ? '<button class="btn sm" data-path="' + escHtml(doc.storagePath) + '" data-name="' + escHtml(doc.name) + '" onclick="downloadDocSigned(this)">Download</button>' : '')
+        + '</div>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function toggleDocFolder(folderId) {
+  var el  = document.getElementById(folderId);
+  var tog = document.getElementById(folderId + '-tog');
+  if (!el) return;
+  var hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (tog) tog.textContent = hidden ? '▼' : '▶';
 }
 
 function renderDecisionLedger(sc, el) {
@@ -14284,7 +14316,41 @@ function uploadDoc(file, sc_, opts) {
   .catch(function(e){ console.error('Upload error:', e); docEntry._indexing = false; _reRenderDocs(sc_); });
 }
 
+var SC_DOC_FOLDERS = [
+  'Building & Construction',
+  'Contracts & Service Agreements',
+  'Correspondence',
+  'Financial & Accounting',
+  'Insurance',
+  'Legal & Governance',
+  'Meetings & Records',
+  'Operations'
+];
+
 function scUploadDoc(scId) {
+  var sc_ = APP.sc.find(function(s){return s.id===scId;}); if (!sc_) return;
+
+  // Show folder picker overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'folder-pick-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:10px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18)">'
+    + '<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Upload Document</div>'
+    + '<div style="font-size:12px;color:#6B7280;margin-bottom:18px">Select a folder for this document</div>'
+    + '<div id="folder-pick-list" style="display:flex;flex-direction:column;gap:6px">'
+    + SC_DOC_FOLDERS.map(function(f){
+        return '<button onclick="scFolderPicked(\''+scId+'\',\''+f+'\')" style="text-align:left;padding:10px 14px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;color:#111827;display:flex;align-items:center;gap:10px">'
+          + '<span style="font-size:16px"></span> ' + f + '</button>';
+      }).join('')
+    + '</div>'
+    + '<button onclick="document.getElementById(\'folder-pick-overlay\').remove()" style="margin-top:14px;width:100%;padding:8px;background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:13px">Cancel</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function scFolderPicked(scId, folder) {
+  var overlay = document.getElementById('folder-pick-overlay');
+  if (overlay) overlay.remove();
   var sc_ = APP.sc.find(function(s){return s.id===scId;}); if (!sc_) return;
   var inp = document.createElement('input');
   inp.type = 'file';
@@ -14292,7 +14358,7 @@ function scUploadDoc(scId) {
   inp.multiple = true;
   inp.onchange = function() {
     Array.from(inp.files).forEach(function(f) {
-      uploadDoc(f, sc_, {source: 'upload', sourceLabel: 'Document'});
+      uploadDoc(f, sc_, {source: 'upload', sourceLabel: folder});
     });
   };
   inp.click();
