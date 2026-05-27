@@ -13778,6 +13778,7 @@ function renderDocsList(sc, el) {
         + (isIndexable && !hasText && !doc._indexing && doc.storagePath ? '<button class="btn sm" data-storagepath="' + escHtml(doc.storagePath) + '" data-dbid="' + escHtml(doc.dbId||'') + '" data-scid="' + escHtml(sc.plan||'') + '" onclick="docExtractText(this)">Index</button>' : '')
         + (isIndexable && hasText && !doc._indexing && doc.storagePath ? '<button class="btn xs" data-storagepath="' + escHtml(doc.storagePath) + '" data-dbid="' + escHtml(doc.dbId||'') + '" data-scid="' + escHtml(sc.plan||'') + '" onclick="docExtractText(this)" style="color:var(--g4)" title="Re-index">Index Again</button>' : '')
         + (useSignedUrl ? '<button class="btn sm" data-path="' + escHtml(doc.storagePath) + '" data-name="' + escHtml(doc.name) + '" onclick="downloadDocSigned(this)">Download</button>' : '')
+        + (doc.dbId ? '<button class="btn xs" style="color:var(--g4)" data-dbid="' + escHtml(doc.dbId) + '" data-scid="' + escHtml(sc.id) + '" data-scplan="' + escHtml(sc.plan) + '" onclick="moveDocToFolder(this)">Move</button>' : '')
         + '</div>'
         + '</div>';
     });
@@ -13793,6 +13794,56 @@ function toggleDocFolder(folderId) {
   var hidden = el.style.display === 'none';
   el.style.display = hidden ? '' : 'none';
   if (tog) tog.textContent = hidden ? '▼' : '▶';
+}
+
+function moveDocToFolder(btn) {
+  var dbId   = btn.dataset.dbid;
+  var scId   = btn.dataset.scid;
+  var scPlan = btn.dataset.scplan;
+  var sc_    = APP.sc.find(function(s){ return s.id === scId || s.plan === scPlan; });
+  var doc    = sc_ && sc_.docs && sc_.docs.find(function(d){ return d.dbId === dbId; });
+  if (!sc_ || !doc) return;
+
+  // Show folder picker
+  var overlay = document.createElement('div');
+  overlay.id = 'move-folder-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:10px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18)">'
+    + '<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Move Document</div>'
+    + '<div style="font-size:12px;color:#6B7280;margin-bottom:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(doc.name) + '">' + escHtml(doc.name) + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px">'
+    + SC_DOC_FOLDERS.map(function(f){
+        var isCurrent = (doc.sourceLabel || doc.source_label || '') === f;
+        return '<button onclick="confirmMoveDoc(\'' + dbId + '\',\'' + scId + '\',\'' + scPlan + '\',\'' + f.replace(/'/g,"\\'") + '\')" style="text-align:left;padding:10px 14px;border:1px solid ' + (isCurrent ? 'var(--org)' : '#E5E7EB') + ';border-radius:6px;background:' + (isCurrent ? 'var(--orgl)' : '#fff') + ';cursor:pointer;font-size:14px;color:#111827;display:flex;align-items:center;justify-content:space-between">'
+          + '<span> ' + f + '</span>'
+          + (isCurrent ? '<span style="font-size:11px;color:var(--org)">Current</span>' : '')
+          + '</button>';
+      }).join('')
+    + '</div>'
+    + '<button onclick="document.getElementById(\'move-folder-overlay\').remove()" style="margin-top:14px;width:100%;padding:8px;background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:13px">Cancel</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function confirmMoveDoc(dbId, scId, scPlan, folder) {
+  var overlay = document.getElementById('move-folder-overlay');
+  if (overlay) overlay.remove();
+  var sc_  = APP.sc.find(function(s){ return s.id === scId || s.plan === scPlan; });
+  var doc  = sc_ && sc_.docs && sc_.docs.find(function(d){ return d.dbId === dbId; });
+  if (!sc_ || !doc) return;
+
+  // Update local state
+  doc.sourceLabel    = folder;
+  doc.source_label   = folder;
+
+  // Persist to Supabase
+  getSupabase().from('documents').update({ source_label: folder }).eq('id', dbId)
+    .then(function(r){
+      if (r.error) { console.error('moveDoc error:', r.error); nAlert('Move failed: ' + r.error.message, 'Error', 'warn'); return; }
+      sv('sc_' + sc_.id, sc_);
+      var el = document.getElementById('mtg-body');
+      if (el && currentMtgTab === 'docs') renderDocsList(sc_, el);
+    });
 }
 
 function renderDecisionLedger(sc, el) {
