@@ -11208,7 +11208,7 @@ function confirmEnterpriseToggle() {
     db.from('brokerages').update({
       subscription_status: 'trial',
       trial_meetings_used: 99,
-      trial_meetings_allowed: 5,
+      trial_meetings_allowed: PRICING.trialMeetings,
       enterprise_activated_at: null
     }).eq('bcfsa_lic', brkLic).then(function(r) {
       if (r.error) { nAlert('Failed to deactivate enterprise: '+r.error.message,'','warn'); return; }
