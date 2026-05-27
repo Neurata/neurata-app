@@ -983,6 +983,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         </div>
         <div id="oi-more-bd" style="display:none;margin-top:10px">
           <div class="fr fr2" style="gap:8px">
+            <div class="fg"><label>Unit Number</label><input id="oi-unit-number" type="text" placeholder="e.g. 204"/></div>
             <div class="fg"><label>Unit Entitlement</label><input id="oi-ue" type="number" min="0" placeholder="e.g. 100"/></div>
             <div class="fg"><label>Owner Type</label>
               <select id="oi-owner-type" style="width:100%;border:1px solid var(--g3);border-radius:4px;padding:6px 8px;font-size:13px;font-family:inherit">
@@ -9055,7 +9056,7 @@ function adminEnterBrokerage(brkLic) {
         });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council,
-            unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'' };
+            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'' };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
           return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
@@ -12725,10 +12726,12 @@ function renderLotsPlan(s) {
         + (m ? '<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
              : '<div style="color:var(--g4);font-size:10px">—</div>')
         + (m && m.isCouncil ? '<div style="font-size:9px;color:var(--org);font-weight:600">'+escHtml(m.role||'Council')+'</div>' : '')
+        + (m && m.unitNumber ? '<div style="font-size:9px;color:var(--g4)">Unit '+escHtml(String(m.unitNumber))+'</div>' : '')
+        + (m && m.unitEntitlement ? '<div style="font-size:9px;color:var(--g4)">UE: '+escHtml(String(m.unitEntitlement))+'</div>' : '')
         + '</div>';
     }
     html += '</div>';
-    html += '<div style="font-size:11px;color:var(--g4);margin-top:10px">Orange lots are council members. Upload a CSV/XLS roster with columns: <strong>lot, name, email</strong></div>';
+    html += '<div style="font-size:11px;color:var(--g4);margin-top:10px">Orange lots are council members. Use the Template button to download the roster CSV. Council role is set in the app.</div>';
   }
   return html;
 }
@@ -12895,16 +12898,18 @@ function openOwnerInfo(scId, sl) {
   }
   ck.onchange = function(){ roleRow.style.display = ck.checked ? '' : 'none'; };
   // More Info fields
+  var un = document.getElementById('oi-unit-number');
   var ue = document.getElementById('oi-ue');
   var ot = document.getElementById('oi-owner-type');
   var pk = document.getElementById('oi-parking');
   var st = document.getElementById('oi-storage');
+  if (un) un.value = (existing && existing.unitNumber)     || '';
   if (ue) ue.value = (existing && existing.unitEntitlement) || '';
   if (ot) ot.value = (existing && existing.ownerType)       || '';
   if (pk) pk.value = (existing && existing.parking)         || '';
   if (st) st.value = (existing && existing.storage)         || '';
   // Collapse More Info by default unless data exists
-  var hasMore = existing && (existing.unitEntitlement || existing.ownerType || existing.parking || existing.storage);
+  var hasMore = existing && (existing.unitNumber || existing.unitEntitlement || existing.ownerType || existing.parking || existing.storage);
   var moreBd = document.getElementById('oi-more-bd');
   var moreTg = document.getElementById('oi-more-tg');
   if (moreBd) { moreBd.style.display = hasMore ? '' : 'none'; }
@@ -12942,6 +12947,7 @@ function saveOwnerInfo() {
   var email = document.getElementById('oi-email').value.trim();
   var isCouncil = document.getElementById('oi-is-council').checked;
   var role  = isCouncil ? document.getElementById('oi-role').value : '';
+  var un = (document.getElementById('oi-unit-number') && document.getElementById('oi-unit-number').value.trim()) || '';
   var ue = (document.getElementById('oi-ue') && document.getElementById('oi-ue').value.trim()) || '';
   var ot = (document.getElementById('oi-owner-type') && document.getElementById('oi-owner-type').value) || '';
   var pk = (document.getElementById('oi-parking') && document.getElementById('oi-parking').value.trim()) || '';
@@ -12949,7 +12955,7 @@ function saveOwnerInfo() {
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
   var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil,
-    unitEntitlement:ue, ownerType:ot, parking:pk, storage:st};
+    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st};
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
@@ -12960,6 +12966,7 @@ function saveOwnerInfo() {
     email:       email||null,
     council_role: role||null,
     is_council:  isCouncil,
+    unit_number:  un||null,
     unit_entitlement: ue ? parseFloat(ue) : null,
     owner_type:  ot||null,
     parking:     pk||null,
@@ -12975,12 +12982,12 @@ function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var lots = s.lots || 20;
   var rows = [
-    '# Columns: Strata Lot, Owner Name, Email, Unit Entitlement, Parking Stall(s), Storage Locker(s)',
-    '# Council role and owner type are set directly in the app.',
-    'Strata Lot,Owner Name,Email,Unit Entitlement,Parking Stall(s),Storage Locker(s)'
+    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s)',
+    '# Council role is set directly in the app.',
+    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'
   ];
   for (var i = 1; i <= lots; i++) {
-    rows.push('SL'+String(i).padStart(3,'0')+',,,,,');
+    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,,');
   }
   var a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.join('\n'));
@@ -13030,8 +13037,9 @@ function downloadCurrentRoster(scId) {
   var members = s.councilMembers || [];
   var lots = s.lots || 20;
   var rows = [
-    '# Council Role: leave blank for non-council owners. Use: President, Vice President, Treasurer, Secretary, or Member',
-    'Strata Lot,Owner Name,Email,Council Role,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'
+    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s)',
+    '# Council role is set directly in the app.',
+    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s)'
   ];
   for (var i = 1; i <= lots; i++) {
     var sl = 'SL' + String(i).padStart(3, '0');
@@ -13041,7 +13049,7 @@ function downloadCurrentRoster(scId) {
         sl,
         (m.name             || '').replace(/,/g, ' '),
         (m.email            || '').replace(/,/g, ' '),
-        (m.isCouncil ? (m.role || 'Member') : ''),
+        (m.unitNumber       || ''),
         (m.unitEntitlement  != null ? m.unitEntitlement : ''),
         (m.ownerType        || ''),
         (m.parking          || '').replace(/,/g, ';'),
@@ -13080,27 +13088,31 @@ function _parseRosterCSV(csv, s) {
     var email = cols[2]||'';
     if(!name){ skipped++; return; }
 
-    // Template columns: SL, Name, Email, Unit Entitlement, Parking, Storage
-    // Council Role and Owner Type are NOT in the upload template — set in app only
-    // Still preserve them if uploading a full Download Roster export (8 cols)
-    var isFullExport = cols.length >= 8;
+    // Template columns (8): SL, Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking, Storage
+    // Full export (8 cols same structure now)
+    // Legacy 6-col template (SL, Name, Email, UE, Parking, Storage) also supported
+    var isLegacy6 = cols.length <= 6 && !isFullExport;
 
-    var councilRoleRaw = isFullExport ? (cols[3] || '') : '';
+    var councilRoleRaw = isFullExport && cols.length >= 9 ? (cols[3] || '') : '';
     var isCouncilCol   = councilRoleRaw && isNaN(parseFloat(councilRoleRaw));
     var councilRole    = isCouncilCol ? councilRoleRaw.trim() : '';
     var isCouncil      = councilRole.length > 0;
 
-    // Unit entitlement, owner type, parking, storage
-    var ueCol     = isFullExport ? 4 : 3;
-    var otCol     = isFullExport ? 5 : -1;
-    var pkCol     = isFullExport ? 6 : 4;
-    var stCol     = isFullExport ? 7 : 5;
+    var unCol, ueCol, otCol, pkCol, stCol;
+    if (isLegacy6) {
+      // Old 6-col: SL, Name, Email, UE, Parking, Storage
+      unCol = -1; ueCol = 3; otCol = -1; pkCol = 4; stCol = 5;
+    } else {
+      // New 8-col: SL, Name, Email, Unit Number, UE, Owner Type, Parking, Storage
+      unCol = 3; ueCol = 4; otCol = 5; pkCol = 6; stCol = 7;
+    }
 
-    var ueRaw     = cols[ueCol] || '';
-    var ue        = ueRaw && !isNaN(parseFloat(ueRaw)) ? parseFloat(ueRaw) : null;
-    var ownerType = otCol >= 0 ? (cols[otCol] || '') : '';
-    var parking   = ((cols[pkCol] || '')).replace(/;/g, ',');
-    var storage   = ((cols[stCol] || '')).replace(/;/g, ',');
+    var unitNumber = unCol >= 0 ? (cols[unCol] || '') : '';
+    var ueRaw      = ueCol >= 0 ? (cols[ueCol] || '') : '';
+    var ue         = ueRaw && !isNaN(parseFloat(ueRaw)) ? parseFloat(ueRaw) : null;
+    var ownerType  = otCol >= 0 ? (cols[otCol] || '') : '';
+    var parking    = pkCol >= 0 ? ((cols[pkCol] || '')).replace(/;/g, ',') : '';
+    var storage    = stCol >= 0 ? ((cols[stCol] || '')).replace(/;/g, ',') : '';
 
     var idx      = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
@@ -13110,13 +13122,14 @@ function _parseRosterCSV(csv, s) {
     var emailChanged  = !existing || existing.email           !== email;
     var roleChanged   = !existing || existing.role            !== councilRole;
     var councilChanged= !existing || existing.isCouncil       !== isCouncil;
+    var unChanged     = !existing || (existing.unitNumber||'') !== unitNumber;
     var ueChanged     = !existing || String(existing.unitEntitlement||'') !== String(ue != null ? ue : '');
     var otChanged     = !existing || (existing.ownerType||'') !== ownerType;
     var pkChanged     = !existing || (existing.parking||'')   !== parking;
     var stChanged     = !existing || (existing.storage||'')   !== storage;
 
     if (!nameChanged && !emailChanged && !roleChanged && !councilChanged &&
-        !ueChanged && !otChanged && !pkChanged && !stChanged) { skipped++; return; }
+        !unChanged && !ueChanged && !otChanged && !pkChanged && !stChanged) { skipped++; return; }
 
     var member = {
       sl:              rawSl,
@@ -13124,6 +13137,7 @@ function _parseRosterCSV(csv, s) {
       email:           email,
       role:            councilRole || (existing ? existing.role : ''),
       isCouncil:       isCouncil   || (existing ? existing.isCouncil : false),
+      unitNumber:      unitNumber  || (existing ? existing.unitNumber  : ''),
       unitEntitlement: ue          != null ? ue    : (existing ? existing.unitEntitlement : ''),
       ownerType:       ownerType   || (existing ? existing.ownerType  : ''),
       parking:         parking     || (existing ? existing.parking    : ''),
@@ -13148,6 +13162,7 @@ function _parseRosterCSV(csv, s) {
       email:            m.email            || null,
       council_role:     m.role             || null,
       is_council:       m.isCouncil        || false,
+      unit_number:      m.unitNumber       || null,
       unit_entitlement: m.unitEntitlement  != null && m.unitEntitlement !== '' ? parseFloat(m.unitEntitlement) : null,
       owner_type:       m.ownerType        || null,
       parking:          m.parking          || null,
