@@ -13752,9 +13752,9 @@ function renderDocsList(sc, el) {
     html += '<div style="margin-bottom:8px;border:1px solid var(--g2);border-radius:8px;overflow:hidden">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g1);cursor:pointer" onclick="toggleDocFolder(\'' + folderId + '\')">'
       + '<div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--g5)"> ' + folder + ' <span style="font-size:11px;font-weight:400;color:var(--g4)">(' + folderDocs.length + ')</span></div>'
-      + '<span id="' + folderId + '-tog" style="color:var(--g4);font-size:11px">▼</span>'
+      + '<span id="' + folderId + '-tog" style="color:var(--g4);font-size:11px">▶</span>'
       + '</div>'
-      + '<div id="' + folderId + '">';
+      + '<div id="' + folderId + '" style="display:none">';
 
     folderDocs.forEach(function(doc) {
       var ext  = (doc.name || '').split('.').pop().toLowerCase();
