@@ -13095,22 +13095,20 @@ function _parseRosterCSV(csv, s) {
     var email = cols[2]||'';
     if(!name){ skipped++; return; }
 
-    // Template columns (8): SL, Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking, Storage
-    // Full export (8 cols same structure now)
-    // Legacy 6-col template (SL, Name, Email, UE, Parking, Storage) also supported
-    var isLegacy6 = cols.length <= 6 && !isFullExport;
+    // Template columns (9): SL, Name, Email, Unit Number, UE, Owner Type, Parking, Storage, Bike Rack
+    // Legacy 6-col: SL, Name, Email, UE, Parking, Storage
+    var isLegacy6 = cols.length <= 6;
+    var isFullExport = cols.length >= 9;
 
-    var councilRoleRaw = isFullExport && cols.length >= 9 ? (cols[3] || '') : '';
-    var isCouncilCol   = councilRoleRaw && isNaN(parseFloat(councilRoleRaw));
-    var councilRole    = isCouncilCol ? councilRoleRaw.trim() : '';
-    var isCouncil      = councilRole.length > 0;
+    var councilRoleRaw = '';
+    var isCouncilCol   = false;
+    var councilRole    = '';
+    var isCouncil      = false;
 
-    var unCol, ueCol, otCol, pkCol, stCol;
+    var unCol, ueCol, otCol, pkCol, stCol, bkCol;
     if (isLegacy6) {
-      // Old 6-col: SL, Name, Email, UE, Parking, Storage
       unCol = -1; ueCol = 3; otCol = -1; pkCol = 4; stCol = 5; bkCol = -1;
     } else {
-      // New 8-col: SL, Name, Email, Unit Number, UE, Owner Type, Parking, Storage
       unCol = 3; ueCol = 4; otCol = 5; pkCol = 6; stCol = 7; bkCol = 8;
     }
 
