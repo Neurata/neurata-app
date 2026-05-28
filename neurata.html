@@ -13928,8 +13928,8 @@ function renderDocsList(sc, el) {
   folderMap['Other'] = [];
 
   docs.forEach(function(doc) {
-    if (doc.source === 'strata-plan') { folderMap['Building & Construction'].push(doc); return; }
-    if (doc.source === 'agenda-attachment') { folderMap['Meetings & Records'].push(doc); return; }
+    if (doc.source === 'strata-plan' && !(doc.sourceLabel || doc.source_label)) { folderMap['Building & Construction'].push(doc); return; }
+    if (doc.source === 'agenda-attachment' && !(doc.sourceLabel || doc.source_label)) { folderMap['Meetings & Records'].push(doc); return; }
     var label = doc.sourceLabel || doc.source_label || '';
     if (folderMap[label] !== undefined) { folderMap[label].push(doc); }
     else { folderMap['Other'].push(doc); }
