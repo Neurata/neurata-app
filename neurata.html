@@ -13214,7 +13214,16 @@ function _parseRosterCSV(csv, s) {
 
     // Template columns (9): SL, Name, Email, Unit Number, UE, Owner Type, Parking, Storage, Bike Rack
     // Legacy 6-col: SL, Name, Email, UE, Parking, Storage
-    var isLegacy6 = cols.length <= 6;
+    // Detect format by column count and content
+    // Old 6-col: SL, Name, Email, UE, Parking, Storage
+    // New 10-col: SL, Name, Email, Unit#, UE, OwnerType, Parking, Storage, BikeRack, Fees
+    // If col 3 looks like an email or is non-numeric and there are <=7 cols, treat as legacy
+    var col3 = cols[3] || '';
+    var col3IsEmail = col3.indexOf('@') >= 0;
+    var col3IsNumber = col3 && !isNaN(parseFloat(col3.replace(/\$/g,'')));
+    var isLegacy6 = cols.length <= 6 || (cols.length <= 7 && !col3IsNumber && !col3IsEmail && col3.length > 0 && isNaN(parseInt(col3)));
+    // Also handle intermediate 8-col format (no unit number): SL,Name,Email,UE,OwnerType,Parking,Storage,BikeRack
+    var isOld8Col = !isLegacy6 && cols.length === 8 && col3IsNumber;
     var isFullExport = cols.length >= 9;
 
     var councilRoleRaw = '';
@@ -13224,8 +13233,13 @@ function _parseRosterCSV(csv, s) {
 
     var unCol, ueCol, otCol, pkCol, stCol, bkCol;
     if (isLegacy6) {
+      // Old 6-col: SL, Name, Email, UE, Parking, Storage
       unCol = -1; ueCol = 3; otCol = -1; pkCol = 4; stCol = 5; bkCol = -1; sfCol = -1;
+    } else if (isOld8Col) {
+      // Old 8-col: SL, Name, Email, UE, OwnerType, Parking, Storage, BikeRack
+      unCol = -1; ueCol = 3; otCol = 4; pkCol = 5; stCol = 6; bkCol = 7; sfCol = -1;
     } else {
+      // New 10-col: SL, Name, Email, Unit#, UE, OwnerType, Parking, Storage, BikeRack, Fees
       unCol = 3; ueCol = 4; otCol = 5; pkCol = 6; stCol = 7; bkCol = 8; sfCol = 9;
     }
 
