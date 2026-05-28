@@ -6775,6 +6775,109 @@ function exportAgenda(scId, mtgId) {
   } else { doExport(''); }
 }
 
+// Build a minimal .docx file from raw WordprocessingML XML and trigger download
+function buildAndDownloadDocx(xml, fname) {
+  // A .docx is a ZIP containing [Content_Types].xml, _rels/.rels, and word/document.xml
+  var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+    + '</Types>';
+
+  var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+    + '</Relationships>';
+
+  function toBytes(str) {
+    var bytes = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 128) { bytes.push(c); }
+      else if (c < 2048) { bytes.push((c >> 6) | 192); bytes.push((c & 63) | 128); }
+      else { bytes.push((c >> 12) | 224); bytes.push(((c >> 6) & 63) | 128); bytes.push((c & 63) | 128); }
+    }
+    return bytes;
+  }
+
+  function crc32(bytes) {
+    var table = window._crc32Table;
+    if (!table) {
+      table = new Uint32Array(256);
+      for (var i2 = 0; i2 < 256; i2++) {
+        var c2 = i2;
+        for (var j = 0; j < 8; j++) c2 = (c2 & 1) ? (0xEDB88320 ^ (c2 >>> 1)) : (c2 >>> 1);
+        table[i2] = c2;
+      }
+      window._crc32Table = table;
+    }
+    var crc = 0xFFFFFFFF;
+    for (var k = 0; k < bytes.length; k++) crc = table[(crc ^ bytes[k]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function uint32LE(n) { return [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]; }
+  function uint16LE(n) { return [n & 0xFF, (n >> 8) & 0xFF]; }
+
+  function zipEntry(name, data) {
+    var nameBytes = toBytes(name);
+    var dataBytes = typeof data === 'string' ? toBytes(data) : data;
+    var crc = crc32(dataBytes);
+    var local = [0x50,0x4B,0x03,0x04,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+      .concat(uint32LE(crc))
+      .concat(uint32LE(dataBytes.length))
+      .concat(uint32LE(dataBytes.length))
+      .concat(uint16LE(nameBytes.length))
+      .concat([0x00,0x00])
+      .concat(nameBytes)
+      .concat(dataBytes);
+    return { local: local, name: nameBytes, crc: crc, size: dataBytes.length, nameStr: name };
+  }
+
+  var entries = [
+    zipEntry('[Content_Types].xml', ct),
+    zipEntry('_rels/.rels', rels),
+    zipEntry('word/document.xml', xml)
+  ];
+
+  var offset = 0;
+  var offsets = [];
+  var all = [];
+  entries.forEach(function(e) { offsets.push(offset); offset += e.local.length; all = all.concat(e.local); });
+
+  // Central directory
+  var cdStart = offset;
+  entries.forEach(function(e, i) {
+    var cd = [0x50,0x4B,0x01,0x02,0x14,0x00,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+      .concat(uint32LE(e.crc))
+      .concat(uint32LE(e.size))
+      .concat(uint32LE(e.size))
+      .concat(uint16LE(e.name.length))
+      .concat([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])
+      .concat(uint32LE(offsets[i]))
+      .concat(e.name);
+    all = all.concat(cd);
+  });
+
+  var cdSize = all.length - cdStart;
+  var eocd = [0x50,0x4B,0x05,0x06,0x00,0x00,0x00,0x00]
+    .concat(uint16LE(entries.length))
+    .concat(uint16LE(entries.length))
+    .concat(uint32LE(cdSize))
+    .concat(uint32LE(cdStart))
+    .concat([0x00,0x00]);
+  all = all.concat(eocd);
+
+  var buf = new Uint8Array(all);
+  var blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 10000);
+}
+
 function exportAgendaDocx(sc_, mtg) {
   var plan      = sc_ ? sc_.plan : '';
   var date      = mtg.date || '';
