@@ -13104,8 +13104,6 @@ function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var lots = s.lots || 20;
   var rows = [
-    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s), Bike Rack(s), Strata Fees',
-    '# Council role is set directly in the app.',
     'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s),Bike Rack(s),Strata Fees'
   ];
   for (var i = 1; i <= lots; i++) {
@@ -13198,7 +13196,7 @@ function _parseRosterCSV(csv, s) {
   // Detect header row
   var startRow = 0;
   var firstLower = lines[0].toLowerCase();
-  if(firstLower.indexOf('lot')>=0||firstLower.indexOf('sl')>=0||firstLower.indexOf('name')>=0) startRow=1;
+  if(firstLower.indexOf('strata lot')>=0||firstLower.indexOf('owner name')>=0||firstLower.indexOf('lot')>=0) startRow=1;
 
   var imported=0, skipped=0;
   lines.slice(startRow).forEach(function(line){
