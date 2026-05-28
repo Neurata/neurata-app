@@ -6939,17 +6939,6 @@ function exportAgendaDocx(sc_, mtg) {
     });
   });
 
-  // Signature
-  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="0"/></w:pPr></w:p>\n';
-  xml += hline();
-  xml += '<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders/></w:tblPr><w:tblGrid><w:gridCol w:w="4680"/><w:gridCol w:w="4680"/></w:tblGrid>';
-  xml += '<w:tr><w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/></w:tcPr>';
-  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>_________________________</w:t></w:r></w:p>';
-  xml += '<w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>Strata Council Chair</w:t></w:r></w:p>';
-  xml += '</w:tc><w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/></w:tcPr>';
-  xml += '<w:p><w:pPr><w:spacing w:before="480" w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>_________________________</w:t></w:r></w:p>';
-  xml += '<w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>Strata Manager</w:t></w:r></w:p>';
-  xml += '</w:tc></w:tr></w:tbl>';
   xml += '<w:sectPr><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>\n</w:body>\n</w:document>';
 
   buildAndDownloadDocx(xml, fname);
