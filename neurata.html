@@ -996,6 +996,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             <div class="fg"><label>Parking Stall(s)</label><input id="oi-parking" type="text" placeholder="e.g. P1-42, P2-07"/></div>
             <div class="fg"><label>Storage Locker(s)</label><input id="oi-storage" type="text" placeholder="e.g. L1-12"/></div>
             <div class="fg"><label>Bike Rack(s)</label><input id="oi-bike" type="text" placeholder="e.g. B1-04"/></div>
+            <div class="fg"><label>Strata Fees</label><input id="oi-strata-fees" type="number" min="0" step="0.01" placeholder="e.g. 450.00"/></div>
           </div>
         </div>
       </div>
@@ -9149,7 +9150,7 @@ function adminEnterBrokerage(brkLic) {
         });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council,
-            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'' };
+            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'', strataFees:c.strata_fees||'' };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
           return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
@@ -12775,7 +12776,7 @@ function renderLotsPlan(s) {
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     + '<div style="font-size:12px;color:var(--g4)">'+lots+' strata lots · Click any lot to add owner info</div>'
     + '<div style="display:flex;gap:6px;align-items:center">'
-    + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')"> Template</button>'
+    + '<button class="btn xs" onclick="downloadRosterTemplate(\''+s.id+'\')"> Download Template</button>'
     + '<button class="btn xs" onclick="document.getElementById(\'roster-upload-input\').click()"> Upload Roster</button>'
     + '<button class="btn xs" onclick="downloadCurrentRoster(\''+s.id+'\')"> Download Roster</button>'
     + '<input type="file" id="roster-upload-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="importOwnerRoster(this,\''+s.id+'\')">'
@@ -12820,6 +12821,7 @@ function renderLotsPlan(s) {
         + (m && m.unitNumber ? '<div style="font-size:9px;color:var(--g4)">Unit '+escHtml(String(m.unitNumber))+'</div>' : '')
         + (m && m.unitEntitlement ? '<div style="font-size:9px;color:var(--g4)">UE: '+escHtml(String(m.unitEntitlement))+'</div>' : '')
         + (m && m.bikeRack ? '<div style="font-size:9px;color:var(--g4)">Bike: '+escHtml(String(m.bikeRack))+'</div>' : '')
+        + (m && m.strataFees ? '<div style="font-size:9px;color:var(--g4)">Fees: $'+escHtml(String(m.strataFees))+'</div>' : '')
         + '</div>';
     }
     html += '</div>';
@@ -13002,8 +13004,10 @@ function openOwnerInfo(scId, sl) {
   if (st) st.value = (existing && existing.storage)         || '';
   var bk = document.getElementById('oi-bike');
   if (bk) bk.value = (existing && existing.bikeRack) || '';
+  var sf = document.getElementById('oi-strata-fees');
+  if (sf) sf.value = (existing && existing.strataFees) || '';
   // Collapse More Info by default unless data exists
-  var hasMore = existing && (existing.unitNumber || existing.unitEntitlement || existing.ownerType || existing.parking || existing.storage || existing.bikeRack);
+  var hasMore = existing && (existing.unitNumber || existing.unitEntitlement || existing.ownerType || existing.parking || existing.storage || existing.bikeRack || existing.strataFees);
   var moreBd = document.getElementById('oi-more-bd');
   var moreTg = document.getElementById('oi-more-tg');
   if (moreBd) { moreBd.style.display = hasMore ? '' : 'none'; }
@@ -13047,10 +13051,11 @@ function saveOwnerInfo() {
   var pk = (document.getElementById('oi-parking') && document.getElementById('oi-parking').value.trim()) || '';
   var st = (document.getElementById('oi-storage') && document.getElementById('oi-storage').value.trim()) || '';
   var bk = (document.getElementById('oi-bike') && document.getElementById('oi-bike').value.trim()) || '';
+  var sf = (document.getElementById('oi-strata-fees') && document.getElementById('oi-strata-fees').value.trim()) || '';
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
   var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil,
-    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk};
+    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk, strataFees:sf};
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
@@ -13066,7 +13071,8 @@ function saveOwnerInfo() {
     owner_type:  ot||null,
     parking:     pk||null,
     storage:     st||null,
-    bike_rack:   bk||null
+    bike_rack:   bk||null,
+    strata_fees: sf ? parseFloat(sf) : null
   }, {onConflict: 'sc_id,lot_number'}).then(function(r){
     if(r.error) console.error('council_members upsert error:', r.error);
   });
@@ -13078,12 +13084,12 @@ function downloadRosterTemplate(scId) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
   var lots = s.lots || 20;
   var rows = [
-    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s), Bike Rack(s)',
+    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s), Bike Rack(s), Strata Fees',
     '# Council role is set directly in the app.',
-    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s),Bike Rack(s)'
+    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s),Bike Rack(s),Strata Fees'
   ];
   for (var i = 1; i <= lots; i++) {
-    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,,,');
+    rows.push('SL'+String(i).padStart(3,'0')+',,,,,,,,,');
   }
   var a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.join('\n'));
@@ -13133,9 +13139,9 @@ function downloadCurrentRoster(scId) {
   var members = s.councilMembers || [];
   var lots = s.lots || 20;
   var rows = [
-    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s), Bike Rack(s)',
+    '# Columns: Strata Lot, Owner Name, Email, Unit Number, Unit Entitlement, Owner Type, Parking Stall(s), Storage Locker(s), Bike Rack(s), Strata Fees',
     '# Council role is set directly in the app.',
-    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s),Bike Rack(s)'
+    'Strata Lot,Owner Name,Email,Unit Number,Unit Entitlement,Owner Type,Parking Stall(s),Storage Locker(s),Bike Rack(s),Strata Fees'
   ];
   for (var i = 1; i <= lots; i++) {
     var sl = 'SL' + String(i).padStart(3, '0');
@@ -13150,11 +13156,12 @@ function downloadCurrentRoster(scId) {
         (m.ownerType        || ''),
         (m.parking          || '').replace(/,/g, ';'),
         (m.storage          || '').replace(/,/g, ';'),
-        (m.bikeRack         || '').replace(/,/g, ';')
+        (m.bikeRack         || '').replace(/,/g, ';'),
+        (m.strataFees       != null ? m.strataFees : '')
       ];
       rows.push(cols.join(','));
     } else {
-      rows.push(sl + ',,,,,,,,');
+      rows.push(sl + ',,,,,,,,,');
     }
   }
   var csv = rows.join('\n');
@@ -13197,9 +13204,9 @@ function _parseRosterCSV(csv, s) {
 
     var unCol, ueCol, otCol, pkCol, stCol, bkCol;
     if (isLegacy6) {
-      unCol = -1; ueCol = 3; otCol = -1; pkCol = 4; stCol = 5; bkCol = -1;
+      unCol = -1; ueCol = 3; otCol = -1; pkCol = 4; stCol = 5; bkCol = -1; sfCol = -1;
     } else {
-      unCol = 3; ueCol = 4; otCol = 5; pkCol = 6; stCol = 7; bkCol = 8;
+      unCol = 3; ueCol = 4; otCol = 5; pkCol = 6; stCol = 7; bkCol = 8; sfCol = 9;
     }
 
     var unitNumber = unCol >= 0 ? (cols[unCol] || '') : '';
@@ -13209,6 +13216,7 @@ function _parseRosterCSV(csv, s) {
     var parking    = pkCol >= 0 ? ((cols[pkCol] || '')).replace(/;/g, ',') : '';
     var storage    = stCol >= 0 ? ((cols[stCol] || '')).replace(/;/g, ',') : '';
     var bikeRack   = bkCol >= 0 ? ((cols[bkCol] || '')).replace(/;/g, ',') : '';
+    var strataFees = sfCol >= 0 && cols[sfCol] && !isNaN(parseFloat(cols[sfCol])) ? parseFloat(cols[sfCol]) : null;
 
     var idx      = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
@@ -13224,9 +13232,10 @@ function _parseRosterCSV(csv, s) {
     var pkChanged     = !existing || (existing.parking||'')   !== parking;
     var stChanged     = !existing || (existing.storage||'')   !== storage;
     var bkChanged     = !existing || (existing.bikeRack||'')  !== bikeRack;
+    var sfChanged     = !existing || String(existing.strataFees||'') !== String(strataFees != null ? strataFees : '');
 
     if (!nameChanged && !emailChanged && !roleChanged && !councilChanged &&
-        !unChanged && !ueChanged && !otChanged && !pkChanged && !stChanged && !bkChanged) { skipped++; return; }
+        !unChanged && !ueChanged && !otChanged && !pkChanged && !stChanged && !bkChanged && !sfChanged) { skipped++; return; }
 
     var member = {
       sl:              rawSl,
@@ -13240,6 +13249,7 @@ function _parseRosterCSV(csv, s) {
       parking:         parking     || (existing ? existing.parking    : ''),
       storage:         storage     || (existing ? existing.storage    : ''),
       bikeRack:        bikeRack    || (existing ? existing.bikeRack   : ''),
+      strataFees:      strataFees  != null ? strataFees : (existing ? existing.strataFees : ''),
       _changed:        true
     };
     if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
@@ -13265,7 +13275,8 @@ function _parseRosterCSV(csv, s) {
       owner_type:       m.ownerType        || null,
       parking:          m.parking          || null,
       storage:          m.storage          || null,
-      bike_rack:        m.bikeRack         || null
+      bike_rack:        m.bikeRack         || null,
+      strata_fees:      m.strataFees       != null && m.strataFees !== '' ? parseFloat(m.strataFees) : null
     });
   });
   if (changedRows.length) {
