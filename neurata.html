@@ -12792,26 +12792,29 @@ function renderLotsPlan(s) {
     + '</div>';
 
   if (isListView) {
-    // List view — table with SL, name, email, council role, edit
     var populated = [];
     for (var i = 1; i <= lots; i++) {
       var slL = 'SL'+String(i).padStart(3,'0');
       populated.push({sl: slL, m: memberMap[slL]||null});
     }
     html += '<table class="cm-table"><thead><tr>'
-      + '<th>Strata Lot</th><th>Name</th><th>Email</th><th>Status</th><th></th>'
+      + '<th>SL #</th><th>Unit #</th><th>Entitlement</th><th>Owner Type</th><th>Parking</th><th>Storage</th><th>Bike Rack</th>'
       + '</tr></thead><tbody>';
     populated.forEach(function(row) {
       var m = row.m;
-      html += '<tr>'
-        + '<td><strong>'+row.sl+'</strong></td>'
-        + '<td>'+(m ? escHtml(m.name) : '<span style="color:var(--g4)">—</span>')+'</td>'
-        + '<td>'+(m && m.email ? '<a href="mailto:'+escHtml(m.email)+'" style="color:var(--org)">'+escHtml(m.email)+'</a>' : '<span style="color:var(--g4)">—</span>')+'</td>'
-        + '<td>'+(m && m.isCouncil ? '<span class="cm-badge">'+escHtml(m.role||'Council')+'</span>' : (m ? '<span style="font-size:11px;color:var(--g4)">Owner</span>' : ''))+'</td>'
-        + '<td><button class="btn xs" onclick="openOwnerInfo(\''+s.id+'\',\''+row.sl+'\')">'+( m ? 'Edit' : 'Add')+'</button></td>'
+      var councilBadge = m && m.isCouncil ? ' <span class="cm-badge" style="font-size:9px;padding:1px 5px">'+escHtml(m.role||'Council')+'</span>' : '';
+      html += '<tr style="cursor:pointer" onclick="openOwnerInfo(\''+s.id+'\',\''+row.sl+'\')" title="Click to edit">'
+        + '<td><strong>'+row.sl+'</strong>'+councilBadge+'</td>'
+        + '<td>'+(m && m.unitNumber ? escHtml(String(m.unitNumber)) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.unitEntitlement ? escHtml(String(m.unitEntitlement)) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.ownerType ? escHtml(m.ownerType) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.parking ? escHtml(m.parking) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.storage ? escHtml(m.storage) : '<span style="color:var(--g4)">—</span>')+'</td>'
+        + '<td>'+(m && m.bikeRack ? escHtml(m.bikeRack) : '<span style="color:var(--g4)">—</span>')+'</td>'
         + '</tr>';
     });
     html += '</tbody></table>';
+    html += '<div style="font-size:11px;color:var(--g4);margin-top:8px">Click any row to view or edit owner details.</div>';
   } else {
     // Grid view
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">';
