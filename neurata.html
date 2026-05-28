@@ -14429,8 +14429,8 @@ function sendSupportMsg() {
         + 'Invite rep or assistant: SC Detail, Representatives tab, Invite button\n'
         + 'Billing setup: Billing page, enter banking info for ACSS pre-authorized debit\n'
         + 'Activate Meeting Mode: SC Detail, Subscription tab, Managing Broker only\n'
-        + 'Free trial: 2 meetings per brokerage before subscription required\n'
-        + 'Pricing: Meeting Mode CA$39/month per SC plus StrataSphere CA$1.49 local or CA$2.49 global per lot per month\n'
+        + 'Free trial: '+PRICING.trialMeetings+' meetings per brokerage before subscription required\n'
+        + 'Pricing: Meeting Mode CA$'+PRICING.perBuilding+'/month per SC plus StrataSphere CA$'+PRICING.perLotLocal+' local or CA$'+PRICING.perLotGlobal+' global per lot per month\n'
         + 'Support: support@neurata.ai',
       messages: _supportLog
     })
