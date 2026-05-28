@@ -13303,9 +13303,10 @@ function _parseRosterCSV(csv, s) {
       storage:         storage     || (existing ? existing.storage    : ''),
       bikeRack:        bikeRack    || (existing ? existing.bikeRack   : ''),
       strataFees:      strataFees  != null ? strataFees : (existing ? existing.strataFees : ''),
-      // Always preserve council-specific fields — these are set in the app, not via roster upload
-      councilMemberName: existing ? (existing.councilMemberName || '') : '',
-      councilEmail:      existing ? (existing.councilEmail      || '') : '',
+      // Preserve council-specific fields only if owner hasn't changed (same person)
+      // If name or email changed, it's likely a new owner — clear council fields
+      councilMemberName: (existing && !nameChanged && !emailChanged) ? (existing.councilMemberName || '') : '',
+      councilEmail:      (existing && !nameChanged && !emailChanged) ? (existing.councilEmail      || '') : '',
       _changed:        true
     };
     if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
