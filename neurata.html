@@ -11989,7 +11989,7 @@ function renderSCDetail(scId) {
 
   var role_ = APP.currentUser && APP.currentUser.role || '';
   var isAsst = role_ === 'Assistant';
-  var tabs = isAsst ? ['overview','council','lots','reps'] : ['overview','subscription','forms','council','lots','reps'];
+  var tabs = isAsst ? ['overview','council','lots'] : ['overview','subscription','forms','council','lots','reps'];
   var tabLabels = {overview:'Overview', subscription:'Subscription', forms:'Forms', council:'Council Members', lots:'Strata Lots', reps:'Representatives'};
 
   var isDel_ = APP.currentUser && APP.currentUser.role === 'Council Delegate';
