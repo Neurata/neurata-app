@@ -2252,7 +2252,7 @@ function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
     if (statusEl && n > 1) {
       statusEl.style.display = '';
       statusEl.innerHTML = '<div class="spin" style="margin:0 auto 8px"></div>'
-        + '<div style="font-size:12px;color:var(--ch3)">' + (retryMsg || 'Rate limit reached — retrying in 60 seconds…') + ' (attempt ' + n + ' of 3)</div>';
+        + '<div style="font-size:12px;color:var(--ch3)">' + (retryMsg || 'Rate limit reached — retrying in 10 seconds…') + ' (attempt ' + n + ' of 3)</div>';
     }
     fetch(WORKER_URL + '/ai', {
       method: 'POST',
@@ -2267,7 +2267,7 @@ function aiCall(body, onSuccess, onError, statusEl, retryMsg) {
             statusEl.innerHTML = '<div class="spin" style="margin:0 auto 8px"></div>'
               + '<div style="font-size:12px;color:var(--ch3)">AI rate limit reached — retrying automatically in 60 seconds…</div>';
           }
-          setTimeout(function() { attempt(n + 1); }, 60000);
+          setTimeout(function() { attempt(n + 1); }, 10000);
           return null;
         }
         throw new Error('Rate limit reached after 3 attempts. Please wait a minute and try again.');
@@ -5284,8 +5284,8 @@ function mgmtSsSend(scId) {
     .then(function(r){
       if (r.status === 429 && attempt < 3) {
         var typing = document.getElementById('mgmt-typing');
-        if (typing) typing.innerHTML = '<em style="font-size:12px;color:var(--g4)">Rate limit — retrying in 60 seconds… (attempt '+(attempt+1)+' of 3)</em>';
-        setTimeout(function(){ ssFetch(attempt+1); }, 60000);
+        if (typing) typing.innerHTML = '<em style="font-size:12px;color:var(--g4)">Rate limit — retrying in 10 seconds… (attempt '+(attempt+1)+' of 3)</em>';
+        setTimeout(function(){ ssFetch(attempt+1); }, 10000);
         return;
       }
       return r.json();
@@ -15255,7 +15255,7 @@ function hmHandleFile(file) {
       if (attempt > 1 && statusEl) {
         statusEl.style.display='';
         statusEl.innerHTML='<div class="spin" style="margin:0 auto 8px"></div>'
-          +'<div style="font-size:12px;color:var(--ch3)">Rate limit hit — retrying in 60 seconds… (attempt '+attempt+' of 3)</div>';
+          +'<div style="font-size:12px;color:var(--ch3)">Rate limit hit — retrying in 10 seconds… (attempt '+attempt+' of 3)</div>';
       }
       var minsScId = APP.currentScId||'';
       var minsBrkId = APP.brokerage&&APP.brokerage.lic||'';
@@ -15285,7 +15285,7 @@ function hmHandleFile(file) {
               statusEl.innerHTML='<div class="spin" style="margin:0 auto 8px"></div>'
                 +'<div style="font-size:12px;color:var(--ch3)">AI rate limit reached — retrying automatically in 60 seconds…</div>';
             }
-            setTimeout(function(){ doAiCall(attempt+1); }, 60000);
+            setTimeout(function(){ doAiCall(attempt+1); }, 10000);
             return null;
           } else {
             throw new Error('Rate limit reached after 3 attempts. Please wait a minute and try uploading again.');
