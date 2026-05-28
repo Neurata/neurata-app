@@ -13191,8 +13191,28 @@ function downloadCurrentRoster(scId) {
 
 function _parseRosterCSV(csv, s) {
   // council_members table = owner roster; is_council flags current council members
-  var lines = csv.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  // Strip UTF-8 BOM if present (Excel adds this)
+  if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
+  var lines = csv.split('\n').map(function(l){return l.trim().replace(/\r$/,'');}).filter(Boolean);
   if(!lines.length){ nAlert('Empty file.','','warn'); return; }
+
+  // Proper CSV row parser — handles quoted fields containing commas
+  function parseCSVRow(line) {
+    var cols = [], cur = '', inQ = false;
+    for (var ci = 0; ci < line.length; ci++) {
+      var ch = line[ci];
+      if (ch === '"') {
+        if (inQ && line[ci+1] === '"') { cur += '"'; ci++; } // escaped quote
+        else inQ = !inQ;
+      } else if (ch === ',' && !inQ) {
+        cols.push(cur.trim()); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cols.push(cur.trim());
+    return cols;
+  }
   // Detect header row
   var startRow = 0;
   var firstLower = lines[0].toLowerCase();
@@ -13200,7 +13220,7 @@ function _parseRosterCSV(csv, s) {
 
   var imported=0, skipped=0;
   lines.slice(startRow).forEach(function(line){
-    var cols = line.split(',').map(function(c){return c.trim().replace(/^"|"$/g,'');});
+    var cols = parseCSVRow(line);
     if(cols.length<1) return;
     if(cols[0].trim().startsWith('#')) return;
     var rawSl = cols[0].replace(/\s/g,'').toUpperCase();
