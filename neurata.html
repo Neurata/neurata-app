@@ -982,7 +982,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
           <span>More Info (Optional)</span><span id="oi-more-tg">▶</span>
         </div>
         <div id="oi-council-name-row" style="display:none;margin-top:6px">
-          <div class="fg"><label>Council Member Name <span style="font-size:10px;color:var(--g4);font-weight:400">(if different from owner name)</span></label><input id="oi-council-member-name" type="text" placeholder="e.g. John Smith"/></div>
+          <div class="fr" style="gap:8px">
+            <div class="fg"><label>Council Member Name <span style="font-size:10px;color:var(--g4);font-weight:400">(if different from owner name)</span></label><input id="oi-council-member-name" type="text" placeholder="e.g. John Smith"/></div>
+            <div class="fg"><label>Council Email <span style="font-size:10px;color:var(--g4);font-weight:400">(if different from owner email)</span></label><input id="oi-council-email" type="email" placeholder="e.g. john@example.com"/></div>
+          </div>
         </div>
         <div id="oi-more-bd" style="display:none;margin-top:10px">
           <div class="fr fr2" style="gap:8px">
@@ -9153,7 +9156,7 @@ function adminEnterBrokerage(brkLic) {
         });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council,
-            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'', strataFees:c.strata_fees||'', councilMemberName:c.council_member_name||'' };
+            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'', strataFees:c.strata_fees||'', councilMemberName:c.council_member_name||'', councilEmail:c.council_email||'' };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
           return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
@@ -12759,7 +12762,7 @@ function renderCouncilMembers(s) {
     html += '<tr>'
       +'<td><strong>'+escHtml(m.sl||'—')+'</strong></td>'
       +'<td>'+escHtml(m.councilMemberName || m.name||'—')+'</td>'
-      +'<td><a href="mailto:'+escHtml(m.email||'')+'" style="color:var(--org)">'+escHtml(m.email||'—')+'</a></td>'
+      +'<td><a href="mailto:'+escHtml(m.councilEmail||m.email||'')+'" style="color:var(--org)">'+escHtml(m.councilEmail||m.email||'—')+'</a></td>'
       +'<td><span class="cm-badge">'+escHtml(m.role||'Council')+'</span></td>'
       +'<td><button class="btn xs" onclick="editCouncilMember(\''+s.id+'\','+idx+')">Edit</button>'
       +'<button class="btn xs" onclick="removeCouncilMember(\''+s.id+'\','+idx+')" style="color:var(--red)">✕</button></td>'
@@ -12980,6 +12983,8 @@ function openOwnerInfo(scId, sl) {
   var cnRow = document.getElementById('oi-council-name-row');
   var cnInp = document.getElementById('oi-council-member-name');
   if (cnInp) cnInp.value = (existing && existing.councilMemberName) || '';
+  var ceInp = document.getElementById('oi-council-email');
+  if (ceInp) ceInp.value = (existing && existing.councilEmail) || '';
   if (cnRow) cnRow.style.display = (existing && existing.isCouncil) ? '' : 'none';
   roleRow.style.display = ck.checked ? '' : 'none';
   var roleSel = document.getElementById('oi-role');
@@ -13061,10 +13066,11 @@ function saveOwnerInfo() {
   var bk = (document.getElementById('oi-bike') && document.getElementById('oi-bike').value.trim()) || '';
   var sf = (document.getElementById('oi-strata-fees') && document.getElementById('oi-strata-fees').value.replace(/\$/g,'').trim()) || '';
   var cn = (document.getElementById('oi-council-member-name') && document.getElementById('oi-council-member-name').value.trim()) || '';
+  var ce = (document.getElementById('oi-council-email') && document.getElementById('oi-council-email').value.trim()) || '';
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
   var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil,
-    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk, strataFees:sf, councilMemberName:cn};
+    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk, strataFees:sf, councilMemberName:cn, councilEmail:ce};
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
@@ -13082,7 +13088,8 @@ function saveOwnerInfo() {
     storage:     st||null,
     bike_rack:   bk||null,
     strata_fees: sf ? parseFloat(sf) : null,
-    council_member_name: cn || null
+    council_member_name: cn || null,
+    council_email: ce || null
   }, {onConflict: 'sc_id,lot_number'}).then(function(r){
     if(r.error) console.error('council_members upsert error:', r.error);
   });
@@ -13413,6 +13420,7 @@ function saveCouncilMember() {
     sc_id:              s.plan,
     lot_number:         slVal,
     council_member_name: name,
+    council_email:      email||null,
     email:              email||null,
     council_role:       role||null,
     is_council:         true
