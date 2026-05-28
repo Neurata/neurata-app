@@ -962,7 +962,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       </div>
       <div class="fg" style="margin-top:8px">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-          <input type="checkbox" id="oi-is-council" style="accent-color:var(--org)"/>
+          <input type="checkbox" id="oi-is-council" style="accent-color:var(--org)" onchange="var r=document.getElementById('oi-council-name-row');if(r)r.style.display=this.checked?'':'none'"/>
           Council member (include in quorum count and mover/seconder)
         </label>
       </div>
@@ -980,6 +980,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div style="margin-top:14px;border-top:1px solid var(--g2);padding-top:10px">
         <div onclick="var bd=document.getElementById('oi-more-bd');var tg=document.getElementById('oi-more-tg');if(bd.style.display==='none'){bd.style.display='';tg.textContent='▼';}else{bd.style.display='none';tg.textContent='▶';}" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--g4);user-select:none">
           <span>More Info (Optional)</span><span id="oi-more-tg">▶</span>
+        </div>
+        <div id="oi-council-name-row" style="display:none;margin-top:6px">
+          <div class="fg"><label>Council Member Name <span style="font-size:10px;color:var(--g4);font-weight:400">(if different from owner name)</span></label><input id="oi-council-member-name" type="text" placeholder="e.g. John Smith"/></div>
         </div>
         <div id="oi-more-bd" style="display:none;margin-top:10px">
           <div class="fr fr2" style="gap:8px">
@@ -9150,7 +9153,7 @@ function adminEnterBrokerage(brkLic) {
         });
         sc.councilMembers = council.filter(function(c){ return c.sc_id === sc.plan; }).map(function(c){
           return { sl:c.lot_number, name:c.full_name, email:c.email||'', role:c.council_role||'', isCouncil:c.is_council,
-            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'', strataFees:c.strata_fees||'' };
+            unitNumber:c.unit_number||'', unitEntitlement:c.unit_entitlement||'', ownerType:c.owner_type||'', parking:c.parking||'', storage:c.storage||'', bikeRack:c.bike_rack||'', strataFees:c.strata_fees||'', councilMemberName:c.council_member_name||'' };
         });
         sc.docs = documents.filter(function(d){ return d.sc_id === sc.plan; }).map(function(d){
           return { name:d.name, sourceLabel:d.source_label||'', source:d.source||'', mime:d.mime_type||'', date:d.uploaded_at?d.uploaded_at.slice(0,10):'', dbId:d.id, documentText:d.document_text||'', docType:d.doc_type||'', storagePath:d.storage_path||'' };
@@ -12818,6 +12821,7 @@ function renderLotsPlan(s) {
         + (m ? '<div style="color:var(--ch3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(m.name)+'</div>'
              : '<div style="color:var(--g4);font-size:10px">—</div>')
         + (m && m.isCouncil ? '<div style="font-size:9px;color:var(--org);font-weight:600">'+escHtml(m.role||'Council')+'</div>' : '')
+        + (m && m.isCouncil && m.councilMemberName ? '<div style="font-size:9px;color:var(--g4)">'+escHtml(m.councilMemberName)+'</div>' : '')
         + (m && m.unitNumber ? '<div style="font-size:9px;color:var(--g4)">Unit '+escHtml(String(m.unitNumber))+'</div>' : '')
         + (m && m.unitEntitlement ? '<div style="font-size:9px;color:var(--g4)">UE: '+escHtml(String(m.unitEntitlement))+'</div>' : '')
         + (m && m.bikeRack ? '<div style="font-size:9px;color:var(--g4)">Bike: '+escHtml(String(m.bikeRack))+'</div>' : '')
@@ -12973,6 +12977,10 @@ function openOwnerInfo(scId, sl) {
   var ck = document.getElementById('oi-is-council');
   ck.checked = !!(existing && existing.isCouncil);
   var roleRow = document.getElementById('oi-council-role-row');
+  var cnRow = document.getElementById('oi-council-name-row');
+  var cnInp = document.getElementById('oi-council-member-name');
+  if (cnInp) cnInp.value = (existing && existing.councilMemberName) || '';
+  if (cnRow) cnRow.style.display = (existing && existing.isCouncil) ? '' : 'none';
   roleRow.style.display = ck.checked ? '' : 'none';
   var roleSel = document.getElementById('oi-role');
   // Exclusive roles — can only be held by one person at a time
@@ -13051,11 +13059,12 @@ function saveOwnerInfo() {
   var pk = (document.getElementById('oi-parking') && document.getElementById('oi-parking').value.trim()) || '';
   var st = (document.getElementById('oi-storage') && document.getElementById('oi-storage').value.trim()) || '';
   var bk = (document.getElementById('oi-bike') && document.getElementById('oi-bike').value.trim()) || '';
-  var sf = (document.getElementById('oi-strata-fees') && document.getElementById('oi-strata-fees').value.trim()) || '';
+  var sf = (document.getElementById('oi-strata-fees') && document.getElementById('oi-strata-fees').value.replace(/\$/g,'').trim()) || '';
+  var cn = (document.getElementById('oi-council-member-name') && document.getElementById('oi-council-member-name').value.trim()) || '';
   if(!name){ nAlert('Please enter a name.','Missing Name','warn'); return; }
   var idx = s.councilMembers.findIndex(function(m){return m.sl===_oiSl;});
   var member = {sl:_oiSl, name:name, email:email, role:role, isCouncil:isCouncil,
-    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk, strataFees:sf};
+    unitNumber:un, unitEntitlement:ue, ownerType:ot, parking:pk, storage:st, bikeRack:bk, strataFees:sf, councilMemberName:cn};
   if(idx>=0) s.councilMembers[idx]=member; else s.councilMembers.push(member);
   s.councilSLs = s.councilMembers.filter(function(m){return m.isCouncil;}).map(function(m){return m.sl;});
   sv('sc_'+s.id, s);
@@ -13072,7 +13081,8 @@ function saveOwnerInfo() {
     parking:     pk||null,
     storage:     st||null,
     bike_rack:   bk||null,
-    strata_fees: sf ? parseFloat(sf) : null
+    strata_fees: sf ? parseFloat(sf) : null,
+    council_member_name: cn || null
   }, {onConflict: 'sc_id,lot_number'}).then(function(r){
     if(r.error) console.error('council_members upsert error:', r.error);
   });
@@ -13216,7 +13226,8 @@ function _parseRosterCSV(csv, s) {
     var parking    = pkCol >= 0 ? ((cols[pkCol] || '')).replace(/;/g, ',') : '';
     var storage    = stCol >= 0 ? ((cols[stCol] || '')).replace(/;/g, ',') : '';
     var bikeRack   = bkCol >= 0 ? ((cols[bkCol] || '')).replace(/;/g, ',') : '';
-    var strataFees = sfCol >= 0 && cols[sfCol] && !isNaN(parseFloat(cols[sfCol])) ? parseFloat(cols[sfCol]) : null;
+    var sfRaw = sfCol >= 0 ? (cols[sfCol] || '').replace(/\$/g, '').trim() : '';
+    var strataFees = sfRaw && !isNaN(parseFloat(sfRaw)) ? parseFloat(sfRaw) : null;
 
     var idx      = s.councilMembers.findIndex(function(m){return m.sl===rawSl;});
     var existing = idx>=0 ? s.councilMembers[idx] : null;
