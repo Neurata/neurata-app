@@ -5965,6 +5965,9 @@ function mmAiSend(){
       }
     }
 
+    var mmSsTier = scSsTier(sc_);
+    var mmGssCtx = mmSsTier === 'global' ? buildGssContext() : '';
+
     var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
       + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
       + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
@@ -5975,9 +5978,11 @@ function mmAiSend(){
         : '')
       + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
       + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
+      + (mmGssCtx ? ' You also have access to anonymized, PII-stripped data from all strata corporations on the Neurata platform — use it to provide benchmarking and precedent context when relevant.' : '')
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
       + ' If uncertain, say so in one sentence.\n\n'
-      + lssCtx;
+      + lssCtx
+      + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
 
     fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
