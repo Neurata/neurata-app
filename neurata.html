@@ -5083,6 +5083,15 @@ function buildLssContext(sc) {
 // ══════════════════════════════════════════════════════════════════════
 var GSS_SAFE_DOC_TYPES = ['bylaws', 'strata-plan', 'policy'];
 
+// Strip PII from a single text string (emails, names patterns)
+function stripPIIText(text) {
+  if (!text) return '';
+  return text
+    .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, '[email]')
+    .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[phone]')
+    .replace(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g, '[name]');
+}
+
 function stripDocTextPII(text) {
   if (!text) return text;
   // Core identifiers
@@ -5136,60 +5145,78 @@ function buildGssContext() {
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
   lines.push('All personal identifiers have been removed per PIPA. Plan numbers are public LTSA records.');
-  lines.push('Total strata corporations on platform: ' + APP.sc.length);
-  lines.push('');
 
-  APP.sc.forEach(function(s) {
-    lines.push('--- ' + s.plan + ' | ' + (s.lots || '?') + ' lots | ' + (s.addr || 'BC') + ' ---');
+  var isSA = APP.currentUser && APP.currentUser.isSuperAdmin;
 
-    // Decisions — PII stripped
-    var decs = s.decisions || [];
-    if (decs.length) {
-      var stripped = stripPII(decs);
-      stripped.forEach(function(d) {
-        var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
-          ? ' (' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab)' : '';
-        lines.push('[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr);
-        if (d.motion) lines.push('  Motion: ' + d.motion);
-      });
-    } else {
-      lines.push('No decisions on record.');
-    }
-
-    // Meeting summary (no attendee names)
-    var mtgs = s.meetings || [];
-    if (mtgs.length) {
-      var typeCount = {};
-      mtgs.forEach(function(m) { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
-      var summary = Object.keys(typeCount).map(function(t) { return typeCount[t] + ' ' + t; }).join(', ');
-      lines.push('Meetings: ' + summary);
-    }
-
-    // All indexed documents — PII stripped before sharing across SC boundaries
-    var indexedDocs = (s.docs || []).filter(function(d) {
-      return d.documentText && d.documentText.trim();
-    });
-    if (indexedDocs.length) {
+  if (isSA) {
+    // SA path — APP.sc already has all platform data loaded
+    lines.push('Total strata corporations on platform: ' + APP.sc.length);
+    lines.push('');
+    APP.sc.forEach(function(s) {
+      lines.push('--- ' + s.plan + ' | ' + (s.lots || '?') + ' lots | ' + (s.addr || 'BC') + ' ---');
+      var decs = s.decisions || [];
+      if (decs.length) {
+        var stripped = stripPII(decs);
+        stripped.forEach(function(d) {
+          var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
+            ? ' (' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab)' : '';
+          lines.push('[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr);
+          if (d.motion) lines.push('  Motion: ' + d.motion);
+        });
+      }
+      var mtgs = s.meetings || [];
+      if (mtgs.length) {
+        var typeCount = {};
+        mtgs.forEach(function(m) { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
+        var summary = Object.keys(typeCount).map(function(t) { return typeCount[t] + ' ' + t; }).join(', ');
+        lines.push('Meetings: ' + summary);
+      }
+      var indexedDocs = (s.docs || []).filter(function(d) { return d.documentText && d.documentText.trim(); });
       indexedDocs.forEach(function(d) {
         var stripped = stripDocTextPII(d.documentText);
         if (stripped.length > 6000) stripped = stripped.slice(0, 6000) + '\n… [truncated]';
         lines.push('[' + (d.docType || d.source || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
         lines.push(stripped);
       });
-    }
-
+      lines.push('');
+    });
+  } else {
+    // GSS-paying non-SA — use cross-platform data loaded at login
+    var allSC   = APP._gssAllSC    || [];
+    var allDecs = APP._gssDecisions || [];
+    var allDocs = APP._gssDocs      || [];
+    lines.push('Total strata corporations on platform: ' + allSC.length);
     lines.push('');
-  });
+    allSC.forEach(function(sc) {
+      lines.push('--- ' + sc.plan_number + ' | ' + (sc.lots || '?') + ' lots | ' + (sc.address || 'BC') + ' ---');
+      var scDecs = allDecs.filter(function(d){ return d.sc_id === sc.plan_number; });
+      scDecs.forEach(function(d) {
+        var voteStr = (d.votes_for || d.votes_against || d.votes_abstain)
+          ? ' (' + (d.votes_for||0) + 'F/' + (d.votes_against||0) + 'A/' + (d.votes_abstain||0) + 'Ab)' : '';
+        lines.push('[' + (d.date || 'Date unknown') + '] ' + stripPIIText(d.text || '') + ' — ' + (d.outcome || '') + voteStr);
+        if (d.motion) lines.push('  Motion: ' + stripPIIText(d.motion));
+      });
+      var scDocs = allDocs.filter(function(d){ return d.sc_id === sc.plan_number; });
+      scDocs.forEach(function(d) {
+        if (!d.document_text) return;
+        var stripped = stripDocTextPII(d.document_text);
+        if (stripped.length > 4000) stripped = stripped.slice(0, 4000) + '\n… [truncated]';
+        lines.push('[' + (d.doc_type || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
+        lines.push(stripped);
+      });
+      lines.push('');
+    });
+  }
 
-  // Neurata global educational content — feeds all GSS conversations
+  // Global KB educational content
   var globalDocs = APP._globalKbDocs || [];
   if (globalDocs.length) {
     lines.push('=== STRATA MANAGER EDUCATIONAL RESOURCES ===');
     lines.push('The following educational materials inform strata governance best practices in BC.');
     lines.push('');
     globalDocs.forEach(function(d) {
-      if (!d.documentText || !d.documentText.trim()) return;
-      var txt = d.documentText.trim();
+      var txt = ((d.documentText || d.document_text) || '').trim();
+      if (!txt) return;
       if (txt.length > 12000) txt = txt.slice(0, 12000) + '\n… [truncated]';
       lines.push('[EDUCATIONAL: ' + (d.name||'') + ']');
       lines.push(txt);
@@ -10604,6 +10631,29 @@ function launchPlatform(){
     .eq('sc_id','NEURATA_GLOBAL').not('document_text','is',null)
     .then(function(r){ APP._globalKbDocs = r.data || []; })
     .catch(function(){ APP._globalKbDocs = []; });
+
+  // GSS cross-platform data load — if brokerage has any GSS-enabled SC,
+  // load decisions + indexed docs for ALL SCs on the platform (PII-stripped)
+  var hasGSS = APP.sc.some(function(s){ return s.ssTier === 'global'; });
+  if (hasGSS && !APP.currentUser.isSuperAdmin) {
+    // Load all decisions across platform
+    getSupabase().from('decisions').select('sc_id,text,outcome,date,motion,votes_for,votes_against,votes_abstain')
+      .then(function(dr){
+        APP._gssDecisions = dr.data || [];
+      }).catch(function(){ APP._gssDecisions = []; });
+    // Load all indexed documents across platform (text only, no storage paths)
+    getSupabase().from('documents').select('sc_id,name,document_text,doc_type')
+      .not('document_text','is',null)
+      .neq('sc_id','NEURATA_GLOBAL')
+      .then(function(docr){
+        APP._gssDocs = docr.data || [];
+      }).catch(function(){ APP._gssDocs = []; });
+    // Load all SC metadata (plan, lots, address — no PII)
+    getSupabase().from('strata_corps').select('plan_number,lots,address,name')
+      .then(function(scr){
+        APP._gssAllSC = scr.data || [];
+      }).catch(function(){ APP._gssAllSC = []; });
+  }
   // Council Delegate — go straight to their SC's meetings page
   var isDelegate = (u.role === 'Council Delegate');
   if (isDelegate && APP.sc.length) {
