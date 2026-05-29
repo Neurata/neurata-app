@@ -5217,31 +5217,28 @@ function buildGssContext() {
       lines.push('');
     });
   } else {
-    // GSS-paying non-SA — use cross-platform data loaded at login
-    var allSC   = APP._gssAllSC    || [];
-    var allDecs = APP._gssDecisions || [];
-    var allDocs = APP._gssDocs      || [];
-    lines.push('Total strata corporations on platform: ' + allSC.length);
-    lines.push('');
-    allSC.forEach(function(sc) {
-      lines.push('--- ' + sc.plan_number + ' | ' + (sc.lots || '?') + ' lots | ' + (sc.address || 'BC') + ' ---');
-      var scDecs = allDecs.filter(function(d){ return d.sc_id === sc.plan_number; });
-      scDecs.forEach(function(d) {
-        var voteStr = (d.votes_for || d.votes_against || d.votes_abstain)
-          ? ' (' + (d.votes_for||0) + 'F/' + (d.votes_against||0) + 'A/' + (d.votes_abstain||0) + 'Ab)' : '';
-        lines.push('[' + (d.date || 'Date unknown') + '] ' + stripPIIText(d.text || '') + ' — ' + (d.outcome || '') + voteStr);
-        if (d.motion) lines.push('  Motion: ' + stripPIIText(d.motion));
-      });
-      var scDocs = allDocs.filter(function(d){ return d.sc_id === sc.plan_number; });
-      scDocs.forEach(function(d) {
-        if (!d.document_text) return;
-        var stripped = stripDocTextPII(d.document_text);
-        if (stripped.length > 4000) stripped = stripped.slice(0, 4000) + '\n… [truncated]';
-        lines.push('[' + (d.doc_type || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
-        lines.push(stripped);
-      });
-      lines.push('');
-    });
+    // GSS-paying non-SA — context fetched from worker on demand
+    // If already cached use it; otherwise return placeholder and trigger fetch
+    if (APP._gssContext) {
+      lines = APP._gssContext.split('\n');
+    } else {
+      lines.push('Platform-wide data is loading. Please send your question again in a moment.');
+      if (!APP._gssContextLoading) {
+        APP._gssContextLoading = true;
+        getSupabase().auth.getSession().then(function(s) {
+          var token = s.data && s.data.session && s.data.session.access_token;
+          if (!token) { APP._gssContextLoading = false; return; }
+          fetch(WORKER_URL + '/gss-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+          }).then(function(r){ return r.json(); })
+            .then(function(d){
+              if (d.context) APP._gssContext = d.context;
+              APP._gssContextLoading = false;
+            }).catch(function(){ APP._gssContextLoading = false; });
+        });
+      }
+    }
   }
 
   // Global KB educational content
@@ -10668,27 +10665,12 @@ function launchPlatform(){
     .then(function(r){ APP._globalKbDocs = r.data || []; })
     .catch(function(){ APP._globalKbDocs = []; });
 
-  // GSS cross-platform data load — if brokerage has any GSS-enabled SC,
-  // load decisions + indexed docs for ALL SCs on the platform (PII-stripped)
+  // GSS cross-platform data load — fetch via worker using service key (bypasses RLS)
+  // Worker verifies GSS subscription and returns PII-stripped platform-wide context
   var hasGSS = APP.sc.some(function(s){ return s.ssTier === 'global'; });
   if (hasGSS && !APP.currentUser.isSuperAdmin) {
-    // Load all decisions across platform
-    getSupabase().from('decisions').select('sc_id,text,outcome,date,motion,votes_for,votes_against,votes_abstain')
-      .then(function(dr){
-        APP._gssDecisions = dr.data || [];
-      }).catch(function(){ APP._gssDecisions = []; });
-    // Load all indexed documents across platform (text only, no storage paths)
-    getSupabase().from('documents').select('sc_id,name,document_text,doc_type')
-      .not('document_text','is',null)
-      .neq('sc_id','NEURATA_GLOBAL')
-      .then(function(docr){
-        APP._gssDocs = docr.data || [];
-      }).catch(function(){ APP._gssDocs = []; });
-    // Load all SC metadata (plan, lots, address — no PII)
-    getSupabase().from('strata_corps').select('plan_number,lots,address,name')
-      .then(function(scr){
-        APP._gssAllSC = scr.data || [];
-      }).catch(function(){ APP._gssAllSC = []; });
+    APP._gssContext = null; // will be populated on first GSS query
+    APP._gssContextLoading = false;
   }
   // Council Delegate — go straight to their SC's meetings page
   var isDelegate = (u.role === 'Council Delegate');
