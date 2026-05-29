@@ -13905,6 +13905,7 @@ var SC_DOC_FOLDERS = [
   'Insurance',
   'Legal & Governance',
   'Meetings & Records',
+  'Agenda Attachments',
   'Operations'
 ];
 
@@ -13930,7 +13931,7 @@ function renderDocsList(sc, el) {
 
   docs.forEach(function(doc) {
     if (doc.source === 'strata-plan' && !(doc.sourceLabel || doc.source_label)) { folderMap['Building & Construction'].push(doc); return; }
-    if (doc.source === 'agenda-attachment' && !(doc.sourceLabel || doc.source_label)) { folderMap['Meetings & Records'].push(doc); return; }
+    if (doc.source === 'agenda-attachment' && !(doc.sourceLabel || doc.source_label)) { folderMap['Agenda Attachments'].push(doc); return; }
     var label = doc.sourceLabel || doc.source_label || '';
     if (folderMap[label] !== undefined) { folderMap[label].push(doc); }
     else { folderMap['Other'].push(doc); }
