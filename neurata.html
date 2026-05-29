@@ -5318,6 +5318,7 @@ function mgmtSsSend(scId) {
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
   var lssCtx = buildLssContext(sc);
+  var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently dated one as the most authoritative. Acknowledge older records where relevant (e.g. "a 2008 decision was later superseded by a 2014 decision") but base your answer on the most recent. For bylaws or policies, the most recently uploaded or dated version governs. ';
   if (ssTier === 'global') {
     // GLOBAL SS — local SC context + PII-stripped platform aggregate
     var gssCtx = buildGssContext();
@@ -5326,7 +5327,9 @@ function mgmtSsSend(scId) {
       + 'WHEN DATA IS MISSING: Respond with one sentence stating what is not in the record. Do not fill gaps with industry averages, general examples, or hedged guesses. '
       + 'PERMITTED KNOWLEDGE: You may explain BC legislation — SPA, RESA, PIPA, REDMA, BCFSA rules, SPABC guidance, CHOA resources — but only to explain the law, never to invent corporation-specific facts. '
       + 'FINANCIAL DATA SPECIFICALLY: Never state any dollar amount, balance, contribution rate, or financial figure unless it appears verbatim in the uploaded documents. '
-      + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
+      + 'Plain prose only — no markdown, no bullet dashes, no asterisks. '
+      + recencyRule
+      + '\n\n'
       + lssCtx + '\n\n' + gssCtx;
   } else {
     // LOCAL SS — full SC context only
@@ -5336,7 +5339,9 @@ function mgmtSsSend(scId) {
       + 'PERMITTED KNOWLEDGE: You may draw on your knowledge of BC legislation and regulation — Strata Property Act (SPA), Real Estate Services Act (RESA), PIPA, REDMA, BCFSA rules, SPABC guidance, and CHOA resources — but only to explain the law, not to invent specific facts about this corporation. For example: you may explain what a depreciation report is required to contain under the SPA, but you must not invent figures from a depreciation report that has not been uploaded. '
       + 'FINANCIAL DATA SPECIFICALLY: Never state any dollar amount, balance, contribution rate, budget line, or financial figure unless it appears verbatim in the uploaded documents below. '
       + 'If a user asks about information that spans multiple strata corporations or the broader BC market, let them know that is outside Local StrataSphere and suggest Global StrataSphere. '
-      + 'Plain prose only — no markdown, no bullet dashes, no asterisks.\n\n'
+      + 'Plain prose only — no markdown, no bullet dashes, no asterisks. '
+      + recencyRule
+      + '\n\n'
       + lssCtx;
   }
 
@@ -5980,7 +5985,7 @@ function mmAiSend(){
       + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
       + (mmGssCtx ? ' You also have access to anonymized, PII-stripped data from all strata corporations on the Neurata platform — use it to provide benchmarking and precedent context when relevant.' : '')
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
-      + ' If uncertain, say so in one sentence.\n\n'
+      + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence.\n\n'
       + lssCtx
       + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
 
