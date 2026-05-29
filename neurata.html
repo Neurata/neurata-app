@@ -4136,21 +4136,32 @@ function obAsstSignup() {
   var brkLic = ctx.brkLic || '';
   var scPlan = ctx.scId  || '';
 
-  getSupabase().auth.signUp({ email: email, password: pw })
+  getSupabase().auth.signUp({
+    email: email,
+    password: pw,
+    options: {
+      data: {
+        full_name:    name,
+        brokerage_id: brkLic,
+        role:         'Assistant'
+      }
+    }
+  })
   .then(function(r) {
     if (r.error) throw new Error(r.error.message);
     var userId = r.data.user && r.data.user.id;
     if (!userId) throw new Error('No user ID returned');
 
-    // Write to users table
-    return getSupabase().from('users').insert({
-      id:          userId,
+    // Upsert users row — handle_new_user trigger may have already created it
+    return getSupabase().from('users').upsert({
+      id:           userId,
       brokerage_id: brkLic,
-      full_name:   name,
-      bcfsa_lic:   null,
-      role:        'Assistant',
-      email:       email
-    }).then(function() {
+      full_name:    name,
+      bcfsa_lic:    null,
+      role:         'Assistant',
+      email:        email,
+      is_active:    true
+    }, {onConflict: 'id'}).then(function() {
       // Write to sc_users
       if (scPlan) {
         return getSupabase().from('sc_users').upsert({
@@ -4218,6 +4229,30 @@ function removeDelegate(scId, uid) {
   }, 'Remove Delegate', 'danger');
 }
 
+
+function reloadSCData(scId) {
+  var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
+  var planNumbers = [sc_.plan];
+  getSupabase().from('sc_users').select('sc_id,user_id,access_type').in('sc_id', planNumbers)
+    .then(function(r) {
+      var scUsers = r.data || [];
+      if (!scUsers.length) { renderSCDetail(scId); return; }
+      var allUids = scUsers.map(function(u){ return u.user_id; }).filter(function(v,i,a){ return a.indexOf(v)===i; });
+      return getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', allUids)
+        .then(function(ur) {
+          var userMap = {};
+          (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
+          sc_.repUserIds = [];
+          scUsers.forEach(function(row) {
+            var u = userMap[row.user_id]; if (!u) return;
+            sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
+          });
+          sv('sc_'+scId, sc_);
+          renderSCDetail(scId);
+        });
+    })
+    .catch(function(e){ console.error('reloadSCData error:', e); });
+}
 
 function renderSCReps(s) {
   var role = APP.currentUser && APP.currentUser.role || '';
@@ -4315,6 +4350,7 @@ function renderSCReps(s) {
     +(canInviteRep?'<button class="btn pri" onclick="openSCInviteRep(\''+s.id+'\')">+ Invite Representative</button>':'')
     +(canInviteDel?' <button class="btn pri" onclick="openInviteDelegate(\''+s.id+'\')">+ Invite Council Delegate</button>'
         + (canManage ? '<button class="btn sm" onclick="openInviteAsst(\''+s.id+'\')">+ Invite Assistant</button>' : ''):'')
+    +' <button class="btn xs" style="color:var(--g4)" onclick="reloadSCData(\''+s.id+'\')" title="Refresh — use after a new user accepts their invite">↻ Refresh</button>'
     +'</div>';
 
   if (!rows.length) {
