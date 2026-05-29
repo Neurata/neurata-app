@@ -4271,15 +4271,15 @@ function renderSCReps(s) {
   // Add other sc_users if repUserIds is populated
   var scUserIds = s.repUserIds || [];
   scUserIds.forEach(function(u) {
-    var alreadyIn = rows.find(function(r){ return r.lic === u.lic || r.uid === u.userId; });
-    if (!alreadyIn && u.lic) {
+    var alreadyIn = rows.find(function(r){ return (u.lic && r.lic === u.lic) || (u.userId && r.uid === u.userId); });
+    if (!alreadyIn && (u.lic || u.userId)) {
       rows.push({
-        name: u.name||u.lic,
-        lic: u.lic,
-        title: u.role||'Representative',
-        scope: u.accessType === 'manager' ? 'Assigned' : 'Assigned',
+        name:   u.name || u.lic || 'Assistant',
+        lic:    u.lic  || '',
+        title:  u.accessType === 'assistant' ? 'Assistant' : (u.role || 'Representative'),
+        scope:  'Assigned',
         status: 'Active',
-        uid: u.userId
+        uid:    u.userId
       });
     }
   });
