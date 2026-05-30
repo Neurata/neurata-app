@@ -4438,8 +4438,8 @@ function renderSCReps(s) {
   });
 
   var role = APP.currentUser.role || '';
-  var canInviteRep = role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant';
-  var canInviteDel = canInviteRep; // REPs can invite council delegates to their SCs
+  var canInviteRep = role==='Managing Broker'||role==='Associate Broker'||role==='Representative';
+  var canInviteDel = canInviteRep || role==='Assistant'; // ASSTs can invite council delegates but not licensed reps
   var html = '<div class="br" style="margin-bottom:12px">'
     +(canInviteRep?'<button class="btn pri" onclick="openSCInviteRep(\''+s.id+'\')">+ Invite Representative</button>':'')
     +(canInviteDel?' <button class="btn pri" onclick="openInviteDelegate(\''+s.id+'\')">+ Invite Council Delegate</button>'
