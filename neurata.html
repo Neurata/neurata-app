@@ -5130,6 +5130,38 @@ function buildLssContext(sc) {
     lines.push('No council members on record.');
   }
 
+  // ── 3b. Strata Lot Roster (owner types, entitlements) ─────────────
+  lines.push('\n=== STRATA LOT ROSTER ===');
+  var roster = sc.councilMembers || [];
+  if (roster.length) {
+    // Summary counts by owner type
+    var typeCounts = {};
+    roster.forEach(function(m) {
+      var t = m.ownerType || 'Unknown';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+    var totalLots = sc.lots || roster.length;
+    lines.push('Total lots: ' + totalLots + ' | Roster entries: ' + roster.length);
+    Object.keys(typeCounts).forEach(function(t) {
+      lines.push('- ' + t + ': ' + typeCounts[t] + ' lots (' + Math.round(typeCounts[t]/totalLots*100) + '%)');
+    });
+    // Full lot-by-lot detail
+    lines.push('Lot detail:');
+    roster.forEach(function(m) {
+      var parts = [m.sl || '—'];
+      if (m.unitNumber)      parts.push('Unit ' + m.unitNumber);
+      if (m.unitEntitlement) parts.push('UE: ' + m.unitEntitlement);
+      if (m.ownerType)       parts.push(m.ownerType);
+      if (m.strataFees)      parts.push('Fees: $' + m.strataFees);
+      if (m.parking)         parts.push('Parking: ' + m.parking);
+      if (m.storage)         parts.push('Storage: ' + m.storage);
+      if (m.bikeRack)        parts.push('Bike: ' + m.bikeRack);
+      lines.push('  ' + parts.join(' | '));
+    });
+  } else {
+    lines.push('No strata lot roster data on file.');
+  }
+
   // ── 4. Decision Ledger (full) ─────────────────────────────────────
   lines.push('\n=== DECISION LEDGER ===');
   var decisions = (sc.decisions || []).slice().sort(function(a, b) {
