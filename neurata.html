@@ -1138,6 +1138,30 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   </div>
 </div>
 
+<div class="screen" id="scr-delegate-invite">
+  <div class="ob-wrap">
+    <div class="ob-card">
+      <div class="ob-logo"><img src="https://sozghbobflcjrfsmewxv.supabase.co/storage/v1/object/public/public-assets/NeurataLogoOrangeWhite.svg" alt="Neurata" style="height:36px"/></div>
+      <div class="ob-h">You've been invited as a Council Delegate</div>
+      <div class="ob-s">Create your account to view meetings, minutes, documents, and ask StrataSphere questions for your strata corporation.</div>
+      <div class="fr">
+        <div class="fg"><label>Full Name</label><input type="text" id="del-inv-name" placeholder="Your full name"/></div>
+        <div class="fg"><label>Email</label><input type="email" id="del-inv-email" placeholder="your@email.com"/></div>
+        <div class="fg"><label>Password</label><input type="password" id="del-inv-pw" placeholder="At least 8 characters"/></div>
+        <div class="fg"><label>Confirm Password</label><input type="password" id="del-inv-pw2" placeholder="Confirm password"/></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin:10px 0">
+        <input type="checkbox" id="del-inv-tos" style="margin-top:3px;accent-color:var(--org)"/>
+        <label for="del-inv-tos" style="font-size:12px;color:var(--g4);line-height:1.5">I agree to the <a href="https://www.neurata.ai/terms" target="_blank" style="color:var(--org)">Terms of Service</a></label>
+      </div>
+      <button class="btn pri ob-cta" id="del-inv-btn" onclick="obDelSignup()">Create Account →</button>
+      <div style="text-align:center;margin-top:12px">
+        <a href="#" onclick="showScr('scr-login');return false;" style="font-size:13px;color:var(--g4)">Already have an account? Sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ SA TRIAL MANAGEMENT MODAL ═══════ -->
 <!-- Form B Modal -->
 <div class="mo" id="mo-form-b">
@@ -2582,9 +2606,8 @@ function getVisibleSCs() {
   var isAdmin = role === 'Managing Broker' || role === 'Associate Broker';
   // Admins see all SCs
   if (isAdmin || APP.currentUser.isSuperAdmin) return APP.sc;
-  // Reps/Assistants: APP.sc already filtered to their assigned SCs via sc_users query
-  if (role === 'Representative' || role === 'Assistant') return APP.sc;
-  // Council Delegates: filter by delegateIds
+  // Reps/Assistants/Delegates: APP.sc already filtered to their assigned SCs via sc_users query
+  if (role === 'Representative' || role === 'Assistant' || role === 'Council Delegate') return APP.sc;
   var uid  = APP.currentUser.uid  || APP.currentUser.lic || '';
   var email = APP.currentUser.email || '';
   return APP.sc.filter(function(s) {
@@ -4101,6 +4124,8 @@ function showInviteScreen() {
     if (emailEl && ctx.email) emailEl.value = ctx.email;
     showScr('scr-asst-invite');
   } else if (ctx.type === 'delegate') {
+    var delEmailEl = document.getElementById('del-inv-email');
+    if (delEmailEl && ctx.email) { delEmailEl.value = ctx.email; delEmailEl.readOnly = true; }
     showScr('scr-delegate-invite');
   } else {
     // Pre-fill email from invite context (locked — MB entered this)
@@ -4184,6 +4209,75 @@ function obAsstSignup() {
   .catch(function(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Create Account →'; }
     nAlert(e.message || 'Account creation failed. Please try again.', 'Error', 'warn');
+  });
+}
+
+function obDelSignup() {
+  var btn   = document.getElementById('del-inv-btn');
+  var name  = (document.getElementById('del-inv-name').value||'').trim();
+  var email = (document.getElementById('del-inv-email').value||'').trim();
+  var pw    = (document.getElementById('del-inv-pw').value||'').trim();
+  var pw2   = (document.getElementById('del-inv-pw2').value||'').trim();
+  var tos   = document.getElementById('del-inv-tos').checked;
+
+  if (!name)  { nAlert('Please enter your full name.','','warn'); return; }
+  if (!email || email.indexOf('@') < 0) { nAlert('Please enter a valid email.','','warn'); return; }
+  if (pw.length < 8) { nAlert('Password must be at least 8 characters.','','warn'); return; }
+  if (pw !== pw2)    { nAlert('Passwords do not match.','','warn'); return; }
+  if (!tos)          { nAlert('Please agree to the Terms of Service.','','warn'); return; }
+
+  var ctx   = window._inviteContext || {};
+  var scPlan = ctx.scId || '';
+  var sl     = ctx.sl   || '';
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+
+  getSupabase().auth.signUp({
+    email: email,
+    password: pw,
+    options: {
+      data: {
+        full_name: name,
+        role:      'Delegate',
+        sc_plan:   scPlan,
+        sl:        sl
+      }
+    }
+  })
+  .then(function(r) {
+    if (r.error) throw new Error(r.error.message);
+    var userId = r.data.user && r.data.user.id;
+    if (!userId) throw new Error('No user ID returned');
+
+    // Upsert users row
+    return getSupabase().from('users').upsert({
+      id:          userId,
+      full_name:   name,
+      email:       email,
+      role:        'Delegate',
+      brokerage_id: null,
+      is_active:   true
+    }, {onConflict: 'id'}).then(function() {
+      // Create sc_users row if we have an SC plan
+      if (scPlan) {
+        return getSupabase().from('sc_users').upsert({
+          sc_id:        scPlan,
+          user_id:      userId,
+          access_type:  'delegate',
+          council_role: sl || null
+        }, {onConflict: 'sc_id,user_id'});
+      }
+    }).then(function() {
+      window._inviteContext = null;
+      // Sign in immediately
+      return getSupabase().auth.signInWithPassword({ email: email, password: pw });
+    }).then(function() {
+      window.location.reload();
+    });
+  })
+  .catch(function(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Account →'; }
+    nAlert(e.message || 'Signup failed. Please try again.', 'Error', 'warn');
   });
 }
 
@@ -4705,7 +4799,7 @@ function sendDelegateInviteEmail(email, name, scId, sl) {
   var s = APP.sc.find(function(x){return x.id===scId;});
   var fromName = APP.currentUser ? APP.currentUser.name : '';
   var brokerage = APP.brokerage ? APP.brokerage.name : '';
-  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?delegate='+encodeURIComponent(scId)+'&sl='+encodeURIComponent(sl||'');
+  var inviteUrl = (ENV === 'development' ? 'https://appdev.neurata.ai' : 'https://app.neurata.ai') + '/?delegate='+encodeURIComponent(scId)+'&sl='+encodeURIComponent(sl||'')+'&email='+encodeURIComponent(email);
 
   fetch(WORKER_URL+'/send-invite', {
     method: 'POST',
@@ -10456,7 +10550,7 @@ function loadUserSCs(userId) {
       APP.sc = scList;
       // For admins: populate repIds from sc_users → users (source of truth for actual access)
       if (isAdmin && planNumbers.length) {
-        getSupabase().from('sc_users').select('sc_id, user_id').in('sc_id', planNumbers).eq('access_type', 'rep')
+        getSupabase().from('sc_users').select('sc_id, user_id').in('sc_id', planNumbers).in('access_type', ['rep','assistant','delegate'])
         .then(function(scur) {
           if (scur.error || !scur.data || !scur.data.length) return;
           var userIds = scur.data.map(function(r){ return r.user_id; });
@@ -10481,7 +10575,7 @@ function loadUserSCs(userId) {
       }
       // For reps: populate repIds from sc_users so they see who else is on each SC
       if (!isAdmin && planNumbers.length) {
-        getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).eq('access_type','rep')
+        getSupabase().from('sc_users').select('sc_id,user_id').in('sc_id', planNumbers).in('access_type', ['rep','assistant','delegate'])
         .then(function(scur) {
           if (scur.data && scur.data.length) {
             var userIds = scur.data.map(function(r){ return r.user_id; });
@@ -10640,6 +10734,17 @@ function switchSuperAdminRole(role) {
     }
   }
   renderSuperAdminBar();
+  // DEL role — go straight to meetings, skip dashboard and SC detail
+  if (APP.currentUser && APP.currentUser.role === 'Council Delegate') {
+    var delSc = APP.sc && APP.sc[0];
+    if (delSc) {
+      APP.currentScId = delSc.id;
+      showPg('meetings');
+    } else {
+      showPg('strata');
+    }
+    return;
+  }
   showPg('dashboard');
 }
 
@@ -13648,7 +13753,7 @@ var ROLE_TABS = {
   'Associate Broker': ['dashboard','strata','brokerage'],
   'Representative':   ['dashboard','strata'],
   'Assistant':        ['dashboard','strata'],
-  'Council Delegate': ['dashboard','strata'],
+  'Council Delegate': ['strata'],
   'default':          ['dashboard','strata']
 };
 var TAB_LABELS = {
@@ -13763,8 +13868,9 @@ function updateMtgHeaderBtn(tab, hasContent) {
   var scId = APP.currentScId;
   if (!actions) return;
   var role = APP.currentUser && APP.currentUser.role || '';
-  var canEdit = (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
-  var canUploadDocs = canEdit || role === 'Council Delegate';
+  var isDel = role === 'Council Delegate';
+  var canEdit = !isDel && (role==='Managing Broker'||role==='Associate Broker'||role==='Representative'||role==='Assistant');
+  var canUploadDocs = canEdit; // DEL is read-only
   // Only show header button when content already exists (empty state has its own button)
   if (!hasContent) { actions.innerHTML = ''; return; }
   if (tab === 'meetings') {
@@ -16401,6 +16507,7 @@ async function init(){
   var inviteLic  = urlParams.get('lic');       // rep's BCFSA lic (legacy)
   var delegateSc = urlParams.get('delegate'); // SC id for delegate
   var delegateSl = urlParams.get('sl');        // strata lot
+  var delegateEmail = urlParams.get('email');  // pre-filled email for delegate
   var asstBrk    = urlParams.get('asst');      // brokerage lic for assistant invite
   var asstSc     = urlParams.get('sc');        // SC plan for assistant invite
   var asstEmail  = urlParams.get('email');     // pre-filled email for assistant
@@ -16428,7 +16535,7 @@ async function init(){
       scPlans:    inviteScPlans,
       lic:        inviteLic  || '',
       sl:         delegateSl || '',
-      email:      asstEmail  || ''
+      email:      asstEmail  || delegateEmail || ''
       // brkName loaded below from brokerages table if needed
     };
     // Clean up URL without reloading
