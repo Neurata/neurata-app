@@ -4423,12 +4423,13 @@ function renderSCReps(s) {
     var alreadyIn = rows.find(function(r){ return (u.lic && r.lic === u.lic) || (u.userId && r.uid === u.userId); });
     if (!alreadyIn && (u.lic || u.userId)) {
       rows.push({
-        name:   u.name || u.lic || 'Assistant',
-        lic:    u.lic  || '',
-        title:  u.accessType === 'assistant' ? 'Assistant' : (u.role || 'Representative'),
-        scope:  'Assigned',
-        status: 'Active',
-        uid:    u.userId
+        name:       u.name || u.lic || 'Assistant',
+        lic:        u.lic  || '',
+        title:      u.accessType === 'assistant' ? 'Assistant' : u.accessType === 'delegate' ? 'Council Delegate' : (u.role || 'Representative'),
+        scope:      'Assigned',
+        status:     'Active',
+        uid:        u.userId,
+        accessType: u.accessType || ''
       });
     }
   });
@@ -4491,7 +4492,7 @@ function renderSCReps(s) {
       +'<td style="color:var(--ch3)">'+escHtml(r.title||'—')+'</td>'
       +'<td style="color:var(--g4);font-size:11px">'+escHtml(r.scope==='Council'?'Council Portal':r.lic||'—')+'</td>'
       +'<td><span style="background:'+scopeBg+';padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">'+scopeLabel+'</span></td>'
-      +'<td>'+(activeLics.indexOf(r.lic)>=0||r.scope==="Council"?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>')+'</td>'
+      +'<td>'+(r.status==='Invited'?'<span class="tag" style="font-size:10px;background:rgba(234,179,8,.12);color:#b45309;border:1px solid rgba(234,179,8,.3)">Invited</span>':(activeLics.indexOf(r.lic)>=0||r.scope==="Council"||r.accessType==="assistant"||r.accessType==="delegate"?'<span class="tag grn" style="font-size:10px">Active</span>':'<span class="tag gy" style="font-size:10px">Inactive</span>'))+'</td>'
       +'<td style="white-space:nowrap">'
       +(canSetSM && (r.scope==='Brokerage'||r.scope==='Assigned') && !isSM
         ? '<button class="btn xs" onclick="assignSM(\''+s.id+'\',\''+escHtml(r.lic)+'\')">Set as SM</button> '
