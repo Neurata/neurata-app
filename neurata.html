@@ -13767,7 +13767,7 @@ var ROLE_TABS = {
   'Associate Broker': ['dashboard','strata','brokerage'],
   'Representative':   ['dashboard','strata'],
   'Assistant':        ['dashboard','strata'],
-  'Council Delegate': ['strata'],
+  'Council Delegate': [],
   'default':          ['dashboard','strata']
 };
 var TAB_LABELS = {
@@ -15627,10 +15627,12 @@ var currentMtgTab = 'meetings';
 function renderMeetingsList(sc, el) {
   var mtgs = sc.meetings || [];
   if (mtgs.length === 0) {
+    var isDel_ = APP.currentUser && APP.currentUser.role === 'Council Delegate';
     el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       +'<div class="empty-h">No meetings yet for '+sc.plan+'</div>'
-      +'<div class="empty-s">Create a meeting, build the agenda, attach documents, then launch Meeting Mode when council is ready.</div>'
-      +'<button class="btn pri" style="margin-top:16px" onclick="openMo(\'mo-new-mtg\')">+ Create First Meeting</button></div>';
+      +'<div class="empty-s">'+( isDel_ ? 'No meetings have been scheduled yet.' : 'Create a meeting, build the agenda, attach documents, then launch Meeting Mode when council is ready.')+'</div>'
+      +(!isDel_ ? '<button class="btn pri" style="margin-top:16px" onclick="openMo(\'mo-new-mtg\')">+ Create First Meeting</button>' : '')
+      +'</div>';
     return;
   }
   var html = '';
