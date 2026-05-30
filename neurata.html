@@ -12711,7 +12711,6 @@ function exportFormB() {
     closeMo('mo-form-b');
     nAlert('Form B exported. Review before distributing.','Exported ✓','success');
   }).catch(function(e){ nAlert('Export failed: '+e.message,'','warn'); });
-  } // end doFormBExport
 
   // Fetch logo then export — same pattern as minutes export
   if (logoUrl) {
