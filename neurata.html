@@ -10725,6 +10725,18 @@ function switchSuperAdminRole(role) {
   if (av) av.textContent = APP.currentUser.initials;
   if (nm) nm.textContent = APP.currentUser.name;
   renderNav();
+  // DEL role — go straight to meetings, skip SC detail entirely
+  if (role === 'Council Delegate') {
+    var delSc = APP.sc && APP.sc[0];
+    if (delSc) {
+      APP.currentScId = delSc.id;
+      showPg('meetings');
+    } else {
+      showPg('strata');
+    }
+    renderSuperAdminBar();
+    return;
+  }
   if (APP._adminContext) {
     // Inside a brokerage — just update the banner and re-render current view
     var b = (APP._allBrokerages||[]).find(function(x){ return x.bcfsa_lic === APP.brokerage.lic; });
