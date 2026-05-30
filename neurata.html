@@ -5458,6 +5458,7 @@ function mgmtSsSend(scId) {
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
   var lssCtx = buildLssContext(sc);
+  var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
   var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
     // GLOBAL SS — local SC context + PII-stripped platform aggregate
@@ -5469,6 +5470,7 @@ function mgmtSsSend(scId) {
       + 'FINANCIAL DATA SPECIFICALLY: Never state any dollar amount, balance, contribution rate, or financial figure unless it appears verbatim in the uploaded documents. '
       + 'Plain prose only — no markdown, no bullet dashes, no asterisks. '
       + recencyRule
+      + ' ' + countingRule
       + '\n\n'
       + lssCtx + '\n\n' + gssCtx;
   } else {
@@ -5481,6 +5483,7 @@ function mgmtSsSend(scId) {
       + 'If a user asks about information that spans multiple strata corporations or the broader BC market, let them know that is outside Local StrataSphere and suggest Global StrataSphere. '
       + 'Plain prose only — no markdown, no bullet dashes, no asterisks. '
       + recencyRule
+      + ' ' + countingRule
       + '\n\n'
       + lssCtx;
   }
@@ -6125,7 +6128,7 @@ function mmAiSend(){
       + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
       + (mmGssCtx ? ' You also have access to anonymized, PII-stripped data from all strata corporations on the Neurata platform — use it to provide benchmarking and precedent context when relevant.' : '')
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
-      + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence.\n\n'
+      + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence. ' + countingRule + '\n\n'
       + lssCtx
       + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
 
