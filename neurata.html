@@ -13908,10 +13908,11 @@ function renderMinutesList(sc, el) {
   var historicDocs = (sc.docs||[]).filter(function(d){return d.source==='historic-minutes';});
 
   if (!adjourned.length && !historicDocs.length) {
+    var isDelMin = APP.currentUser && APP.currentUser.role === 'Council Delegate';
     el.innerHTML = '<div class="empty-state"><div class="empty-ic"></div>'
       + '<div class="empty-h">No minutes yet</div>'
-      + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode. You can also upload historic minutes to build the decision ledger.</div>'
-      + '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>'
+      + '<div class="empty-s">Minutes are generated automatically when a meeting is adjourned in Meeting Mode.' + (!isDelMin ? ' You can also upload historic minutes to build the decision ledger.' : '') + '</div>'
+      + (!isDelMin ? '<button class="btn pri" style="margin-top:16px" onclick="openHistoricMins()">+ Upload Historic Minutes</button>' : '')
       + '</div>';
     return;
   }
