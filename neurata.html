@@ -12711,6 +12711,7 @@ function exportFormB() {
     closeMo('mo-form-b');
     nAlert('Form B exported. Review before distributing.','Exported ✓','success');
   }).catch(function(e){ nAlert('Export failed: '+e.message,'','warn'); });
+  } // end doFormBExport
 
   // Fetch logo then export — same pattern as minutes export
   if (logoUrl) {
@@ -12923,7 +12924,6 @@ function renderSCSubscription(s) {
       var now = new Date();
       while (anniversaryDate <= now) {
         anniversaryDate.setFullYear(anniversaryDate.getFullYear() + 1);
-      }
       }
     }
     var anniversaryStr = anniversaryDate ? anniversaryDate.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'}) : null;
