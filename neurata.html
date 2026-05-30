@@ -4268,6 +4268,12 @@ function obDelSignup() {
         }, {onConflict: 'sc_id,user_id'});
       }
     }).then(function() {
+      // Mark pending invite as accepted
+      if (scPlan) {
+        getSupabase().from('activation_requests')
+          .update({status:'accepted'}).eq('sc_id',scPlan).eq('email',email).eq('request_type','delegate')
+          .then(function(){});
+      }
       window._inviteContext = null;
       // Sign in immediately
       return getSupabase().auth.signInWithPassword({ email: email, password: pw });
@@ -4287,39 +4293,48 @@ function saveDelegate() {
   var name  = (document.getElementById('del-name').value||'').trim();
   var email = (document.getElementById('del-email').value||'').trim();
   var role  = document.getElementById('del-role').value || 'Council Delegate';
+  var sl    = document.getElementById('del-sl') ? document.getElementById('del-sl').value : '';
   if (!name)  { nAlert('Please enter the delegate name.','Missing Name','warn'); return; }
   if (!email || email.indexOf('@')<0) { nAlert('Please enter a valid email address.','Missing Email','warn'); return; }
 
-  if (!s.delegates) s.delegates = [];
-  if (!s.delegateIds) s.delegateIds = [];
-
-  // Create a uid for this delegate
-  var uid = 'del_' + scId + '_' + Date.now();
-  s.delegates.push({uid:uid, name:name, email:email, councilRole:role, invitedAt:new Date().toISOString()});
-  if (s.delegateIds.indexOf(uid) < 0) s.delegateIds.push(uid);
-
-  sv('sc_'+s.id, s);
-  // Send actual email
-  var delEmail = document.getElementById('del-email') ? document.getElementById('del-email').value.trim() : '';
-  var delName  = document.getElementById('del-name')  ? document.getElementById('del-name').value.trim()  : '';
-  var delSl    = document.getElementById('del-sl')    ? document.getElementById('del-sl').value            : '';
-  if (delEmail) sendDelegateInviteEmail(delEmail, delName, _delInviteScId, delSl);
-  closeMo('mo-invite-delegate');
-  nAlert('Invitation sent to '+email+'. '+name+' will receive an email to create their council portal account.', 'Invite Sent ✓', 'success');
-  _scDetailTab = 'reps';
-  renderSCDetail(scId);
+  // Write to activation_requests table as a pending invite (no user_id yet — they haven't signed up)
+  getSupabase().from('activation_requests').upsert({
+    sc_id:        s.plan,
+    email:        email,
+    name:         name,
+    request_type: 'delegate',
+    council_role: sl || null,
+    status:       'pending',
+    created_at:   new Date().toISOString()
+  }, {onConflict: 'sc_id,email'}).then(function() {
+    sendDelegateInviteEmail(email, name, _delInviteScId, sl);
+    closeMo('mo-invite-delegate');
+    nAlert('Invitation sent to ' + email + '. They will receive an email to create their council portal account.', 'Invite Sent ✓', 'success');
+    _scDetailTab = 'reps';
+    renderSCDetail(scId);
+  }).catch(function(e) {
+    nAlert('Failed to save invite: ' + (e.message||'unknown error'), 'Error', 'warn');
+  });
 }
 
 function removeDelegate(scId, uid) {
   var s = APP.sc.find(function(x){return x.id===scId;}); if(!s) return;
-  var del = (s.delegates||[]).find(function(d){return d.uid===uid;});
-  var delName = del ? del.name : uid;
-  nConfirm('Remove '+delName+' as a council delegate for '+s.plan+'?', function(ok){
-    if(!ok) return;
-    s.delegates   = (s.delegates||[]).filter(function(d){return d.uid!==uid;});
-    s.delegateIds = (s.delegateIds||[]).filter(function(id){return id!==uid;});
-    sv('sc_'+s.id, s);
-    renderSCDetail(scId);
+  // uid may be a real user_id (signed up) or an email (pending invite)
+  var isEmail = uid.indexOf('@') >= 0;
+  var label = isEmail ? uid : ((s.repUserIds||[]).find(function(u){return u.userId===uid;}) || {}).name || uid;
+  nConfirm('Remove ' + label + ' as a council delegate for ' + s.plan + '?', function(ok){
+    if (!ok) return;
+    if (isEmail) {
+      // Pending invite — remove from activation_requests
+      getSupabase().from('activation_requests')
+        .delete().eq('sc_id', s.plan).eq('email', uid).eq('request_type', 'delegate')
+        .then(function(){ reloadSCData(scId); });
+    } else {
+      // Signed-up user — remove from sc_users
+      getSupabase().from('sc_users')
+        .delete().eq('sc_id', s.plan).eq('user_id', uid)
+        .then(function(){ reloadSCData(scId); });
+    }
   }, 'Remove Delegate', 'danger');
 }
 
@@ -4327,25 +4342,28 @@ function removeDelegate(scId, uid) {
 function reloadSCData(scId) {
   var sc_ = APP.sc.find(function(s){ return s.id === scId; }); if (!sc_) return;
   var planNumbers = [sc_.plan];
-  getSupabase().from('sc_users').select('sc_id,user_id,access_type').in('sc_id', planNumbers)
-    .then(function(r) {
-      var scUsers = r.data || [];
-      if (!scUsers.length) { renderSCDetail(scId); return; }
-      var allUids = scUsers.map(function(u){ return u.user_id; }).filter(function(v,i,a){ return a.indexOf(v)===i; });
-      return getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', allUids)
-        .then(function(ur) {
-          var userMap = {};
-          (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
-          sc_.repUserIds = [];
-          scUsers.forEach(function(row) {
-            var u = userMap[row.user_id]; if (!u) return;
-            sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
-          });
-          sv('sc_'+scId, sc_);
-          renderSCDetail(scId);
+  Promise.all([
+    getSupabase().from('sc_users').select('sc_id,user_id,access_type').in('sc_id', planNumbers),
+    getSupabase().from('activation_requests').select('sc_id,email,name,request_type,status').in('sc_id', planNumbers).eq('request_type','delegate').eq('status','pending')
+  ]).then(function(results) {
+    var scUsers = (results[0].data) || [];
+    var pendingDels = (results[1].data) || [];
+    sc_._pendingDelegates = pendingDels;
+    if (!scUsers.length) { renderSCDetail(scId); return; }
+    var allUids = scUsers.map(function(u){ return u.user_id; }).filter(function(v,i,a){ return a.indexOf(v)===i; });
+    return getSupabase().from('users').select('id,bcfsa_lic,full_name,role').in('id', allUids)
+      .then(function(ur) {
+        var userMap = {};
+        (ur.data||[]).forEach(function(u){ userMap[u.id] = u; });
+        sc_.repUserIds = [];
+        scUsers.forEach(function(row) {
+          var u = userMap[row.user_id]; if (!u) return;
+          sc_.repUserIds.push({ userId: row.user_id, lic: u.bcfsa_lic, name: u.full_name, role: u.role, accessType: row.access_type });
         });
-    })
-    .catch(function(e){ console.error('reloadSCData error:', e); });
+        sv('sc_'+scId, sc_);
+        renderSCDetail(scId);
+      });
+  }).catch(function(e){ console.error('reloadSCData error:', e); });
 }
 
 function renderSCReps(s) {
@@ -4414,19 +4432,13 @@ function renderSCReps(s) {
       });
     }
   });
-  var delegates = s.delegates || [];
-  // Also add any raw delegateIds not in delegates array (legacy)
-  (s.delegateIds || []).forEach(function(uid) {
-    if (!delegates.find(function(d){return d.uid===uid;})) {
-      var cm = (s.councilMembers||[]).find(function(m){return m.sl && uid.indexOf(m.sl)>=0;});
-      delegates.push({uid:uid, name:cm?cm.name:uid, email:'', councilRole:cm?cm.role:'Council Delegate'});
-    }
-  });
-  delegates.forEach(function(d) {
-    var alreadyIn = rows.find(function(r){return r.lic===d.uid;});
+  // Pending delegate invites (not yet signed up)
+  var pendingDels = s._pendingDelegates || [];
+  pendingDels.forEach(function(pd) {
+    var alreadyIn = rows.find(function(r){ return r.email === pd.email; });
     if (!alreadyIn) {
-      rows.push({name:d.name||d.uid, lic:d.uid, email:d.email||'',
-        title: d.councilRole||'Council Delegate', scope:'Council', status:'Active', uid:d.uid});
+      rows.push({name: pd.name||pd.email, lic:'', email: pd.email,
+        title:'Council Delegate', scope:'Council', status:'Invited', uid: pd.email});
     }
   });
 
