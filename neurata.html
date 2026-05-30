@@ -5230,13 +5230,14 @@ function buildLssContext(sc) {
 
   // ── 6. Documents & Extracted Content ─────────────────────────────
   lines.push('\n=== DOCUMENTS ON FILE ===');
-  var docs = sc.docs || [];
+  var docs = (sc.docs || []).slice().sort(function(a, b) {
+    return (b.date || '').localeCompare(a.date || ''); // most recent first
+  });
   if (docs.length) {
     docs.forEach(function(d) {
-      lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | ' + d.date : ''));
+      lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | Uploaded: ' + d.date : ''));
       if (d.documentText && d.documentText.trim()) {
-        lines.push('  [CONTENT START: ' + (d.name || '') + ']');
-        // Cap at 50000 chars per doc — multi-pass extraction should cover full docs
+        lines.push('  [CONTENT START: ' + (d.name || '') + (d.date ? ' | Uploaded: ' + d.date : '') + ']');
         var txt = d.documentText.trim();
         if (txt.length > 50000) txt = txt.slice(0, 50000) + '\n… [truncated — ' + Math.round(txt.length/1000) + 'k chars total]';
         lines.push(txt);
@@ -5457,7 +5458,7 @@ function mgmtSsSend(scId) {
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
   var lssCtx = buildLssContext(sc);
-  var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently dated one as the most authoritative. Acknowledge older records where relevant (e.g. "a 2008 decision was later superseded by a 2014 decision") but base your answer on the most recent. For bylaws or policies, the most recently uploaded or dated version governs. ';
+  var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
     // GLOBAL SS — local SC context + PII-stripped platform aggregate
     var gssCtx = buildGssContext();
