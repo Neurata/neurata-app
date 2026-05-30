@@ -2260,6 +2260,11 @@ function activateFromRequest(id, scId, requestType) {
           sc_.mmActive = true;
           sc_.mmStatus = 'ACTIVE';
           sc_.mmActivatedAt = d.mmActivatedAt || new Date().toISOString();
+          // Calculate normalized term start (1st of first full billing month)
+          var actDate = new Date(sc_.mmActivatedAt);
+          if (actDate.getDate() > 1) actDate.setMonth(actDate.getMonth() + 1);
+          actDate.setDate(1); actDate.setHours(0,0,0,0);
+          sc_.mmTermStart = actDate.toISOString();
           sc_.ssTier = requestType === 'ss_global' ? 'global' : 'local';
           if (requestType === 'ss_global') sc_.ssGlobalActivatedAt = new Date().toISOString();
           sc_.stripeSubscriptionId = d.subscriptionId || sc_.stripeSubscriptionId;
@@ -2417,10 +2422,14 @@ function activateSCMeetingMode(scId) {
       _callActivateSC(sc_, 'local', function(subId) {
         sc_.mmActive = true; sc_.mmStatus = 'ACTIVE';
         sc_.mmActivatedAt = new Date().toISOString();
+        var actDate2 = new Date(sc_.mmActivatedAt);
+        if (actDate2.getDate() > 1) actDate2.setMonth(actDate2.getMonth() + 1);
+        actDate2.setDate(1); actDate2.setHours(0,0,0,0);
+        sc_.mmTermStart = actDate2.toISOString();
         sc_.ssTier = 'local'; sc_.ssActivatedAt = sc_.mmActivatedAt;
         sc_.stripeSubscriptionId = subId;
         getSupabase().from('strata_corps').update({
-          is_subscribed: true, mm_activated_at: sc_.mmActivatedAt,
+          is_subscribed: true, mm_activated_at: sc_.mmActivatedAt, mm_term_start: sc_.mmTermStart,
           ss_tier: 'local', ss_global_activated_at: sc_.ssActivatedAt,
           stripe_subscription_id: subId
         }).eq('plan_number', sc_.plan).then(function(){});
@@ -9795,10 +9804,21 @@ function scheduleCancelMM(scId) {
     return;
   }
 
-  // Find the NEXT upcoming anniversary — always the end of the current annual commitment
-  var activatedAt = sc_.mmActivatedAt ? new Date(sc_.mmActivatedAt) : new Date();
+  // Commitment term starts on the 1st of the first full billing month
+  // If activated on the 1st, that month counts. Otherwise, term starts 1st of next month.
+  // Use stored term start if available, otherwise calculate from activation date
+  var termStart;
+  if (sc_.mmTermStart) {
+    termStart = new Date(sc_.mmTermStart);
+  } else {
+    var activatedAt = sc_.mmActivatedAt ? new Date(sc_.mmActivatedAt) : new Date();
+    termStart = new Date(activatedAt);
+    if (termStart.getDate() > 1) termStart.setMonth(termStart.getMonth() + 1);
+    termStart.setDate(1);
+    termStart.setHours(0, 0, 0, 0);
+  }
   var now = new Date();
-  var anniversary = new Date(activatedAt);
+  var anniversary = new Date(termStart);
   // Advance until we find the next future anniversary
   while (anniversary <= now) {
     anniversary.setFullYear(anniversary.getFullYear() + 1);
@@ -10446,9 +10466,10 @@ function mapSCRow(sc) {
     mgrLic:              '',
     smLic:               sc.sm_lic || '',   // designated Strata Manager licence
     smName:              '',                 // resolved after reps load
-    mmStatus:            (sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at) ? 'ACTIVE' : '',
-    isSubscribed:        !!(sc.is_subscribed || sc.stripe_subscription_id || sc.mm_activated_at),
+    mmStatus:            sc.is_subscribed ? 'ACTIVE' : '',
+    isSubscribed:        !!sc.is_subscribed,
     mmActivatedAt:       sc.mm_activated_at || null,
+    mmTermStart:         sc.mm_term_start || null,
     mmPendingCancel:     sc.mm_pending_cancel || false,
     ssTier:              sc.ss_tier || null,
     ssGlobalActivatedAt: sc.ss_global_activated_at || null,
@@ -12901,10 +12922,18 @@ function renderSCSubscription(s) {
     var activatedAt = s.mmActivatedAt ? new Date(s.mmActivatedAt) : null;
     var anniversaryDate = null;
     if (activatedAt) {
-      anniversaryDate = new Date(activatedAt);
+      // Term starts 1st of first full billing month
+      var termStart2 = new Date(activatedAt);
+      if (termStart2.getDate() > 1) {
+        termStart2.setMonth(termStart2.getMonth() + 1);
+      }
+      termStart2.setDate(1);
+      termStart2.setHours(0, 0, 0, 0);
+      anniversaryDate = new Date(termStart2);
       var now = new Date();
       while (anniversaryDate <= now) {
         anniversaryDate.setFullYear(anniversaryDate.getFullYear() + 1);
+      }
       }
     }
     var anniversaryStr = anniversaryDate ? anniversaryDate.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'}) : null;
