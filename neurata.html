@@ -9595,7 +9595,7 @@ function _renderBillingMain(el, sc, isMB, trialEx, isSetup, payMethod) {
     html += '</div></div>';
     var cardDisp = payMethod==='card' ? 'block' : 'none';
     html += '<div id="pay-form-card" style="display:'+cardDisp+'">';
-    html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email" placeholder="Receipts and billing notices will be sent here" value=""/></div>';
+    html += '<div class="fg" style="margin-bottom:10px"><label>Billing Email <span style="color:var(--red)">*</span></label><input type="email" id="bill-email-card" placeholder="Receipts and billing notices will be sent here" value=""/></div>';
     html += '<div class="fg" style="margin-bottom:10px"><label>Cardholder Name</label><input type="text" id="card-name" placeholder="As it appears on the card"/></div>';
     html += '<div id="stripe-card-element" style="border:1px solid var(--g2);border-radius:6px;padding:12px;background:#fff;margin-bottom:8px">Loading card form…</div>';
     html += '<div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:4px"></div>';
@@ -9925,8 +9925,9 @@ function billingSubmit() {
   var btn = document.querySelector('[onclick="billingSubmit()"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
 
-  // Email: required from modal — no fallbacks
-  var emailEl = document.getElementById('bill-email');
+  // Email: read from whichever form is active
+  var payMethod_ = APP.brokerage && APP.brokerage.payMethod || 'acss';
+  var emailEl = document.getElementById(payMethod_ === 'card' ? 'bill-email-card' : 'bill-email');
   var email = emailEl ? emailEl.value.trim() : '';
   if (!email) {
     if (btn) { btn.disabled = false; btn.textContent = 'Save Payment Method'; }
