@@ -102,7 +102,7 @@ test.describe('ASST Role — Representatives Tab', () => {
     await page.locator('#tab-strata').click();
     await page.waitForSelector('#pg-strata', { timeout: 10000 });
     // Click first SC
-    await page.locator('.sc-item, [onclick*="renderSCDetail"]').first().click();
+    await page.locator('[onclick*="openSCDetail"]').first().click();
     await page.waitForSelector('.sc-tabs', { timeout: 5000 });
     await page.locator('.sc-tab:has-text("Representatives")').click();
     await expect(page.locator('button:has-text("Invite Council Delegate")')).toBeVisible({ timeout: 5000 });
@@ -111,10 +111,11 @@ test.describe('ASST Role — Representatives Tab', () => {
   test('ASST Reps tab does NOT show Invite Representative button', async ({ page }) => {
     await switchSARole(page, 'AS');
     await page.locator('#tab-strata').click();
-    await page.waitForSelector('#pg-strata', { timeout: 10000 });
-    await page.locator('.sc-item, [onclick*="renderSCDetail"]').first().click();
-    await page.waitForSelector('.sc-tabs', { timeout: 5000 });
+    await page.waitForSelector('[onclick*="openSCDetail"]', { timeout: 10000 });
+    await page.locator('[onclick*="openSCDetail"]').first().click();
+    await page.waitForSelector('.sc-tabs', { timeout: 8000 });
     await page.locator('.sc-tab:has-text("Representatives")').click();
+    await page.waitForTimeout(500);
     await expect(page.locator('button:has-text("Invite Representative")')).not.toBeVisible();
   });
 
@@ -129,10 +130,11 @@ test.describe('Role Status Display', () => {
   test('Reps tab shows correct status badges', async ({ page }) => {
     // MB role — check reps tab
     await page.locator('#tab-strata').click();
-    await page.waitForSelector('#pg-strata', { timeout: 10000 });
-    await page.locator('.sc-item, [onclick*="renderSCDetail"]').first().click();
-    await page.waitForSelector('.sc-tabs', { timeout: 5000 });
+    await page.waitForSelector('[onclick*="openSCDetail"]', { timeout: 10000 });
+    await page.locator('[onclick*="openSCDetail"]').first().click();
+    await page.waitForSelector('.sc-tabs', { timeout: 8000 });
     await page.locator('.sc-tab:has-text("Representatives")').click();
+    await page.waitForTimeout(500);
     await page.waitForTimeout(500);
 
     // Any status badges present should be Active, Inactive, or Invited — not empty

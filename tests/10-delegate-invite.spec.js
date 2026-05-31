@@ -12,7 +12,7 @@ const { loginAndEnterBrokerage, waitForDialog, dismissDialog } = require('./help
 async function goToRepsTab(page) {
   await page.locator('#tab-strata').click();
   await page.waitForSelector('#pg-strata', { timeout: 10000 });
-  await page.locator('.sc-item, [onclick*="renderSCDetail"]').first().click();
+  await page.locator('[onclick*="openSCDetail"]').first().click();
   await page.waitForSelector('.sc-tabs', { timeout: 5000 });
   await page.locator('.sc-tab:has-text("Representatives")').click();
   await page.waitForTimeout(500);
@@ -104,7 +104,7 @@ test.describe('Delegate Signup Screen', () => {
 
   test('Delegate invite URL shows signup screen', async ({ page }) => {
     // Navigate with delegate URL params
-    await page.goto('https://appdev.neurata.ai/?delegate=VIS6597&sl=SL001&email=test%40example.com');
+    await page.goto('https://appdev.neurata.ai/?delegate=KAS2291&sl=SL001&email=test%40example.com');
     await page.waitForSelector('#scr-delegate-invite, #scr-login', { timeout: 10000 });
     // Should show either the delegate signup or login screen
     const delegateScreen = await page.locator('#scr-delegate-invite').isVisible();
@@ -113,7 +113,7 @@ test.describe('Delegate Signup Screen', () => {
   });
 
   test('Delegate signup screen has all required fields', async ({ page }) => {
-    await page.goto('https://appdev.neurata.ai/?delegate=VIS6597&sl=SL001&email=test%40example.com');
+    await page.goto('https://appdev.neurata.ai/?delegate=KAS2291&sl=SL001&email=test%40example.com');
     await page.waitForSelector('#scr-delegate-invite', { timeout: 10000 }).catch(() => {});
     const visible = await page.locator('#scr-delegate-invite').isVisible();
     if (visible) {
@@ -126,7 +126,7 @@ test.describe('Delegate Signup Screen', () => {
   });
 
   test('Delegate email is pre-filled from URL param', async ({ page }) => {
-    await page.goto('https://appdev.neurata.ai/?delegate=VIS6597&sl=SL001&email=test%40example.com');
+    await page.goto('https://appdev.neurata.ai/?delegate=KAS2291&sl=SL001&email=test%40example.com');
     await page.waitForSelector('#scr-delegate-invite', { timeout: 10000 }).catch(() => {});
     const visible = await page.locator('#scr-delegate-invite').isVisible();
     if (visible) {
