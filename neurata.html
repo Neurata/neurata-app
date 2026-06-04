@@ -14961,6 +14961,38 @@ function docExtractText(btn) {
   }
 
   // Get signed URL and fetch the file
+  var ext = (storagePath || '').split('.').pop().toLowerCase();
+
+  // PDFs: delegate entirely to worker (multi-pass server-side, no browser timeout issues)
+  if (ext !== 'txt' && ext !== 'doc' && ext !== 'docx') {
+    if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
+    getSupabase().auth.getSession().then(function(s) {
+      var token = s.data && s.data.session && s.data.session.access_token;
+      return fetch(WORKER_URL + '/extract-doc-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+        body: JSON.stringify({
+          storagePath: storagePath,
+          brokerageId: APP.brokerage && APP.brokerage.lic || '',
+          scId: scId,
+          userId: APP.currentUser && APP.currentUser.id || ''
+        })
+      });
+    }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) throw new Error(d.error);
+      var text = d.extractedText || d.text || '';
+      if (!text) throw new Error('No text extracted');
+      _finaliseDocExtract(dbId, scId, text, null);
+    })
+    .catch(function(e) {
+      console.error('Worker extraction failed:', e);
+      if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+      nAlert('Could not index document: ' + (e.message || 'unknown error'), 'Index Failed', 'warn');
+    });
+    return;
+  }
+
   getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 120)
   .then(function(res) {
     if (res.error || !res.data || !res.data.signedUrl) {
@@ -14970,66 +15002,20 @@ function docExtractText(btn) {
   })
   .then(function(r){
     if (!r.ok) throw new Error('Could not fetch document (' + r.status + ')');
-    var ext = (storagePath || '').split('.').pop().toLowerCase();
-    if (ext === 'txt') {
+    var ext2 = (storagePath || '').split('.').pop().toLowerCase();
+    if (ext2 === 'txt') {
       return r.text();
-    } else if (ext === 'doc' || ext === 'docx') {
+    } else {
       return r.arrayBuffer().then(function(buf) {
         if (typeof mammoth === 'undefined') throw new Error('DOCX parser not loaded. Please refresh and try again.');
         return mammoth.extractRawText({arrayBuffer: buf}).then(function(result){ return result.value; });
       });
-    } else {
-      // PDF — always use Claude multi-pass vision for best results
-      // PDF.js struggles with secured, complex, or image-based PDFs
-      return r.blob().then(function(blob) {
-        return new Promise(function(resolve, reject) {
-          var reader = new FileReader();
-          reader.onload = function(ev) {
-            var b64 = ev.target.result.split(',')[1];
-            if (!b64) { reject(new Error('Empty PDF data')); return; }
-            if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
-            _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1);
-            resolve(null); // signal that we're handling async
-          };
-          reader.onerror = function() { reject(new Error('Could not read PDF')); };
-          reader.readAsDataURL(blob);
-        });
-      });
     }
   })
   .then(function(fullText) {
-    if (fullText === null) return; // PDF handled async via Claude multi-pass
     if (!fullText || !fullText.trim()) {
-      // No text layer — scanned PDF. Use Claude vision via multi-pass extraction.
-      var dbIdLocal = dbId; var scIdLocal = scId;
-      var storagePath2 = doc && doc.storagePath || doc && doc.storage_path || '';
-      if (!storagePath2) {
-        if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
-        nAlert('Could not index document: storage path missing.', 'Index Failed', 'warn');
-        return;
-      }
-      // Use signed URL (bucket is private)
-      getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath2, 300)
-        .then(function(sr){
-          if (sr.error || !sr.data || !sr.data.signedUrl) throw new Error('Could not generate signed URL');
-          return fetch(sr.data.signedUrl);
-        })
-        .then(function(r2){ return r2.blob(); })
-        .then(function(blob){
-          var reader = new FileReader();
-          reader.onload = function(ev){
-            var b64 = ev.target.result.split(',')[1];
-            if (!b64) throw new Error('Empty PDF data');
-            if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
-            _extractDocTextMultiPassBtn(b64, dbIdLocal, scIdLocal, '', 1);
-          };
-          reader.onerror = function(){ nAlert('Could not read document for indexing.', 'Index Failed', 'warn'); };
-          reader.readAsDataURL(blob);
-        })
-        .catch(function(e){
-          if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
-          nAlert('Could not index document: ' + (e.message||'unknown error'), 'Index Failed', 'warn');
-        });
+      if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+      nAlert('Could not extract text from document.', 'Index Failed', 'warn');
       return;
     }
     _finaliseDocExtract(dbId, scId, fullText.trim(), null);
