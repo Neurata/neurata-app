@@ -8167,11 +8167,22 @@ function ssSend() {
         + 'Never invent facts, decisions, dollar amounts, dates, or names not present in the provided data. '
         + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
         + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.\n\n'
-        + (sc_ ? buildLssContext(sc_) : ('Context: ' + context)),
+        + (function() {
+          var ctx = sc_ ? buildLssContext(sc_) : ('Context: ' + context);
+          // Guard: Anthropic context limit ~900k chars. If exceeded, trim oldest docs.
+          if (ctx.length > 800000) {
+            // Rebuild with fewer docs — skip docs beyond the limit
+            ctx = ctx.slice(0, 800000) + '\n[Additional documents omitted to fit context limit]';
+          }
+          return ctx;
+        })(),
       messages: history.concat([lastUser || {role:'user', content: msg}])
     })
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(e){ throw new Error(e.error || ('API error ' + r.status)); });
+    return r.json();
+  })
   .then(function(d) {
     var typing = document.getElementById(typingId);
     if (typing) typing.remove();
