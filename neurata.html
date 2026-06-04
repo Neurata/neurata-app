@@ -14966,36 +14966,81 @@ function docExtractText(btn) {
   // Get signed URL and fetch the file
   var ext = (storagePath || '').split('.').pop().toLowerCase();
 
-  // PDFs: delegate entirely to worker (multi-pass server-side, no browser timeout issues)
+  // PDFs: try PDF.js first (free, instant) — only call worker for scanned/image PDFs
   if (ext !== 'txt' && ext !== 'doc' && ext !== 'docx') {
     if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
-    console.log('[extract] storagePath:', storagePath, 'dbId:', dbId, 'scId:', scId);
-    getSupabase().auth.getSession().then(function(s) {
-      var token = s.data && s.data.session && s.data.session.access_token;
-      return fetch(WORKER_URL + '/extract-doc-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
-        body: JSON.stringify({
-          storagePath: storagePath,
-          name: doc && doc.name || '',
-          brokerageId: APP.brokerage && APP.brokerage.lic || '',
-          scId: scId,
-          userId: APP.currentUser && APP.currentUser.id || ''
-        })
-      });
-    }).then(function(r) {
-      console.log('[extract] worker response status:', r.status);
-      return r.json();
+
+    // Step 1: get signed URL and fetch PDF
+    getSupabase().storage.from('neurata-documents').createSignedUrl(storagePath, 300)
+    .then(function(res) {
+      if (res.error || !res.data || !res.data.signedUrl) throw new Error('Could not generate signed URL');
+      return fetch(res.data.signedUrl);
     })
-    .then(function(d) {
-      console.log('[extract] worker response:', JSON.stringify(d).slice(0, 200));
-      if (d.error) throw new Error(d.error);
-      var text = d.extractedText || d.text || '';
-      if (!text) throw new Error('No text extracted');
-      _finaliseDocExtract(dbId, scId, text, null);
+    .then(function(r) {
+      if (!r.ok) throw new Error('Could not fetch document (' + r.status + ')');
+      return r.arrayBuffer();
+    })
+    .then(function(buf) {
+      // Step 2: try PDF.js text extraction
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded');
+      return pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
+        var pages = [];
+        for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+        return pages.reduce(function(chain, pageNum) {
+          return chain.then(function(texts) {
+            return pdf.getPage(pageNum).then(function(page) {
+              return page.getTextContent().then(function(content) {
+                var pageText = content.items.map(function(item) { return item.str; }).join(' ').trim();
+                if (pageText) texts.push(pageText);
+                return texts;
+              });
+            });
+          });
+        }, Promise.resolve([]));
+      }).then(function(texts) {
+        return texts.join('\n\n');
+      });
+    })
+    .then(function(extractedText) {
+      if (extractedText && extractedText.trim().length > 100) {
+        // PDF.js got good text — use it directly, no API call needed
+        console.log('[extract] PDF.js extracted ' + extractedText.length + ' chars');
+        _finaliseDocExtract(dbId, scId, extractedText.trim(), null);
+      } else {
+        // Scanned/image PDF — fall back to worker Claude extraction
+        console.log('[extract] PDF.js got no text — falling back to worker (scanned PDF)');
+        getSupabase().auth.getSession().then(function(s) {
+          var token = s.data && s.data.session && s.data.session.access_token;
+          return fetch(WORKER_URL + '/extract-doc-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+            body: JSON.stringify({
+              storagePath: storagePath,
+              name: doc && doc.name || '',
+              brokerageId: APP.brokerage && APP.brokerage.lic || '',
+              scId: scId,
+              userId: APP.currentUser && APP.currentUser.id || ''
+            })
+          });
+        }).then(function(r) {
+          console.log('[extract] worker response status:', r.status);
+          return r.json();
+        })
+        .then(function(d) {
+          if (d.error) throw new Error(d.error);
+          var text = d.extractedText || d.text || '';
+          if (!text) throw new Error('No text extracted');
+          _finaliseDocExtract(dbId, scId, text, null);
+        })
+        .catch(function(e) {
+          console.error('Worker extraction failed:', e);
+          if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
+          nAlert('Could not index document: ' + (e.message || 'unknown error'), 'Index Failed', 'warn');
+        });
+      }
     })
     .catch(function(e) {
-      console.error('Worker extraction failed:', e);
+      console.error('docExtractText error:', e);
       if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
       nAlert('Could not index document: ' + (e.message || 'unknown error'), 'Index Failed', 'warn');
     });
