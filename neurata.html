@@ -8159,19 +8159,15 @@ function ssSend() {
       _scId: ssScIdStandalone,
       _userId: APP.currentUser&&APP.currentUser.id||'',
       model: 'claude-sonnet-4-6',
-      max_tokens: 600,
+      max_tokens: 2000,
       system: 'You are StrataSphere, the AI governance intelligence layer for a BC strata management platform. '
-        + 'You answer questions based ONLY on: '
-        + '(1) The decision ledger and documents provided for this strata corporation. '
-        + '(2) Established BC legislation and authoritative sources: Strata Property Act (SPA), Real Estate Services Act (RESA), Personal Information Protection Act (PIPA BC), BCFSA rules and advisories, and SPABC published guidance. '
-        + 'For SC-specific questions (e.g. "what did the council decide about X"), only use the provided decision ledger. If the answer is not in the ledger, say "I do not have a recorded decision on that topic for this corporation." '
-        + 'For general strata law questions, cite the relevant legislation or source. '
+        + 'You answer questions based ONLY on the documents and data provided for this strata corporation, '
+        + 'plus established BC legislation (SPA, RESA, PIPA BC, BCFSA rules, SPABC guidance). '
+        + 'Use the provided documents to answer SC-specific questions. If the answer is not in the provided data, say so. '
         + 'Never invent facts, decisions, dollar amounts, dates, or names not present in the provided data. '
-        + 'If you are uncertain, say so explicitly. '
-        + 'Context: ' + context + ' '
-        + 'Decision ledger (most recent 15): ' + JSON.stringify(dec.slice(-15)) + '. '
         + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
-        + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.',
+        + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.\n\n'
+        + (sc_ ? buildLssContext(sc_) : ('Context: ' + context)),
       messages: history.concat([lastUser || {role:'user', content: msg}])
     })
   })
