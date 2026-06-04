@@ -14966,6 +14966,7 @@ function docExtractText(btn) {
   // PDFs: delegate entirely to worker (multi-pass server-side, no browser timeout issues)
   if (ext !== 'txt' && ext !== 'doc' && ext !== 'docx') {
     if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
+    console.log('[extract] storagePath:', storagePath, 'dbId:', dbId, 'scId:', scId);
     getSupabase().auth.getSession().then(function(s) {
       var token = s.data && s.data.session && s.data.session.access_token;
       return fetch(WORKER_URL + '/extract-doc-text', {
@@ -14978,8 +14979,12 @@ function docExtractText(btn) {
           userId: APP.currentUser && APP.currentUser.id || ''
         })
       });
-    }).then(function(r) { return r.json(); })
+    }).then(function(r) {
+      console.log('[extract] worker response status:', r.status);
+      return r.json();
+    })
     .then(function(d) {
+      console.log('[extract] worker response:', JSON.stringify(d).slice(0, 200));
       if (d.error) throw new Error(d.error);
       var text = d.extractedText || d.text || '';
       if (!text) throw new Error('No text extracted');
