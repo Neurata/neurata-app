@@ -5234,16 +5234,45 @@ function buildLssContext(sc) {
     return (b.date || '').localeCompare(a.date || ''); // most recent first
   });
   if (docs.length) {
-    docs.forEach(function(d) {
-      lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | Uploaded: ' + d.date : ''));
-      if (d.documentText && d.documentText.trim()) {
-        lines.push('  [CONTENT START: ' + (d.name || '') + (d.date ? ' | Uploaded: ' + d.date : '') + ']');
-        var txt = d.documentText.trim();
-        if (txt.length > 50000) txt = txt.slice(0, 50000) + '\n… [truncated — ' + Math.round(txt.length/1000) + 'k chars total]';
-        lines.push(txt);
-        lines.push('  [CONTENT END: ' + (d.name || '') + ']');
-      }
+    // Sort: bylaws and strata-plan first (highest priority), then by date
+    var docsSorted = docs.slice().sort(function(a, b) {
+      var priority = { bylaws: 0, 'strata-plan': 1, policy: 2 };
+      var pa = priority[a.docType] !== undefined ? priority[a.docType] : 3;
+      var pb = priority[b.docType] !== undefined ? priority[b.docType] : 3;
+      if (pa !== pb) return pa - pb;
+      return (b.date || '').localeCompare(a.date || '');
     });
+
+    // Build doc listing first (names only)
+    docsSorted.forEach(function(d) {
+      lines.push('- ' + (d.name || '—') + ' | ' + (d.sourceLabel || d.source || '—') + (d.date ? ' | Uploaded: ' + d.date : ''));
+    });
+
+    // Include full document text — never truncate mid-document
+    // Total context guard: if combined docs exceed 400k chars, drop lowest-priority docs (not truncate them)
+    var MAX_TOTAL_DOC_CHARS = 400000;
+    var totalChars = 0;
+    var docsToInclude = [];
+    for (var di = 0; di < docsSorted.length; di++) {
+      var d = docsSorted[di];
+      if (!d.documentText || !d.documentText.trim()) continue;
+      var txt = d.documentText.trim();
+      if (totalChars + txt.length <= MAX_TOTAL_DOC_CHARS) {
+        docsToInclude.push(d);
+        totalChars += txt.length;
+      }
+      // If adding this doc would exceed limit, skip it entirely (never truncate mid-doc)
+    }
+
+    if (docsToInclude.length) {
+      lines.push('');
+      docsToInclude.forEach(function(d) {
+        lines.push('[CONTENT START: ' + (d.name || '') + (d.date ? ' | Uploaded: ' + d.date : '') + ']');
+        lines.push(d.documentText.trim());
+        lines.push('[CONTENT END: ' + (d.name || '') + ']');
+        lines.push('');
+      });
+    }
   } else {
     lines.push('No documents on file.');
   }
@@ -5350,7 +5379,6 @@ function buildGssContext() {
       var indexedDocs = (s.docs || []).filter(function(d) { return d.documentText && d.documentText.trim(); });
       indexedDocs.forEach(function(d) {
         var stripped = stripDocTextPII(d.documentText);
-        if (stripped.length > 6000) stripped = stripped.slice(0, 6000) + '\n… [truncated]';
         lines.push('[' + (d.docType || d.source || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
         lines.push(stripped);
       });
@@ -5390,7 +5418,6 @@ function buildGssContext() {
     globalDocs.forEach(function(d) {
       var txt = ((d.documentText || d.document_text) || '').trim();
       if (!txt) return;
-      if (txt.length > 12000) txt = txt.slice(0, 12000) + '\n… [truncated]';
       lines.push('[EDUCATIONAL: ' + (d.name||'') + ']');
       lines.push(txt);
       lines.push('');
@@ -6107,7 +6134,6 @@ function mmAiSend(){
           + 'Answer questions about these documents directly using their content below.\n\n';
         itemAttDocs.forEach(function(d) {
           var txt = (d.documentText||'').trim();
-          if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n… [truncated]';
           itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + txt + '\n[END ATTACHMENT: ' + (d.name||'') + ']\n\n';
         });
       }
@@ -14541,9 +14567,9 @@ function extractAndStoreDocText(file, docId, scId) {
 // we do another pass asking Claude to continue from where it left off.
 // Max 5 passes (~40,000 tokens of output) to prevent runaway calls.
 function _extractDocTextMultiPass(b64, docId, scId, accumulated, pass) {
-  if (pass > 5) {
+  if (pass > 20) {
     // Safety limit — save what we have
-    console.warn('Doc extraction: hit 5-pass limit, saving accumulated text');
+    console.warn('Doc extraction: hit 20-pass limit, saving accumulated text');
     if (accumulated) _classifyAndSaveDocText(docId, scId, accumulated, b64);
     return;
   }
