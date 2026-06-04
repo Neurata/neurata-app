@@ -5436,12 +5436,11 @@ function buildGssContext() {
         var summary = Object.keys(typeCount).map(function(t) { return typeCount[t] + ' ' + t; }).join(', ');
         lines.push('Meetings: ' + summary);
       }
+      // Document names only — no full text in GSS (would exceed context limits)
       var indexedDocs = (s.docs || []).filter(function(d) { return d.documentText && d.documentText.trim(); });
-      indexedDocs.forEach(function(d) {
-        var stripped = stripDocTextPII(d.documentText);
-        lines.push('[' + (d.docType || d.source || 'document').toUpperCase() + ': ' + (d.name||'') + ']');
-        lines.push(stripped);
-      });
+      if (indexedDocs.length) {
+        lines.push('Indexed documents: ' + indexedDocs.map(function(d){ return (d.name||d.docType||'doc'); }).join(', '));
+      }
       lines.push('');
     });
   } else {
