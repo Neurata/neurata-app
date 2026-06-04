@@ -5347,9 +5347,9 @@ function stripDocTextPII(text) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CONTEXT BUILDER — uses vector search results + priority docs
-// chunks: array of {chunk_text, similarity, document_id} from /search-chunks
-// sc: the strata corporation object
+// CONTEXT BUILDER — lean, vector-search-driven
+// Everything goes through vector retrieval — no full doc dumps.
+// Only SC identity, council, and decisions are always included (small).
 // ══════════════════════════════════════════════════════════════════════
 function buildRetrievedContext(sc, query, chunks) {
   var lines = [];
@@ -5368,7 +5368,7 @@ function buildRetrievedContext(sc, query, chunks) {
     });
   }
 
-  // ── 3. Decisions (always included) ───────────────────────────────
+  // ── 3. Decisions (always included — small, always relevant) ───────
   var decisions = (sc.decisions||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   if (decisions.length) {
     lines.push('\n=== DECISION LEDGER (' + decisions.length + ' entries, newest first) ===');
@@ -5378,39 +5378,31 @@ function buildRetrievedContext(sc, query, chunks) {
     });
   }
 
-  // ── 4. Priority documents (bylaws + strata-plan always included) ──
-  var priorityTypes = { bylaws:1, 'strata-plan':1, policy:1 };
-  var priorityDocs = (sc.docs||[]).filter(function(d){
-    return priorityTypes[d.docType] && d.documentText && d.documentText.trim();
-  });
-  if (priorityDocs.length) {
-    lines.push('\n=== GOVERNING DOCUMENTS (always included) ===');
-    priorityDocs.forEach(function(d){
-      lines.push('\n[DOCUMENT: ' + (d.name||'') + (d.date?' | Uploaded: '+d.date:'') + ']');
-      lines.push(d.documentText.trim());
-      lines.push('[END DOCUMENT: ' + (d.name||'') + ']');
+  // ── 4. Documents on file (names only — for reference) ────────────
+  var docs = (sc.docs||[]).filter(function(d){ return d.documentText && d.documentText.trim(); });
+  if (docs.length) {
+    lines.push('\n=== DOCUMENTS ON FILE ===');
+    docs.forEach(function(d){
+      lines.push('- ' + (d.name||'—') + (d.docType?' ['+d.docType+']':'') + (d.date?' | '+d.date:''));
     });
   }
 
-  // ── 5. Vector search results ──────────────────────────────────────
+  // ── 5. Vector search results (the actual content) ─────────────────
   if (chunks && chunks.length) {
-    lines.push('\n=== RELEVANT DOCUMENT EXCERPTS (retrieved by semantic search) ===');
-    lines.push('The following excerpts were retrieved as most relevant to the query.');
+    lines.push('\n=== RELEVANT EXCERPTS (retrieved by semantic search for this query) ===');
+    lines.push('Answer the question using these excerpts. If the answer is not here, say so.');
     lines.push('');
     chunks.forEach(function(c, i){
-      lines.push('[EXCERPT ' + (i+1) + ' — similarity: ' + (c.similarity||0).toFixed(2) + ']');
+      lines.push('[EXCERPT ' + (i+1) + ' | similarity: ' + (c.similarity||0).toFixed(2) + ']');
       lines.push(c.chunk_text);
       lines.push('');
     });
-  } else if (!priorityDocs.length) {
-    lines.push('\n=== DOCUMENTS ===');
-    lines.push('No documents indexed yet for this strata corporation.');
+  } else {
+    lines.push('\n=== NOTE ===');
+    lines.push('No relevant document excerpts found for this query. Documents may not be indexed yet — use the Index Again button in the Documents tab.');
   }
 
-  var result = lines.join('\n');
-  // Hard cap at 400k chars
-  if (result.length > 400000) result = result.slice(0, 400000);
-  return result;
+  return lines.join('\n');
 }
 
 
@@ -5560,7 +5552,7 @@ function mgmtSsSend(scId) {
       return fetch(WORKER_URL + '/search-chunks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
-        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 10, threshold: 0.25 })
+        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 15, threshold: 0.2 })
       });
     }).then(function(r){ return r.json(); })
     .then(function(d){
@@ -8253,7 +8245,7 @@ function ssSend() {
     return fetch(WORKER_URL + '/search-chunks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
-      body: JSON.stringify({ query: msg, scId: sc_ ? sc_.plan : ssScIdStandalone, matchCount: 10, threshold: 0.25 })
+      body: JSON.stringify({ query: msg, scId: sc_ ? sc_.plan : ssScIdStandalone, matchCount: 15, threshold: 0.2 })
     });
   }).then(function(r){ return r.json(); })
   .catch(function(){ return { chunks: [] }; })
