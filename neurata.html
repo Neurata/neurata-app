@@ -14977,6 +14977,7 @@ function docExtractText(btn) {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
         body: JSON.stringify({
           storagePath: storagePath,
+          name: doc && doc.name || '',
           brokerageId: APP.brokerage && APP.brokerage.lic || '',
           scId: scId,
           userId: APP.currentUser && APP.currentUser.id || ''
