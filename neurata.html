@@ -14254,7 +14254,10 @@ function renderDocsList(sc, el) {
       + '<div id="' + folderId + '" style="display:none">';
 
     folderDocs.forEach(function(doc) {
-      var ext  = (doc.name || '').split('.').pop().toLowerCase();
+      var nameExt = (doc.name || '').split('.').pop().toLowerCase();
+      var pathExt = (doc.storagePath || '').split('.').pop().toLowerCase();
+      // Use storagePath extension if name has no recognised extension
+      var ext = ['pdf','doc','docx','txt'].indexOf(nameExt) >= 0 ? nameExt : pathExt;
       var isIndexable = ['pdf','doc','docx','txt'].indexOf(ext) >= 0;
       var hasText = doc.documentText && doc.documentText.trim().length > 0;
       var useSignedUrl = !!doc.storagePath;
