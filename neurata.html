@@ -5627,6 +5627,7 @@ function mgmtSsSend(scId) {
   }
 
   function ssFetch(attempt) {
+    console.log('[SS] systemPrompt length:', systemPrompt.length, 'chars, ~', Math.round(systemPrompt.length/4), 'tokens');
     fetch(WORKER_URL+'/ai', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -5646,6 +5647,12 @@ function mgmtSsSend(scId) {
         if (typing) typing.innerHTML = '<em style="font-size:12px;color:var(--g4)">Rate limit — retrying in 10 seconds… (attempt '+(attempt+1)+' of 3)</em>';
         setTimeout(function(){ ssFetch(attempt+1); }, 10000);
         return;
+      }
+      if (!r.ok) {
+        return r.text().then(function(t) {
+          console.error('[SS] API error ' + r.status + ':', t.slice(0, 500));
+          throw new Error('API error ' + r.status + ': ' + t.slice(0, 200));
+        });
       }
       return r.json();
     })
