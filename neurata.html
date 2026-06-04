@@ -5346,6 +5346,117 @@ function stripDocTextPII(text) {
   return result;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// RETRIEVAL-AUGMENTED CONTEXT BUILDER
+// Scores documents against the query, sends only relevant ones to Claude.
+// Always includes bylaws + strata-plan. Decisions always included (small).
+// Max context: 200k chars — fast, cheap, accurate.
+// ══════════════════════════════════════════════════════════════════════
+function buildRetrievedContext(sc, query) {
+  var lines = [];
+
+  // ── 1. SC Identity ────────────────────────────────────────────────
+  lines.push('=== STRATA CORPORATION ===');
+  lines.push('Plan: ' + (sc.plan || '—') + ' | Name: ' + (sc.name || '—') + ' | Address: ' + (sc.addr || '—') + ' | Lots: ' + (sc.lots || '—'));
+  lines.push('Brokerage: ' + (APP.brokerage.name || '—') + ' (Lic: ' + (APP.brokerage.lic || '—') + ')');
+
+  // ── 2. Council Members ────────────────────────────────────────────
+  var council = (sc.councilMembers || []).filter(function(m){ return m.isCouncil; });
+  if (council.length) {
+    lines.push('\n=== COUNCIL ===');
+    council.forEach(function(m){
+      lines.push('- ' + (m.role||'Member') + ': SL ' + (m.strataLot||'—') + (m.ownerType ? ' (' + m.ownerType + ')' : ''));
+    });
+  }
+
+  // ── 3. Decisions (always included — small) ────────────────────────
+  var decisions = (sc.decisions || []).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  if (decisions.length) {
+    lines.push('\n=== DECISION LEDGER (' + decisions.length + ' entries) ===');
+    decisions.forEach(function(d){
+      lines.push('[' + (d.date||'?') + '] ' + (d.text||'') + ' — ' + (d.outcome||''));
+      if (d.motion) lines.push('  Motion: ' + d.motion);
+    });
+  }
+
+  // ── 4. Document Retrieval ─────────────────────────────────────────
+  var docs = (sc.docs || []).filter(function(d){ return d.documentText && d.documentText.trim(); });
+
+  if (docs.length) {
+    // Extract keywords from query (lowercase, 3+ chars, no stopwords)
+    var stopwords = {'the':1,'and':1,'for':1,'with':1,'that':1,'this':1,'from':1,'have':1,'what':1,'about':1,'their':1,'any':1,'all':1,'are':1,'has':1,'can':1,'please':1,'draft':1,'email':1,'letter':1,'would':1,'could':1,'should':1,'will':1,'they':1,'them':1,'when':1,'where':1,'which':1};
+    var keywords = (query || '').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(function(w){ return w.length >= 3 && !stopwords[w]; });
+
+    // Score each document
+    var scored = docs.map(function(d) {
+      var isPriority = d.docType === 'bylaws' || d.docType === 'strata-plan' || d.docType === 'policy';
+      var txt = (d.documentText || '').toLowerCase();
+      var nameScore = 0;
+      var textScore = 0;
+      keywords.forEach(function(kw) {
+        // Name match = high weight
+        if ((d.name || '').toLowerCase().includes(kw)) nameScore += 10;
+        // Count occurrences in text
+        var re = new RegExp(kw, 'g');
+        var matches = (txt.match(re) || []).length;
+        textScore += Math.min(matches, 20); // cap per keyword
+      });
+      return { doc: d, score: nameScore + textScore, isPriority: isPriority };
+    });
+
+    // Sort: priority docs first, then by score
+    scored.sort(function(a, b) {
+      if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+      return b.score - a.score;
+    });
+
+    // Fill context budget: 180k chars for docs (leaves room for decisions + SC info)
+    var MAX_DOC_CHARS = 180000;
+    var totalChars = 0;
+    var included = [];
+    var excluded = [];
+
+    scored.forEach(function(s) {
+      var txt = s.doc.documentText.trim();
+      // Priority docs always included (bylaws/strata-plan)
+      if (s.isPriority) {
+        included.push(s);
+        totalChars += txt.length;
+      } else if (s.score > 0 && totalChars + txt.length <= MAX_DOC_CHARS) {
+        included.push(s);
+        totalChars += txt.length;
+      } else {
+        excluded.push(s);
+      }
+    });
+
+    // List all docs on file (names only)
+    lines.push('\n=== DOCUMENTS ON FILE ===');
+    scored.forEach(function(s) {
+      var d = s.doc;
+      var status = included.indexOf(s) >= 0 ? ' [CONTENT BELOW]' : ' [not included — not relevant to query]';
+      lines.push('- ' + (d.name||'—') + (d.date ? ' | ' + d.date : '') + status);
+    });
+
+    // Include full text of relevant docs
+    if (included.length) {
+      lines.push('\n=== RELEVANT DOCUMENT CONTENT ===');
+      included.forEach(function(s) {
+        var d = s.doc;
+        lines.push('\n[DOCUMENT: ' + (d.name||'') + (d.date ? ' | Uploaded: ' + d.date : '') + ']');
+        lines.push(d.documentText.trim());
+        lines.push('[END DOCUMENT: ' + (d.name||'') + ']');
+      });
+    }
+  }
+
+  return lines.join('\n');
+}
+
+
 function buildGssContext() {
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
@@ -5484,7 +5595,7 @@ function mgmtSsSend(scId) {
 
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
-  var lssCtx = buildLssContext(sc);
+  var lssCtx = buildRetrievedContext(sc, msg);
   var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
   var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
@@ -6117,7 +6228,7 @@ function mmAiSend(){
   // If this item has attachments but none have documentText yet, try fetching from Supabase
   var attNeedsFetch = false; // no longer needed - text is in sc.docs
   function buildAndSend() {
-    var lssCtx = sc ? buildLssContext(sc) : '';
+    var lssCtx = sc ? buildRetrievedContext(sc, msg) : '';
 
     // Priority context: docs tagged with this agenda item's ID
     var itemCtx = '';
@@ -8167,15 +8278,7 @@ function ssSend() {
         + 'Never invent facts, decisions, dollar amounts, dates, or names not present in the provided data. '
         + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
         + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.\n\n'
-        + (function() {
-          var ctx = sc_ ? buildLssContext(sc_) : ('Context: ' + context);
-          // Guard: Anthropic context limit ~900k chars. If exceeded, trim oldest docs.
-          if (ctx.length > 800000) {
-            // Rebuild with fewer docs — skip docs beyond the limit
-            ctx = ctx.slice(0, 800000) + '\n[Additional documents omitted to fit context limit]';
-          }
-          return ctx;
-        })(),
+        + (sc_ ? buildRetrievedContext(sc_, msg) : ('Context: ' + context)),
       messages: history.concat([lastUser || {role:'user', content: msg}])
     })
   })
