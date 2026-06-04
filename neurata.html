@@ -5581,7 +5581,7 @@ function mgmtSsSend(scId) {
       return fetch(WORKER_URL + '/search-chunks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
-        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 15, threshold: 0.2 })
+        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 20, threshold: 0.35 })
       });
     }).then(function(r){ return r.json(); })
     .then(function(d){
@@ -8276,7 +8276,7 @@ function ssSend() {
     return fetch(WORKER_URL + '/search-chunks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
-      body: JSON.stringify({ query: msg, scId: sc_ ? sc_.plan : ssScIdStandalone, matchCount: 15, threshold: 0.2 })
+      body: JSON.stringify({ query: msg, scId: sc_ ? sc_.plan : ssScIdStandalone, matchCount: 20, threshold: 0.35 })
     });
   }).then(function(r){ return r.json(); })
   .catch(function(){ return { chunks: [] }; })
