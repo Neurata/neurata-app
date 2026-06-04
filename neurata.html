@@ -14979,27 +14979,26 @@ function docExtractText(btn) {
         return mammoth.extractRawText({arrayBuffer: buf}).then(function(result){ return result.value; });
       });
     } else {
-      // PDF — use PDF.js
-      if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded. Please refresh and try again.');
-      return r.arrayBuffer().then(function(buf) {
-        return pdfjsLib.getDocument({data: buf}).promise.then(function(pdf) {
-          var pages = [];
-          for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
-          return pages.reduce(function(chain, pageNum) {
-            return chain.then(function(texts) {
-              return pdf.getPage(pageNum).then(function(page) {
-                return page.getTextContent().then(function(content) {
-                  texts.push(content.items.map(function(item){ return item.str; }).join(' '));
-                  return texts;
-                });
-              });
-            });
-          }, Promise.resolve([])).then(function(texts){ return texts.join('\n\n'); });
+      // PDF — always use Claude multi-pass vision for best results
+      // PDF.js struggles with secured, complex, or image-based PDFs
+      return r.blob().then(function(blob) {
+        return new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            var b64 = ev.target.result.split(',')[1];
+            if (!b64) { reject(new Error('Empty PDF data')); return; }
+            if (doc) { doc._indexing = true; _reRenderDocs(sc_); }
+            _extractDocTextMultiPassBtn(b64, dbId, scId, '', 1);
+            resolve(null); // signal that we're handling async
+          };
+          reader.onerror = function() { reject(new Error('Could not read PDF')); };
+          reader.readAsDataURL(blob);
         });
       });
     }
   })
   .then(function(fullText) {
+    if (fullText === null) return; // PDF handled async via Claude multi-pass
     if (!fullText || !fullText.trim()) {
       // No text layer — scanned PDF. Use Claude vision via multi-pass extraction.
       var dbIdLocal = dbId; var scIdLocal = scId;
@@ -15046,7 +15045,7 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass) {
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   var doc = sc_ && sc_.docs && sc_.docs.find(function(x){ return x.dbId === dbId; });
 
-  if (pass > 10) {
+  if (pass > 20) {
     if (accumulated) _finaliseDocExtract(dbId, scId, accumulated, b64);
     else if (doc) { doc._indexing = false; _reRenderDocs(sc_); }
     return;
@@ -15054,15 +15053,15 @@ function _extractDocTextMultiPassBtn(b64, dbId, scId, accumulated, pass) {
 
   var isFirstPass = pass === 1;
   var prompt = isFirstPass
-    ? 'Extract the text content of this document. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize. Stop at a clean section boundary if you reach the output limit.'
-    : 'Extract the text content of this document starting from this section:\n\n---\n' + accumulated.slice(-300) + '\n---\n\nContinue from exactly where that ends. Do not repeat text already shown above. Stop at a clean section boundary if you reach the output limit.';
+    ? 'Extract the COMPLETE text content of this document from beginning to end. Return only the extracted text, preserving all structure (sections, headings, numbered items, schedules). Do not summarize — return the actual text. Do not stop until you have extracted everything.'
+    : 'Continue extracting the text of this document. You previously extracted up to:\n\n---\n' + accumulated.slice(-500) + '\n---\n\nContinue from exactly where that left off. Do not repeat any text already extracted. Extract everything remaining to the end of the document.';
 
   function doFetch(attempt) {
     fetch(WORKER_URL + '/ai', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         betas: ['pdfs-2024-09-25'],
         _usageType: 'parse_plan',
         _brokerageId: APP.brokerage && APP.brokerage.lic || '',
