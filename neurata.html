@@ -5347,113 +5347,70 @@ function stripDocTextPII(text) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// RETRIEVAL-AUGMENTED CONTEXT BUILDER
-// Scores documents against the query, sends only relevant ones to Claude.
-// Always includes bylaws + strata-plan. Decisions always included (small).
-// Max context: 200k chars — fast, cheap, accurate.
+// CONTEXT BUILDER — uses vector search results + priority docs
+// chunks: array of {chunk_text, similarity, document_id} from /search-chunks
+// sc: the strata corporation object
 // ══════════════════════════════════════════════════════════════════════
-function buildRetrievedContext(sc, query) {
+function buildRetrievedContext(sc, query, chunks) {
   var lines = [];
 
   // ── 1. SC Identity ────────────────────────────────────────────────
   lines.push('=== STRATA CORPORATION ===');
-  lines.push('Plan: ' + (sc.plan || '—') + ' | Name: ' + (sc.name || '—') + ' | Address: ' + (sc.addr || '—') + ' | Lots: ' + (sc.lots || '—'));
-  lines.push('Brokerage: ' + (APP.brokerage.name || '—') + ' (Lic: ' + (APP.brokerage.lic || '—') + ')');
+  lines.push('Plan: ' + (sc.plan||'—') + ' | Name: ' + (sc.name||'—') + ' | Address: ' + (sc.addr||'—') + ' | Lots: ' + (sc.lots||'—'));
+  lines.push('Brokerage: ' + (APP.brokerage.name||'—') + ' (Lic: ' + (APP.brokerage.lic||'—') + ')');
 
-  // ── 2. Council Members ────────────────────────────────────────────
-  var council = (sc.councilMembers || []).filter(function(m){ return m.isCouncil; });
+  // ── 2. Council ────────────────────────────────────────────────────
+  var council = (sc.councilMembers||[]).filter(function(m){ return m.isCouncil; });
   if (council.length) {
     lines.push('\n=== COUNCIL ===');
     council.forEach(function(m){
-      lines.push('- ' + (m.role||'Member') + ': SL ' + (m.strataLot||'—') + (m.ownerType ? ' (' + m.ownerType + ')' : ''));
+      lines.push('- ' + (m.role||'Member') + ': SL ' + (m.strataLot||'—') + (m.ownerType?' ('+m.ownerType+')':''));
     });
   }
 
-  // ── 3. Decisions (always included — small) ────────────────────────
-  var decisions = (sc.decisions || []).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  // ── 3. Decisions (always included) ───────────────────────────────
+  var decisions = (sc.decisions||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   if (decisions.length) {
-    lines.push('\n=== DECISION LEDGER (' + decisions.length + ' entries) ===');
+    lines.push('\n=== DECISION LEDGER (' + decisions.length + ' entries, newest first) ===');
     decisions.forEach(function(d){
       lines.push('[' + (d.date||'?') + '] ' + (d.text||'') + ' — ' + (d.outcome||''));
       if (d.motion) lines.push('  Motion: ' + d.motion);
     });
   }
 
-  // ── 4. Document Retrieval ─────────────────────────────────────────
-  var docs = (sc.docs || []).filter(function(d){ return d.documentText && d.documentText.trim(); });
-
-  if (docs.length) {
-    // Extract keywords from query (lowercase, 3+ chars, no stopwords)
-    var stopwords = {'the':1,'and':1,'for':1,'with':1,'that':1,'this':1,'from':1,'have':1,'what':1,'about':1,'their':1,'any':1,'all':1,'are':1,'has':1,'can':1,'please':1,'draft':1,'email':1,'letter':1,'would':1,'could':1,'should':1,'will':1,'they':1,'them':1,'when':1,'where':1,'which':1};
-    var keywords = (query || '').toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(function(w){ return w.length >= 3 && !stopwords[w]; });
-
-    // Score each document
-    var scored = docs.map(function(d) {
-      var isPriority = d.docType === 'bylaws' || d.docType === 'strata-plan' || d.docType === 'policy';
-      var txt = (d.documentText || '').toLowerCase();
-      var nameScore = 0;
-      var textScore = 0;
-      keywords.forEach(function(kw) {
-        // Name match = high weight
-        if ((d.name || '').toLowerCase().includes(kw)) nameScore += 10;
-        // Count occurrences in text
-        var re = new RegExp(kw, 'g');
-        var matches = (txt.match(re) || []).length;
-        textScore += Math.min(matches, 20); // cap per keyword
-      });
-      return { doc: d, score: nameScore + textScore, isPriority: isPriority };
+  // ── 4. Priority documents (bylaws + strata-plan always included) ──
+  var priorityTypes = { bylaws:1, 'strata-plan':1, policy:1 };
+  var priorityDocs = (sc.docs||[]).filter(function(d){
+    return priorityTypes[d.docType] && d.documentText && d.documentText.trim();
+  });
+  if (priorityDocs.length) {
+    lines.push('\n=== GOVERNING DOCUMENTS (always included) ===');
+    priorityDocs.forEach(function(d){
+      lines.push('\n[DOCUMENT: ' + (d.name||'') + (d.date?' | Uploaded: '+d.date:'') + ']');
+      lines.push(d.documentText.trim());
+      lines.push('[END DOCUMENT: ' + (d.name||'') + ']');
     });
-
-    // Sort: priority docs first, then by score
-    scored.sort(function(a, b) {
-      if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
-      return b.score - a.score;
-    });
-
-    // Fill context budget: 180k chars for docs (leaves room for decisions + SC info)
-    var MAX_DOC_CHARS = 180000;
-    var totalChars = 0;
-    var included = [];
-    var excluded = [];
-
-    scored.forEach(function(s) {
-      var txt = s.doc.documentText.trim();
-      // Priority docs always included (bylaws/strata-plan)
-      if (s.isPriority) {
-        included.push(s);
-        totalChars += txt.length;
-      } else if (s.score > 0 && totalChars + txt.length <= MAX_DOC_CHARS) {
-        included.push(s);
-        totalChars += txt.length;
-      } else {
-        excluded.push(s);
-      }
-    });
-
-    // List all docs on file (names only)
-    lines.push('\n=== DOCUMENTS ON FILE ===');
-    scored.forEach(function(s) {
-      var d = s.doc;
-      var status = included.indexOf(s) >= 0 ? ' [CONTENT BELOW]' : ' [not included — not relevant to query]';
-      lines.push('- ' + (d.name||'—') + (d.date ? ' | ' + d.date : '') + status);
-    });
-
-    // Include full text of relevant docs
-    if (included.length) {
-      lines.push('\n=== RELEVANT DOCUMENT CONTENT ===');
-      included.forEach(function(s) {
-        var d = s.doc;
-        lines.push('\n[DOCUMENT: ' + (d.name||'') + (d.date ? ' | Uploaded: ' + d.date : '') + ']');
-        lines.push(d.documentText.trim());
-        lines.push('[END DOCUMENT: ' + (d.name||'') + ']');
-      });
-    }
   }
 
-  return lines.join('\n');
+  // ── 5. Vector search results ──────────────────────────────────────
+  if (chunks && chunks.length) {
+    lines.push('\n=== RELEVANT DOCUMENT EXCERPTS (retrieved by semantic search) ===');
+    lines.push('The following excerpts were retrieved as most relevant to the query.');
+    lines.push('');
+    chunks.forEach(function(c, i){
+      lines.push('[EXCERPT ' + (i+1) + ' — similarity: ' + (c.similarity||0).toFixed(2) + ']');
+      lines.push(c.chunk_text);
+      lines.push('');
+    });
+  } else if (!priorityDocs.length) {
+    lines.push('\n=== DOCUMENTS ===');
+    lines.push('No documents indexed yet for this strata corporation.');
+  }
+
+  var result = lines.join('\n');
+  // Hard cap at 400k chars
+  if (result.length > 400000) result = result.slice(0, 400000);
+  return result;
 }
 
 
@@ -5595,7 +5552,27 @@ function mgmtSsSend(scId) {
 
   // ── Build system prompt based on tier ───────────────────────────
   var systemPrompt;
-  var lssCtx = buildRetrievedContext(sc, msg);
+
+  // Vector search for relevant chunks — done before building context
+  function doVectorSearch(callback) {
+    getSupabase().auth.getSession().then(function(s) {
+      var token = s.data && s.data.session && s.data.session.access_token;
+      return fetch(WORKER_URL + '/search-chunks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
+        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 10, threshold: 0.25 })
+      });
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      callback(d.chunks || []);
+    })
+    .catch(function(){
+      callback([]); // fall back gracefully
+    });
+  }
+
+  doVectorSearch(function(chunks) {
+  var lssCtx = buildRetrievedContext(sc, msg, chunks);
   var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
   var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
@@ -5683,6 +5660,7 @@ function mgmtSsSend(scId) {
     });
   }
   ssFetch(1);
+  }); // end doVectorSearch
 }
 
 
@@ -8269,51 +8247,67 @@ function ssSend() {
   var ssTierStandalone = (conv && conv.scope === 'global') ? 'global' : 'local';
   var ssScIdStandalone = ssGetScId() || '';
 
-  fetch(WORKER_URL+'/ai', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      _usageType: ssTierStandalone==='global'?'ss_global':'ss_local',
-      _brokerageId: APP.brokerage&&APP.brokerage.lic||'',
-      _scId: ssScIdStandalone,
-      _userId: APP.currentUser&&APP.currentUser.id||'',
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      system: 'You are StrataSphere, the AI governance intelligence layer for a BC strata management platform. '
-        + 'You answer questions based ONLY on the documents and data provided for this strata corporation, '
-        + 'plus established BC legislation (SPA, RESA, PIPA BC, BCFSA rules, SPABC guidance). '
-        + 'Use the provided documents to answer SC-specific questions. If the answer is not in the provided data, say so. '
-        + 'Never invent facts, decisions, dollar amounts, dates, or names not present in the provided data. '
-        + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
-        + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.\n\n'
-        + (sc_ ? buildRetrievedContext(sc_, msg) : ('Context: ' + context)),
-      messages: history.concat([lastUser || {role:'user', content: msg}])
+  // Vector search first, then send to Claude
+  getSupabase().auth.getSession().then(function(s) {
+    var token = s.data && s.data.session && s.data.session.access_token;
+    return fetch(WORKER_URL + '/search-chunks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
+      body: JSON.stringify({ query: msg, scId: sc_ ? sc_.plan : ssScIdStandalone, matchCount: 10, threshold: 0.25 })
+    });
+  }).then(function(r){ return r.json(); })
+  .catch(function(){ return { chunks: [] }; })
+  .then(function(searchResult) {
+    var chunks = searchResult.chunks || [];
+    console.log('[SS] Vector search returned', chunks.length, 'chunks');
+
+    var systemPrompt = 'You are StrataSphere, the AI governance assistant for ' + (sc_ ? sc_.plan + (sc_.name ? ' (' + sc_.name + ')' : '') : 'this strata corporation') + '. '
+      + 'ABSOLUTE RULE — FABRICATION IS PROHIBITED: Never invent, estimate, or synthesize any strata-specific facts. '
+      + 'If a fact is not explicitly present in the data provided below, say so directly. '
+      + 'PERMITTED: You may explain BC legislation (SPA, RESA, PIPA, BCFSA rules, SPABC guidance) but never invent corporation-specific facts. '
+      + 'PIPA: refer to owners by strata lot number only (e.g. SL 061), never by name. '
+      + 'Plain prose only — no markdown, no **, no #, no bullet dashes. Number lists as 1. 2. 3.\n\n'
+      + (sc_ ? buildRetrievedContext(sc_, msg, chunks) : ('Context: ' + context));
+
+    fetch(WORKER_URL+'/ai', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        _usageType: ssTierStandalone==='global'?'ss_global':'ss_local',
+        _brokerageId: APP.brokerage&&APP.brokerage.lic||'',
+        _scId: ssScIdStandalone,
+        _userId: APP.currentUser&&APP.currentUser.id||'',
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: history.concat([lastUser || {role:'user', content: msg}])
+      })
     })
-  })
-  .then(function(r) {
-    if (!r.ok) return r.json().then(function(e){ throw new Error(e.error || ('API error ' + r.status)); });
-    return r.json();
-  })
-  .then(function(d) {
-    var typing = document.getElementById(typingId);
-    if (typing) typing.remove();
-    if (d.error === 'usage_limit_exceeded') {
-      conv.msgs.push({role:'assistant', text: d.message || 'Monthly StrataSphere limit reached. Your allowance resets on the 1st of next month.'});
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(e){ throw new Error(e.error || ('API error ' + r.status)); });
+      return r.json();
+    })
+    .then(function(d) {
+      var typing = document.getElementById(typingId);
+      if (typing) typing.remove();
+      if (d.error === 'usage_limit_exceeded') {
+        conv.msgs.push({role:'assistant', text: d.message || 'Monthly StrataSphere limit reached. Your allowance resets on the 1st of next month.'});
+        ssRenderMessages();
+        return;
+      }
+      if (d._usageWarning) { nAlert(d._usageWarning.message, 'AI Usage Notice', 'info'); }
+      var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
+      if (!txt) txt = 'I was unable to generate a response. Please try again.';
+      conv.msgs.push({role: 'assistant', text: txt});
+      ssPersistConv(scId, conv);
       ssRenderMessages();
-      return;
-    }
-    if (d._usageWarning) { nAlert(d._usageWarning.message, 'AI Usage Notice', 'info'); }
-    var txt = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-    if (!txt) txt = 'I was unable to generate a response. Please try again.';
-    conv.msgs.push({role: 'assistant', text: txt});
-    ssPersistConv(scId, conv);
-    ssRenderMessages();
-    ssRenderConvList();
-  })
-  .catch(function() {
-    var typing = document.getElementById(typingId);
-    if (typing) typing.remove();
-    conv.msgs.push({role:'assistant', text:'Network error. Please check your connection and try again.'});
-    ssRenderMessages();
+      ssRenderConvList();
+    })
+    .catch(function(e) {
+      var typing = document.getElementById(typingId);
+      if (typing) typing.remove();
+      conv.msgs.push({role:'assistant', text:'Network error. Please check your connection and try again.'});
+      ssRenderMessages();
+    });
   });
 }
 
@@ -15285,13 +15279,35 @@ function _reRenderDocs(sc_) {
 }
 
 function _finaliseDocExtract(dbId, scId, text, b64) {
-  _classifyAndSaveDocText(dbId, scId, text, b64); // b64 may be null for PDF.js extractions
+  _classifyAndSaveDocText(dbId, scId, text, b64);
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
     var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
     if (doc) { doc.documentText = text; doc._indexing = false; }
   }
   _reRenderDocs(sc_);
+
+  // Kick off vector embedding asynchronously
+  if (dbId && scId && text && text.length > 50) {
+    getSupabase().auth.getSession().then(function(s) {
+      var token = s.data && s.data.session && s.data.session.access_token;
+      return fetch(WORKER_URL + '/embed-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+        body: JSON.stringify({
+          documentId:   dbId,
+          documentText: text,
+          scId:         scId,
+          brokerageId:  APP.brokerage && APP.brokerage.lic || ''
+        })
+      });
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) console.warn('[embed] Failed:', d.error);
+      else console.log('[embed] Stored', d.chunkCount, 'chunks for', dbId);
+    })
+    .catch(function(e){ console.warn('[embed] Error:', e.message); });
+  }
 }
 
 function downloadDocSigned(btn) {
