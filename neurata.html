@@ -5347,62 +5347,92 @@ function stripDocTextPII(text) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CONTEXT BUILDER — lean, vector-search-driven
-// Everything goes through vector retrieval — no full doc dumps.
-// Only SC identity, council, and decisions are always included (small).
+// CONTEXT BUILDER — pure vector retrieval, scales to any size
+// The ONLY thing that goes to Claude is:
+//   1. SC identity (5 lines)
+//   2. Vector-retrieved chunks (decisions + docs + summaries)
+//   3. System instructions
+// No dumps. No lists. No full text. Always fast. Always fits.
 // ══════════════════════════════════════════════════════════════════════
 function buildRetrievedContext(sc, query, chunks) {
   var lines = [];
-
-  // ── 1. SC Identity ────────────────────────────────────────────────
   lines.push('=== STRATA CORPORATION ===');
   lines.push('Plan: ' + (sc.plan||'—') + ' | Name: ' + (sc.name||'—') + ' | Address: ' + (sc.addr||'—') + ' | Lots: ' + (sc.lots||'—'));
   lines.push('Brokerage: ' + (APP.brokerage.name||'—') + ' (Lic: ' + (APP.brokerage.lic||'—') + ')');
+  lines.push('');
 
-  // ── 2. Council ────────────────────────────────────────────────────
-  var council = (sc.councilMembers||[]).filter(function(m){ return m.isCouncil; });
-  if (council.length) {
-    lines.push('\n=== COUNCIL ===');
-    council.forEach(function(m){
-      lines.push('- ' + (m.role||'Member') + ': SL ' + (m.strataLot||'—') + (m.ownerType?' ('+m.ownerType+')':''));
-    });
-  }
-
-  // ── 3. Decisions (always included — small, always relevant) ───────
-  var decisions = (sc.decisions||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  if (decisions.length) {
-    lines.push('\n=== DECISION LEDGER (' + decisions.length + ' entries, newest first) ===');
-    decisions.forEach(function(d){
-      lines.push('[' + (d.date||'?') + '] ' + (d.text||'') + ' — ' + (d.outcome||''));
-      if (d.motion) lines.push('  Motion: ' + d.motion);
-    });
-  }
-
-  // ── 4. Documents on file (names only — for reference) ────────────
-  var docs = (sc.docs||[]).filter(function(d){ return d.documentText && d.documentText.trim(); });
-  if (docs.length) {
-    lines.push('\n=== DOCUMENTS ON FILE ===');
-    docs.forEach(function(d){
-      lines.push('- ' + (d.name||'—') + (d.docType?' ['+d.docType+']':'') + (d.date?' | '+d.date:''));
-    });
-  }
-
-  // ── 5. Vector search results (the actual content) ─────────────────
   if (chunks && chunks.length) {
-    lines.push('\n=== RELEVANT EXCERPTS (retrieved by semantic search for this query) ===');
-    lines.push('Answer the question using these excerpts. If the answer is not here, say so.');
+    lines.push('=== RETRIEVED CONTEXT (' + chunks.length + ' excerpts, ranked by relevance) ===');
+    lines.push('Answer using these excerpts only. If the answer is not here, say so explicitly.');
     lines.push('');
-    chunks.forEach(function(c, i){
-      lines.push('[EXCERPT ' + (i+1) + ' | similarity: ' + (c.similarity||0).toFixed(2) + ']');
+    chunks.forEach(function(c, i) {
+      lines.push('[' + (i+1) + ' | score:' + (c.similarity||0).toFixed(2) + ']');
       lines.push(c.chunk_text);
       lines.push('');
     });
   } else {
-    lines.push('\n=== NOTE ===');
-    lines.push('No relevant document excerpts found for this query. Documents may not be indexed yet — use the Index Again button in the Documents tab.');
+    lines.push('=== NO RELEVANT CONTEXT FOUND ===');
+    lines.push('No indexed content matched this query. Documents may not be indexed yet.');
   }
 
   return lines.join('\n');
+}
+
+// Embed a single decision as a chunk — called when decisions are written to ledger
+function embedDecision(sc, decision) {
+  if (!decision || !sc) return;
+  var text = '[DECISION ' + (decision.date||'') + '] ' + (decision.text||'') +
+    (decision.motion ? ' Motion: ' + decision.motion : '') +
+    ' — ' + (decision.outcome||'') +
+    (decision.votes ? ' (' + (decision.votes.for||0) + 'F/' + (decision.votes.against||0) + 'A/' + (decision.votes.abstain||0) + 'Ab)' : '') +
+    (decision.mtgType ? ' [' + decision.mtgType + ']' : '');
+
+  var dbId = decision.itemId || decision.id || ('dec_' + Date.now());
+  getSupabase().auth.getSession().then(function(s) {
+    var token = s.data && s.data.session && s.data.session.access_token;
+    return fetch(WORKER_URL + '/embed-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
+      body: JSON.stringify({
+        documentId: dbId,
+        documentText: text,
+        scId: sc.plan,
+        brokerageId: APP.brokerage && APP.brokerage.lic || ''
+      })
+    });
+  }).then(function(r){ return r.json(); })
+  .then(function(d){ if (d.error) console.warn('[embed-dec] Failed:', d.error); })
+  .catch(function(e){ console.warn('[embed-dec] Error:', e.message); });
+}
+
+// Embed SC summary (identity + council + lot roster) — called on SC load
+function embedScSummary(sc) {
+  if (!sc || !sc.plan) return;
+  var lines = ['SC OVERVIEW: ' + sc.plan + (sc.name?' ('+sc.name+')':'') + ' | ' + (sc.lots||'?') + ' lots | ' + (sc.addr||'BC')];
+  var council = (sc.councilMembers||[]).filter(function(m){ return m.isCouncil; });
+  if (council.length) {
+    lines.push('Council: ' + council.map(function(m){
+      return (m.role||'Member') + ' SL' + (m.strataLot||'?');
+    }).join(', '));
+  }
+  if (sc.lots) lines.push('Total strata lots: ' + sc.lots);
+  if (sc.filedYear) lines.push('Plan filed: ' + sc.filedYear + ' (building age ~' + (new Date().getFullYear() - sc.filedYear) + ' years)');
+
+  var text = lines.join('\n');
+  var dbId = 'sc-summary-' + sc.plan;
+  getSupabase().auth.getSession().then(function(s) {
+    var token = s.data && s.data.session && s.data.session.access_token;
+    return fetch(WORKER_URL + '/embed-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
+      body: JSON.stringify({
+        documentId: dbId,
+        documentText: text,
+        scId: sc.plan,
+        brokerageId: APP.brokerage && APP.brokerage.lic || ''
+      })
+    });
+  }).catch(function(){}); // silent — non-critical
 }
 
 
@@ -5567,8 +5597,8 @@ function mgmtSsSend(scId) {
   var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
   var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
-    // GLOBAL SS — local SC context + PII-stripped platform aggregate
-    var gssCtx = buildGssContext();
+    // GLOBAL SS — vector retrieval handles all context
+    var gssCtx = ''; // no dumps — vector search retrieves relevant content
     systemPrompt = 'You are StrataSphere Global, the platform-wide AI governance intelligence for BC strata corporations on the Neurata platform. '
       + 'ABSOLUTE RULE — FABRICATION IS PROHIBITED: You must never invent, estimate, extrapolate, or synthesize any strata-specific facts. This includes dollar amounts, balances, dates, lot numbers, names, vote counts, bylaw text, decisions, engineering findings, or any other specific detail. If a fact is not explicitly present in the data provided below, you must not state it. '
       + 'WHEN DATA IS MISSING: Respond with one sentence stating what is not in the record. Do not fill gaps with industry averages, general examples, or hedged guesses. '
@@ -6227,7 +6257,7 @@ function mmAiSend(){
     }
 
     var mmSsTier = scSsTier(sc_);
-    var mmGssCtx = mmSsTier === 'global' ? buildGssContext() : '';
+    var mmGssCtx = ''; // GSS context now via vector search, not dumps
 
     var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
       + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
@@ -6676,7 +6706,7 @@ function mmSyncToMtg(){
     if(it.done && it.motion && it.motion.outcome && it.motion.outcome==='CARRIED'){
       var already=sc_.decisions.find(function(d){return d.itemId===it.id;});
       if(!already){
-        sc_.decisions.push({
+        var newDec = {
           itemId:   it.id,
           date:     mtg.date,
           mtgType:  mtg.type,
@@ -6688,7 +6718,9 @@ function mmSyncToMtg(){
           outcome:  it.motion.outcome,
           votes:    {for:it.motion.for, against:it.motion.against, abstain:it.motion.abstain},
           recorded: new Date().toISOString()
-        });
+        };
+        sc_.decisions.push(newDec);
+        embedDecision(sc_, newDec);
       }
     }
   });
@@ -12385,6 +12417,9 @@ function openSCDetail(scId) {
   APP.currentScId = scId;
   _scDetailTab = 'overview';
   renderSCDetail(scId);
+  // Embed SC summary for vector search (async, non-blocking)
+  var sc_ = APP.sc.find(function(x){ return x.id === scId; });
+  if (sc_) setTimeout(function(){ embedScSummary(sc_); }, 2000);
 }
 
 function renderSCDetail(scId) {
