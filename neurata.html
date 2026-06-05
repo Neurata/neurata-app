@@ -14382,13 +14382,16 @@ function renderDocsList(sc, el) {
     // Always show known folders; only show Other if it has docs
     if (folder === 'Other' && !folderDocs.length) return;
     var folderId = 'folder-' + folder.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    // Preserve open state across re-renders
+    var existingEl = document.getElementById(folderId);
+    var isOpen = existingEl ? existingEl.style.display !== 'none' : false;
 
     html += '<div style="margin-bottom:8px;border:1px solid var(--g2);border-radius:8px;overflow:hidden">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g1);cursor:pointer" onclick="toggleDocFolder(\'' + folderId + '\')">'
       + '<div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--g5)"> ' + folder + ' <span style="font-size:11px;font-weight:400;color:var(--g4)">(' + folderDocs.length + ')</span></div>'
-      + '<span id="' + folderId + '-tog" style="color:var(--g4);font-size:11px">▶</span>'
+      + '<span id="' + folderId + '-tog" style="color:var(--g4);font-size:11px">' + (isOpen ? '▼' : '▶') + '</span>'
       + '</div>'
-      + '<div id="' + folderId + '" style="display:none">';
+      + '<div id="' + folderId + '" style="display:' + (isOpen ? '' : 'none') + '">';
 
     folderDocs.forEach(function(doc) {
       var nameExt = (doc.name || '').split('.').pop().toLowerCase();
@@ -14404,7 +14407,7 @@ function renderDocsList(sc, el) {
       } else if (isIndexable && !hasText) {
         statusPill = '<span style="font-size:10px;font-weight:600;background:var(--g2);color:var(--g4);padding:2px 7px;border-radius:10px">Not Indexed</span>';
       } else if (isIndexable && hasText) {
-        statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed</span>';
+        statusPill = '<span style="font-size:10px;font-weight:600;background:var(--grnl);color:var(--grn);padding:2px 7px;border-radius:10px">Indexed' + (doc.indexedAt ? ' ' + doc.indexedAt : '') + '</span>';
       }
       html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--g2)">'
         + '<div style="min-width:0;flex:1">'
@@ -15309,7 +15312,7 @@ function _finaliseDocExtract(dbId, scId, text, b64) {
   var sc_ = APP.sc.find(function(s){ return s.plan === scId || s.id === scId; });
   if (sc_ && sc_.docs) {
     var doc = sc_.docs.find(function(d){ return d.dbId === dbId; });
-    if (doc) { doc.documentText = text; doc._indexing = false; }
+    if (doc) { doc.documentText = text; doc._indexing = false; doc.indexedAt = new Date().toISOString().slice(0,10); }
   }
   _reRenderDocs(sc_);
 
