@@ -2972,6 +2972,15 @@ function agOpen(scId, mtgId) {
 }
 
 function agClose() {
+  // Check if agenda has unsaved changes vs what's stored on the meeting
+  var mtg = AG._mtg;
+  var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(mtg.agenda || []);
+  if (isDirty) {
+    nConfirm('You have unsaved changes. Close without saving?', 'Unsaved Changes', function() {
+      closeMo('mo-agenda');
+    });
+    return;
+  }
   closeMo('mo-agenda');
 }
 
@@ -16738,7 +16747,12 @@ function docExtractFromBase64(btn) {
 }
 function openMo(id){document.getElementById(id)?.classList.add('open');if(id==='mo-edit-agenda')renderEditAgenda();}
 function closeMo(id){document.getElementById(id)?.classList.remove('open');}
-document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});});
+document.querySelectorAll('.mo').forEach(function(m){m.addEventListener('click',function(e){
+  if(e.target!==m) return;
+  // Never close the agenda editor on backdrop click — user may have unsaved work
+  if(m.id==='mo-agenda') return;
+  m.classList.remove('open');
+});});
 
 // ══════════════════════════════════════════
 // INIT — restore session on load
