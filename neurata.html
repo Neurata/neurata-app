@@ -687,8 +687,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
       <button class="btn pri full" id="li-btn" onclick="doLogin()">Sign In →</button>
       <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:8px">
-        <!-- Cold signups disabled — account creation by invitation only -->
-        <!-- Invite entry point removed — invitees arrive via email link only -->
+        <button class="btn xs ghost" id="li-create-account-btn" onclick="showScr('scr-onboard')" style="color:var(--g4)">Don't have an account? Create one →</button>
         <button class="btn xs ghost" onclick="showForgotPassword()" style="color:var(--g4)">Forgot your password?</button>
 
       </div>
@@ -724,7 +723,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div style="display:flex;justify-content:flex-end">
           <button class="btn pri" id="ob-verify-btn" onclick="obVerifyLicence()" style="width:100%">Verify with BCFSA →</button>
         </div>
-        <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button></div>
+        <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:6px">
+          <button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button>
+          <button class="btn xs ghost" onclick="showScr('scr-login')" style="color:var(--g4)">← Already have an account? Sign in</button>
+        </div>
       </div>
       <!-- Step 2 -->
       <div class="ob-step" id="ob-s2">
@@ -6339,7 +6341,7 @@ function mmAiSend(){
       }
     }
 
-    var mmSsTier = scSsTier(sc_);
+    var mmSsTier = scSsTier(sc);
     var mmGssCtx = ''; // GSS context now via vector search, not dumps
 
     var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
