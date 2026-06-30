@@ -306,6 +306,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .att-chip{display:inline-flex;align-items:center;gap:4px;background:var(--g1);border:1px solid var(--g2);border-radius:4px;padding:3px 8px;font-size:11px;color:var(--ch2);margin:2px}
 .att-chip-rm{background:none;border:none;color:var(--g4);cursor:pointer;font-size:12px;line-height:1}
 .att-chip-rm:hover{color:var(--red)}
+.lnk-chip{display:inline-flex;align-items:center;gap:4px;background:var(--blul);border:1px solid #c5d9f5;border-radius:4px;padding:3px 8px;font-size:11px;color:var(--blu);margin:2px}
+.lnk-chip a{color:var(--blu);text-decoration:none;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+.lnk-chip a:hover{text-decoration:underline}
+.lnk-chip-rm{background:none;border:none;color:var(--g4);cursor:pointer;font-size:12px;line-height:1;flex-shrink:0}
+.lnk-chip-rm:hover{color:var(--red)}
+.lnk-add-row{display:flex;gap:6px;align-items:center;margin-top:6px}
+.lnk-add-row input{flex:1;border:1px solid var(--g3);border-radius:5px;padding:6px 9px;font-size:12px;font-family:inherit;color:var(--ch);background:var(--wh);outline:none;transition:border-color .15s}
+.lnk-add-row input:focus{border-color:var(--blu)}
+.mm-lnk-it{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px}
+.mm-lnk-it a{color:var(--blu);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-lnk-it a:hover{text-decoration:underline}
+.mm-lnk-it::before{content:'🔗';font-size:11px;flex-shrink:0}
 /* MM centre panel upgrades */
 .mm-Chd{padding:12px 14px 8px;border-bottom:1px solid var(--g2);flex-shrink:0}
 .mm-item-detail{padding:12px 14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px}
@@ -1571,6 +1583,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             </div>
             <div id="mm-atts"></div>
           </div>
+          <div class="mm-rsec" id="mm-lnks-sec" style="display:none">
+            <div class="mm-rlbl">Links</div>
+            <div id="mm-lnks"></div>
+          </div>
 
         </div>
         <div class="mm-ai">
@@ -1789,6 +1805,15 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             + Add Attachment
             <input type="file" id="ei-att-input" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx,.csv" style="display:none" onchange="eiAddAttachments(this.files)"/>
           </label>
+        </div>
+        <div class="fg" style="grid-column:1/-1">
+          <label>Links <span style="font-size:10px;color:var(--g4);font-weight:400">— reference URLs shown alongside this item</span></label>
+          <div id="ei-lnk-list" style="margin-bottom:6px"></div>
+          <div class="lnk-add-row">
+            <input id="ei-lnk-url" type="url" placeholder="https://…" style="flex:1.4"/>
+            <input id="ei-lnk-label" type="text" placeholder="Label (optional)" style="flex:1"/>
+            <button class="btn xs" onclick="eiAddLink()" style="flex-shrink:0">+ Add Link</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2573,7 +2598,7 @@ var WORKER_URL = ENV === 'development'
 
 var SUPABASE_URL = ENV === 'development'
   ? 'https://dzurctohotgtummajgiw.supabase.co'
-  : 'https://sozghbobflcjrfsmewxv.supabase.co';
+  : 'https://dzurctohotgtummajgiw.supabase.co';
 
 var SUPABASE_ANON_KEY = ENV === 'development'
   ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6dXJjdG9ob3RndHVtbWFqZ2l3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5Mjc3MTUsImV4cCI6MjA5MzUwMzcxNX0.xdFyM-fDIjDjY1Ao626Y66aL_I_JqKLNuqxyj7RiW_I'
@@ -2729,7 +2754,8 @@ function mkItem(text, cat, overrides) {
     background: '', financial: '', risks: '',
     motion:     needsMotion ? {text:'',dt:'MAJORITY',for:0,against:0,abstain:0,outcome:null,mover:'',sec:''} : null,
     done:       false, notes: '', aiSummary: '',
-    atts:       []
+    atts:       [],
+    links:      []
   }, overrides || {});
 }
 
@@ -3064,6 +3090,7 @@ function agEditItem(id) {
   if (!it) return;
   _eiItemId = id;
   _eiAtts   = (it.atts || []).slice();
+  _eiLinks  = (it.links || []).slice();
   _eiCallback = function(updated) {
     Object.assign(it, updated);
     renumAgenda(AG.agenda);
@@ -3435,6 +3462,7 @@ function nmAddItemToCat(catId){ agAddItemToCat(catId); }
 var _eiCallback = null;
 var _eiItemId   = null;
 var _eiAtts     = [];
+var _eiLinks    = [];  // [{url, label}]
 
 function eiOpen(it) {
   document.getElementById('ei-title').value  = it.text       || '';
@@ -3447,7 +3475,9 @@ function eiOpen(it) {
   document.getElementById('ei-notes').value  = it.notes || '';
   document.getElementById('ei-dtype').value  = (it.motion && it.motion.dt)   ? it.motion.dt   : 'MAJORITY';
   _eiAtts = (it.atts || []).slice();
+  _eiLinks = (it.links || []).slice();
   eiRenderAtts();
+  eiRenderLinks();
   eiToggleMotionFields(it.type || 'FOR_INFORMATION');
   document.getElementById('ei-rtype').onchange = function(){ eiToggleMotionFields(this.value); };
 
@@ -3513,6 +3543,37 @@ function eiRemoveAtt(i) {
   eiRenderAtts();
 }
 
+function eiRenderLinks() {
+  var el = document.getElementById('ei-lnk-list');
+  if (!el) return;
+  if (!_eiLinks.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _eiLinks.map(function(lnk, i) {
+    var display = escHtml(lnk.label || lnk.url);
+    return '<span class="lnk-chip">'
+      + '<a href="' + escHtml(lnk.url) + '" target="_blank" rel="noopener" title="' + escHtml(lnk.url) + '">' + display + '</a>'
+      + '<button class="lnk-chip-rm" onclick="eiRemoveLink(' + i + ')">×</button>'
+      + '</span>';
+  }).join('');
+}
+
+function eiAddLink() {
+  var urlEl   = document.getElementById('ei-lnk-url');
+  var labelEl = document.getElementById('ei-lnk-label');
+  var url = (urlEl && urlEl.value.trim()) || '';
+  var label = (labelEl && labelEl.value.trim()) || '';
+  if (!url) { nAlert('Please enter a URL.'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  _eiLinks.push({ url: url, label: label || url });
+  if (urlEl)   urlEl.value   = '';
+  if (labelEl) labelEl.value = '';
+  eiRenderLinks();
+}
+
+function eiRemoveLink(i) {
+  _eiLinks.splice(i, 1);
+  eiRenderLinks();
+}
+
 function eiSave() {
   var title = document.getElementById('ei-title').value.trim();
   if (!title) { nAlert('Please enter a title for this agenda item.'); return; }
@@ -3527,6 +3588,7 @@ function eiSave() {
     financial:  document.getElementById('ei-fin').value.trim(),
     risks:      document.getElementById('ei-risk').value.trim(),
     atts:       _eiAtts.slice(),
+    links:      _eiLinks.slice(),
     motion:     needsMotion ? {
       text:    document.getElementById('ei-motion').value.trim(),
       dt:      document.getElementById('ei-dtype').value,
@@ -6173,6 +6235,18 @@ function renderAtts(it){
       : escHtml(name);
     return '<div class="att-it"><span class="att-nm">'+attHtml+'</span></div>';
   }).join('')+'<button class="att-up" onclick="document.getElementById(\'mm-att-input\').click()">+ Add</button>';
+
+  // Render links
+  var lnkSec = document.getElementById('mm-lnks-sec');
+  var lnkEl  = document.getElementById('mm-lnks');
+  var links   = it.links || [];
+  if (lnkSec) lnkSec.style.display = links.length ? '' : 'none';
+  if (lnkEl) {
+    lnkEl.innerHTML = links.map(function(lnk) {
+      var display = escHtml(lnk.label || lnk.url);
+      return '<div class="mm-lnk-it"><a href="' + escHtml(lnk.url) + '" target="_blank" rel="noopener" title="' + escHtml(lnk.url) + '">' + display + '</a></div>';
+    }).join('');
+  }
 }
 
 function openAttDoc(storagePath, name) {
@@ -15696,6 +15770,7 @@ function mmAddCategory() {
   renderMmNav();
   _eiItemId = newIt.id;
   _eiAtts = [];
+  _eiLinks = [];
   _eiCallback = function(updated){
     Object.assign(newIt, updated);
     renumAgenda(MM.agenda);
@@ -15726,6 +15801,7 @@ function mmAddItem() {
   renderMmNav();
   _eiItemId = newIt.id;
   _eiAtts = [];
+  _eiLinks = [];
   _eiCallback = function(updated){
     Object.assign(newIt, updated);
     renumAgenda(MM.agenda);
@@ -15741,6 +15817,7 @@ function mmEditCurrentItem() {
   if (!it) return;
   _eiItemId = it.id;
   _eiAtts = (it.atts||[]).slice();
+  _eiLinks = (it.links||[]).slice();
   _eiCallback = function(updated){
     Object.assign(it, updated);
     renumAgenda(MM.agenda);
