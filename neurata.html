@@ -6338,6 +6338,37 @@ function mmAiSend(){
   function buildAndSend() {
     var lssCtx = sc ? buildRetrievedContext(sc, msg) : '';
 
+    // Inject decision ledger directly — MM SS does not do vector search,
+    // so decisions must be included in the context explicitly
+    var decisionCtx = '';
+    if (sc) {
+      var decisions = (sc.decisions || []).slice().sort(function(a, b) {
+        return (b.date || '').localeCompare(a.date || ''); // newest first
+      });
+      // Also include live decisions from current meeting agenda
+      var existingIds = {};
+      decisions.forEach(function(d) { if (d.itemId) existingIds[d.itemId] = true; });
+      (MM.agenda || []).forEach(function(agIt) {
+        if (agIt.done && agIt.motion && agIt.motion.outcome && !existingIds[agIt.id]) {
+          decisions.unshift({
+            date: MM.date || '', text: agIt.text || '',
+            motion: agIt.motion.text || '', outcome: agIt.motion.outcome || '',
+            votes: { for: agIt.motion.for||0, against: agIt.motion.against||0, abstain: agIt.motion.abstain||0 },
+            source: 'current-meeting'
+          });
+        }
+      });
+      if (decisions.length) {
+        decisionCtx = '\n=== DECISION LEDGER (' + decisions.length + ' decisions) ===\n';
+        decisions.forEach(function(d) {
+          var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
+            ? ' | ' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab' : '';
+          decisionCtx += '[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr + '\n';
+          if (d.motion) decisionCtx += '  Motion: ' + d.motion + '\n';
+        });
+      }
+    }
+
     // Priority context: docs tagged with this agenda item's ID
     var itemCtx = '';
     if (it && sc) {
@@ -6375,7 +6406,8 @@ function mmAiSend(){
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
       + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence. ' + countingRule + '\n\n'
       + lssCtx
-      + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
+      + decisionCtx
+      + (mmGssCtx ? '\n\n' + mmGssCtx : '');
 
     fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
