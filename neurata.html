@@ -2598,6 +2598,10 @@ var WORKER_URL = ENV === 'development'
   ? 'https://api-dev.neurata.ai'
   : 'https://api.neurata.ai';
 
+// ── Shared SS prompt rules — referenced in both LSS (doVectorSearch) and MM AI (buildAndSend) ──
+var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
+var recencyRule  = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
+
 var SUPABASE_URL = ENV === 'development'
   ? 'https://dzurctohotgtummajgiw.supabase.co'
   : 'https://dzurctohotgtummajgiw.supabase.co';
@@ -5667,8 +5671,7 @@ function mgmtSsSend(scId) {
 
   doVectorSearch(function(chunks) {
   var lssCtx = buildRetrievedContext(sc, msg, chunks);
-  var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
-  var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
+  // countingRule and recencyRule are module-level constants (defined near WORKER_URL)
   if (ssTier === 'global') {
     // GLOBAL SS — vector retrieval handles all context
     var gssCtx = ''; // no dumps — vector search retrieves relevant content
