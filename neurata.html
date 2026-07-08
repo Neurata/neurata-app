@@ -7156,6 +7156,14 @@ function finalizeMinutesFromCard(scId, mtgId) {
       minutes_state: 'FINAL',
       minutes_content: mtg.minutes
     }).eq('id', mtgId).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
+    // Embed finalized minutes as a vector chunk so SS can search them
+    if (mtg.minutes) {
+      var minsText = typeof mtg.minutes === 'string' ? mtg.minutes
+        : (mtg.minutes.sections||[]).map(function(s){ return (s.heading||'') + '\n' + (s.content||''); }).join('\n\n');
+      if (minsText && minsText.length > 50) {
+        embedDecision(sc_, { id: 'minutes-' + mtgId, text: 'Meeting minutes ' + (mtg.date||''), motion: minsText, outcome: 'FINAL', date: mtg.date||'' });
+      }
+    }
     nAlert('Minutes finalized.', '', 'success');
     // Re-render whichever tab is active
     var activeTab = document.querySelector('.mtg-tab.on');
@@ -7180,6 +7188,14 @@ function _finalizeProceed() {
     minutes_state:   'FINAL',
     minutes_content: mtg.minutes
   }).eq('id', mtg.id).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
+  // Embed finalized minutes as a vector chunk so SS can search them
+  if (mtg.minutes) {
+    var minsText = typeof mtg.minutes === 'string' ? mtg.minutes
+      : (mtg.minutes.sections||[]).map(function(s){ return (s.heading||'') + '\n' + (s.content||''); }).join('\n\n');
+    if (minsText && minsText.length > 50) {
+      embedDecision(sc_, { id: 'minutes-' + mtg.id, text: 'Meeting minutes ' + (mtg.date||''), motion: minsText, outcome: 'FINAL', date: mtg.date||'' });
+    }
+  }
   document.getElementById('min-status-tag').textContent='FINAL';
   document.getElementById('min-status-tag').className='tag grn';
   document.getElementById('min-pdf-btn').disabled=false;
@@ -14967,6 +14983,24 @@ function _saveDocText(docId, scId, text, docType) {
     } else {
       console.warn('_saveDocText: could not find doc with id', docId, 'in sc_.docs — text saved to DB but not cached in memory');
     }
+  }
+  // Auto-embed for vector search — so SS can find this document without manual "Index" click
+  if (text.length > 50) {
+    getSupabase().auth.getSession().then(function(s) {
+      var token = s.data && s.data.session && s.data.session.access_token;
+      return fetch(WORKER_URL + '/embed-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+        body: JSON.stringify({
+          documentId:   docId,
+          documentText: text,
+          scId:         scId,
+          brokerageId:  APP.brokerage && APP.brokerage.lic || ''
+        })
+      });
+    }).then(function(r){ return r && r.json(); })
+    .then(function(d){ if (d && d.error) console.warn('[auto-embed] Failed:', d.error); })
+    .catch(function(e){ console.warn('[auto-embed] Error:', e.message); });
   }
 }
 
