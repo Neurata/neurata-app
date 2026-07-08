@@ -5542,6 +5542,53 @@ function reEmbedAllDecisions(sc) {
   nAlert('Re-indexing ' + count + ' decision' + (count !== 1 ? 's' : '') + ' for ' + sc.plan + '. StrataSphere will reflect them within a few seconds.');
 }
 
+// Bulk re-index all decisions and indexed documents across all SCs in the current brokerage context.
+// Accessible via the "↻ Re-index All" button in the SA super admin bar.
+function reIndexAll() {
+  var scs = APP.sc || [];
+  if (!scs.length) { nAlert('No strata corporations loaded.', 'Nothing to index', 'warn'); return; }
+
+  var decisionCount = 0;
+  var docCount = 0;
+  var scCount = scs.length;
+
+  scs.forEach(function(sc) {
+    // 1. Re-embed all decisions
+    (sc.decisions || []).forEach(function(d) {
+      embedDecision(sc, d);
+      decisionCount++;
+    });
+
+    // 2. Re-embed all documents that have extracted text
+    (sc.docs || []).forEach(function(doc) {
+      if (doc.documentText && doc.documentText.length > 50 && doc.dbId) {
+        getSupabase().auth.getSession().then(function(s) {
+          var token = s.data && s.data.session && s.data.session.access_token;
+          return fetch(WORKER_URL + '/embed-document', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+            body: JSON.stringify({
+              documentId:   doc.dbId,
+              documentText: doc.documentText,
+              scId:         sc.plan,
+              brokerageId:  APP.brokerage && APP.brokerage.lic || ''
+            })
+          });
+        }).catch(function(e) { console.warn('[reIndexAll] embed error for', doc.name, e.message); });
+        docCount++;
+      }
+    });
+  });
+
+  nAlert(
+    'Re-indexing ' + decisionCount + ' decision' + (decisionCount !== 1 ? 's' : '')
+    + ' and ' + docCount + ' document' + (docCount !== 1 ? 's' : '')
+    + ' across ' + scCount + ' strata corporation' + (scCount !== 1 ? 's' : '') + '.'
+    + ' StrataSphere will reflect everything within a few seconds.',
+    'Re-indexing', 'success'
+  );
+}
+
 function buildGssContext() {
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
@@ -11069,7 +11116,8 @@ function renderSuperAdminBar() {
       var a = r===cur;
       return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(a?'.8':'.25')+');background:'+(a?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(a?'700':'400')+'">'+ rl[r] +'</button>';
     }).join('');
-    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>' + btns;
+    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>' + btns
+      + '<button onclick="reIndexAll()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.7);cursor:pointer;margin-left:8px" title="Re-index all decisions and documents for StrataSphere">↻ Re-index All</button>';
   } else {
     bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6)">SUPER ADMIN</span>';
   }
