@@ -5526,6 +5526,8 @@ function reEmbedAllDecisions(sc) {
   });
   nAlert('Re-indexing ' + count + ' decision' + (count !== 1 ? 's' : '') + ' for ' + sc.plan + '. StrataSphere will reflect them within a few seconds.');
 }
+
+function buildGssContext() {
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
   lines.push('All personal identifiers have been removed per PIPA. Plan numbers are public LTSA records.');
