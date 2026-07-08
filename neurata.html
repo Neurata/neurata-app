@@ -5512,8 +5512,19 @@ function embedScSummary(sc) {
   }).catch(function(){}); // silent — non-critical
 }
 
-
-function buildGssContext() {
+// Re-embed all decisions for a SC — use to backfill after historic minutes upload
+// or any time the vector index needs to be rebuilt for the decision ledger.
+function reEmbedAllDecisions(sc) {
+  if (!sc || !sc.plan) return;
+  var decisions = sc.decisions || [];
+  if (!decisions.length) { nAlert('No decisions to re-index for ' + sc.plan + '.'); return; }
+  var count = 0;
+  decisions.forEach(function(d) {
+    embedDecision(sc, d);
+    count++;
+  });
+  nAlert('Re-indexing ' + count + ' decision' + (count !== 1 ? 's' : '') + ' for ' + sc.plan + '. StrataSphere will reflect them within a few seconds.');
+}
   var lines = [];
   lines.push('=== PLATFORM-WIDE STRATA DATA (PII-STRIPPED) ===');
   lines.push('All personal identifiers have been removed per PIPA. Plan numbers are public LTSA records.');
@@ -14419,7 +14430,12 @@ function renderLedger(sc, el) {
       +'<span class="tag '+(d.outcome==='CARRIED'?'grn':'red')+'" style="font-size:10px">'+escHtml(d.outcome||'—')+'</span>'
       +'</td></tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table>'
+    + '<div style="margin-top:12px;text-align:right">'
+    + '<button class="btn xs ghost" style="color:var(--g4);font-size:11px" '
+    + 'onclick="reEmbedAllDecisions(APP.sc.find(function(s){return s.id===APP.currentScId;}))" '
+    + 'title="Re-index all decisions so StrataSphere can find them via vector search">↻ Re-index for StrataSphere</button>'
+    + '</div>';
   el.innerHTML = html;
 }
 
@@ -15663,6 +15679,8 @@ function hmSave() {
     })).then(function(r){
       if (r.error) console.error('Could not save decisions:', r.error);
     });
+    // Embed each decision as a vector chunk so SS can find it immediately
+    newDecisions.forEach(function(d) { embedDecision(sc_, d); });
   }
 
   var decCount = newDecisions.length;
