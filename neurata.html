@@ -3132,7 +3132,16 @@ function agDrop(ev, targetId, type) {
   if (!AG._dragId || AG._dragId === targetId) { AG._dragId=null; return; }
 
   if (AG._dragType === 'cat' && type === 'cat') {
-    // Reorder categories — move all items of dragged cat before target cat's items
+    // Reorder AG._cats (display order)
+    if (AG._cats) {
+      var fromCatIdx = AG._cats.findIndex(function(c){return c.id===AG._dragId;});
+      var toCatIdx   = AG._cats.findIndex(function(c){return c.id===targetId;});
+      if (fromCatIdx >= 0 && toCatIdx >= 0) {
+        var draggedCat = AG._cats.splice(fromCatIdx, 1)[0];
+        AG._cats.splice(toCatIdx, 0, draggedCat);
+      }
+    }
+    // Also reorder AG.agenda items to match
     var draggedItems = AG.agenda.filter(function(it){return it.catId===AG._dragId;});
     var rest         = AG.agenda.filter(function(it){return it.catId!==AG._dragId;});
     var insertIdx    = rest.findIndex(function(it){return it.catId===targetId;});
