@@ -306,18 +306,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .att-chip{display:inline-flex;align-items:center;gap:4px;background:var(--g1);border:1px solid var(--g2);border-radius:4px;padding:3px 8px;font-size:11px;color:var(--ch2);margin:2px}
 .att-chip-rm{background:none;border:none;color:var(--g4);cursor:pointer;font-size:12px;line-height:1}
 .att-chip-rm:hover{color:var(--red)}
-.lnk-chip{display:inline-flex;align-items:center;gap:4px;background:var(--blul);border:1px solid #c5d9f5;border-radius:4px;padding:3px 8px;font-size:11px;color:var(--blu);margin:2px}
-.lnk-chip a{color:var(--blu);text-decoration:none;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
-.lnk-chip a:hover{text-decoration:underline}
-.lnk-chip-rm{background:none;border:none;color:var(--g4);cursor:pointer;font-size:12px;line-height:1;flex-shrink:0}
-.lnk-chip-rm:hover{color:var(--red)}
-.lnk-add-row{display:flex;gap:6px;align-items:center;margin-top:6px}
-.lnk-add-row input{flex:1;border:1px solid var(--g3);border-radius:5px;padding:6px 9px;font-size:12px;font-family:inherit;color:var(--ch);background:var(--wh);outline:none;transition:border-color .15s}
-.lnk-add-row input:focus{border-color:var(--blu)}
-.mm-lnk-it{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px}
-.mm-lnk-it a{color:var(--blu);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mm-lnk-it a:hover{text-decoration:underline}
-.mm-lnk-it::before{content:'🔗';font-size:11px;flex-shrink:0}
 /* MM centre panel upgrades */
 .mm-Chd{padding:12px 14px 8px;border-bottom:1px solid var(--g2);flex-shrink:0}
 .mm-item-detail{padding:12px 14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px}
@@ -687,7 +675,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div id="li-err" class="al red_" style="display:none;margin-bottom:10px"></div>
       <button class="btn pri full" id="li-btn" onclick="doLogin()">Sign In →</button>
       <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:8px">
-        <button class="btn xs ghost" id="li-create-account-btn" onclick="showScr('scr-onboard')" style="color:var(--g4)">Don't have an account? Create one →</button>
+        <!-- Cold signups disabled — account creation by invitation only -->
+        <!-- Invite entry point removed — invitees arrive via email link only -->
         <button class="btn xs ghost" onclick="showForgotPassword()" style="color:var(--g4)">Forgot your password?</button>
 
       </div>
@@ -723,10 +712,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
         <div style="display:flex;justify-content:flex-end">
           <button class="btn pri" id="ob-verify-btn" onclick="obVerifyLicence()" style="width:100%">Verify with BCFSA →</button>
         </div>
-        <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:6px">
-          <button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button>
-          <button class="btn xs ghost" onclick="showScr('scr-login')" style="color:var(--g4)">← Already have an account? Sign in</button>
-        </div>
+        <div style="text-align:center;margin-top:12px"><button class="btn xs ghost" onclick="showScr('scr-invited')">Joining via invitation?</button></div>
       </div>
       <!-- Step 2 -->
       <div class="ob-step" id="ob-s2">
@@ -1485,7 +1471,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
       <div style="display:flex;gap:0;">
         <button class="mtg-tab on" id="mtgtab-meetings" onclick="switchMtgTab('meetings',this)">Meetings</button>
         <button class="mtg-tab" id="mtgtab-minutes" onclick="switchMtgTab('minutes',this)">Minutes</button>
-        <button class="mtg-tab" id="mtgtab-decisions" onclick="switchMtgTab('decisions',this)">Decisions</button>
         <button class="mtg-tab" id="mtgtab-docs" onclick="switchMtgTab('docs',this)">Documents</button>
         <button class="mtg-tab" id="mtgtab-stratasphere" onclick="switchMtgTab('stratasphere',this)">StrataSphere</button>
       </div>
@@ -1585,10 +1570,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
               <input type="file" id="mm-att-input" multiple style="display:none" onchange="mmAddAttachments(this.files)"/>
             </div>
             <div id="mm-atts"></div>
-          </div>
-          <div class="mm-rsec" id="mm-lnks-sec" style="display:none">
-            <div class="mm-rlbl">Links</div>
-            <div id="mm-lnks"></div>
           </div>
 
         </div>
@@ -1808,15 +1789,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
             + Add Attachment
             <input type="file" id="ei-att-input" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx,.csv" style="display:none" onchange="eiAddAttachments(this.files)"/>
           </label>
-        </div>
-        <div class="fg" style="grid-column:1/-1">
-          <label>Links <span style="font-size:10px;color:var(--g4);font-weight:400">— reference URLs shown alongside this item</span></label>
-          <div id="ei-lnk-list" style="margin-bottom:6px"></div>
-          <div class="lnk-add-row">
-            <input id="ei-lnk-url" type="url" placeholder="https://…" style="flex:1.4"/>
-            <input id="ei-lnk-label" type="text" placeholder="Label (optional)" style="flex:1"/>
-            <button class="btn xs" onclick="eiAddLink()" style="flex-shrink:0">+ Add Link</button>
-          </div>
         </div>
       </div>
     </div>
@@ -2599,10 +2571,6 @@ var WORKER_URL = ENV === 'development'
   ? 'https://api-dev.neurata.ai'
   : 'https://api.neurata.ai';
 
-// ── Shared SS prompt rules — referenced in both LSS (doVectorSearch) and MM AI (buildAndSend) ──
-var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
-var recencyRule  = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
-
 var SUPABASE_URL = ENV === 'development'
   ? 'https://dzurctohotgtummajgiw.supabase.co'
   : 'https://dzurctohotgtummajgiw.supabase.co';
@@ -2761,8 +2729,7 @@ function mkItem(text, cat, overrides) {
     background: '', financial: '', risks: '',
     motion:     needsMotion ? {text:'',dt:'MAJORITY',for:0,against:0,abstain:0,outcome:null,mover:'',sec:''} : null,
     done:       false, notes: '', aiSummary: '',
-    atts:       [],
-    links:      []
+    atts:       []
   }, overrides || {});
 }
 
@@ -2977,6 +2944,7 @@ function agOpen(scId, mtgId) {
   if (!mtg) return;
   AG._mtg  = mtg; // store live reference — survives async UUID update
   AG.agenda = JSON.parse(JSON.stringify(mtg.agenda || []));
+  AG._cats = null;  // reset so agRender rebuilds from loaded items
   // Modal header — SC plan + full meeting type
   var typeLabels = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
   var titlePlan = sc_ ? sc_.plan + ' — ' : '';
@@ -3009,9 +2977,9 @@ function agClose() {
   var mtg = AG._mtg;
   var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(mtg.agenda || []);
   if (isDirty) {
-    nConfirm('You have unsaved changes. Close without saving?', 'Unsaved Changes', function() {
-      closeMo('mo-agenda');
-    });
+    nConfirm('You have unsaved changes. Close without saving?', function(ok) {
+      if (ok) closeMo('mo-agenda');
+    }, 'Unsaved Changes');
     return;
   }
   closeMo('mo-agenda');
@@ -3041,14 +3009,16 @@ function agStartTemplate() {
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return m.id===AG.mtgId;});
   var type = mtg ? mtg.type : 'council';
   AG.agenda = ensureBookends(buildAgendaFromTemplate(type));
+  AG._cats = null;  // reset so agRender rebuilds from items
   document.getElementById('ag-start-opts').style.display = 'none';
   agRender();
 }
 
 function agAddCategory() {
   document.getElementById('ag-start-opts').style.display = 'none';
-  var catId = 'c_' + Date.now();
-  AG.agenda.push(mkItem('New Item', 'New Category', {catId: catId}));
+  var catId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  if (!AG._cats) AG._cats = [];
+  AG._cats.push({id: catId, name: 'New Category'});
   renumAgenda(AG.agenda);
   agRender();
   setTimeout(function(){
@@ -3079,11 +3049,25 @@ function agEditCategoryName(catId, currentName) {
 
 function agRenameCategory(catId, val) {
   AG.agenda.forEach(function(it){ if(it.catId===catId) it.cat = val; });
+  if (AG._cats) {
+    var cat = AG._cats.find(function(c){return c.id===catId;});
+    if (cat) cat.name = val;
+  }
 }
 
 function agDeleteCategory(catId) {
   var count = AG.agenda.filter(function(it){return it.catId===catId;}).length;
-  if (count > 0) { nConfirm('Delete this category and its '+count+' item(s)?', function(ok){ if(!ok) return; AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }, 'Delete Category', 'danger'); } else { AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }
+  function doDelete() {
+    AG.agenda = AG.agenda.filter(function(it){return it.catId!==catId;});
+    if (AG._cats) AG._cats = AG._cats.filter(function(c){return c.id!==catId;});
+    renumAgenda(AG.agenda);
+    agRender();
+  }
+  if (count > 0) {
+    nConfirm('Delete this category and its '+count+' item(s)?', function(ok){ if(ok) doDelete(); }, 'Delete Category', 'danger');
+  } else {
+    doDelete();
+  }
 }
 
 function agDeleteItem(id) {
@@ -3097,7 +3081,6 @@ function agEditItem(id) {
   if (!it) return;
   _eiItemId = id;
   _eiAtts   = (it.atts || []).slice();
-  _eiLinks  = (it.links || []).slice();
   _eiCallback = function(updated) {
     Object.assign(it, updated);
     renumAgenda(AG.agenda);
@@ -3162,10 +3145,42 @@ function agDrop(ev, targetId, type) {
     var toIdx   = AG.agenda.findIndex(function(it){return it.id===targetId;});
     if (fromIdx < 0 || toIdx < 0) { AG._dragId=null; return; }
     var item = AG.agenda.splice(fromIdx, 1)[0];
-    // Also update catId if dropped into a different category
-    item.catId = AG.agenda[toIdx > fromIdx ? toIdx-1 : toIdx].catId;
-    item.cat   = AG.agenda[toIdx > fromIdx ? toIdx-1 : toIdx].cat;
+    // Update catId if dropped into a different category
+    var refIdx = toIdx > fromIdx ? toIdx-1 : toIdx;
+    if (AG.agenda[refIdx]) {
+      item.catId = AG.agenda[refIdx].catId;
+      item.cat   = AG.agenda[refIdx].cat;
+    }
     AG.agenda.splice(toIdx, 0, item);
+  } else if (AG._dragType === 'item' && type === 'cat') {
+    // Item dropped onto a category header or empty category — move item into that category
+    var draggedItem = AG.agenda.find(function(it){return it.id===AG._dragId;});
+    if (!draggedItem) { AG._dragId=null; return; }
+    // Find the target cat name
+    var targetCat = AG._cats && AG._cats.find(function(c){return c.id===targetId;});
+    if (!targetCat) { AG._dragId=null; return; }
+    // Remove item from current position
+    AG.agenda = AG.agenda.filter(function(it){return it.id!==AG._dragId;});
+    // Update item's category
+    draggedItem.catId = targetCat.id;
+    draggedItem.cat   = targetCat.name;
+    // Append to end of that category's items
+    var lastInCat = -1;
+    AG.agenda.forEach(function(it, idx){ if(it.catId===targetId) lastInCat=idx; });
+    if (lastInCat >= 0) {
+      AG.agenda.splice(lastInCat+1, 0, draggedItem);
+    } else {
+      // Empty category — find position based on AG._cats order and insert after last item of preceding cat
+      var catIdx = AG._cats.findIndex(function(c){return c.id===targetId;});
+      var insertAt = 0;
+      for (var ci = catIdx-1; ci >= 0; ci--) {
+        var prevCatId = AG._cats[ci].id;
+        var lastOfPrev = -1;
+        AG.agenda.forEach(function(it, idx){ if(it.catId===prevCatId) lastOfPrev=idx; });
+        if (lastOfPrev >= 0) { insertAt = lastOfPrev+1; break; }
+      }
+      AG.agenda.splice(insertAt, 0, draggedItem);
+    }
   }
   AG._dragId = null;
   document.querySelectorAll('.drag-over').forEach(function(el){el.classList.remove('drag-over');});
@@ -3204,32 +3219,38 @@ function agRender() {
   } else {
     var b = document.getElementById('ag-locked-banner'); if(b) b.remove();
   }
-  // Group by catId preserving order
-  var cats = [], catMap = {};
+  // Build AG._cats from agenda items if not already initialised (backward compat)
+  if (!AG._cats || AG._cats.length === 0) {
+    var seenCats = {};
+    AG._cats = [];
+    AG.agenda.forEach(function(it){
+      if (!seenCats[it.catId]) {
+        seenCats[it.catId] = true;
+        AG._cats.push({id: it.catId, name: it.cat});
+      }
+    });
+  } else {
+    // Sync cat names from items (in case items were renamed)
+    var nameMap = {};
+    AG.agenda.forEach(function(it){ nameMap[it.catId] = it.cat; });
+    AG._cats.forEach(function(c){ if (nameMap[c.id]) c.name = nameMap[c.id]; });
+  }
+
+  // Group items by catId
+  var itemsByCat = {};
   AG.agenda.forEach(function(it){
-    if (!catMap[it.catId]) {
-      catMap[it.catId] = {id:it.catId, name:it.cat, items:[]};
-      cats.push(catMap[it.catId]);
-    }
-    catMap[it.catId].items.push(it);
+    if (!itemsByCat[it.catId]) itemsByCat[it.catId] = [];
+    itemsByCat[it.catId].push(it);
   });
 
   var html = topBar;
-  cats.forEach(function(cat) {
+  AG._cats.forEach(function(cat) {
+    var catItems = itemsByCat[cat.id] || [];
     html += '<div class="ag-cat-block" data-catid="'+cat.id+'"'
       + ' ondragover="agDragOver(event,\''+cat.id+'\',\'cat\')"'
-      + ' ondrop="agDrop(event,\''+cat.id+'\',\'cat\')">'
-      + '<div class="ag-cat-hd" draggable="true" ondragstart="agDragStartCat(event,\''+cat.id+'\')">'
-      + '<span class="ag-drag" title="Drag to reorder">⠿</span>'
-      + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'
-      + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'
-      + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'
-      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name">Edit</button>'
-      + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
-      + '</div>'
-      + '<div class="ag-items">';
+      + ' ondrop="agDrop(event,\''+cat.id+'\',\'cat\')">'      + '<div class="ag-cat-hd" draggable="true" ondragstart="agDragStartCat(event,\''+cat.id+'\')">'      + '<span class="ag-drag" title="Drag to reorder">⠿</span>'      + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'      + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'      + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name">Edit</button>'      + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'      + '</div>'      + '<div class="ag-items">';
 
-    cat.items.forEach(function(it) {
+    catItems.forEach(function(it) {
       var color = RTAG_COLORS[it.type] || '#999';
       var short = RTAG_SHORT[it.type] || it.type;
       var hasBg = it.background || it.financial || it.risks || (it.motion && it.motion.text);
@@ -3469,7 +3490,6 @@ function nmAddItemToCat(catId){ agAddItemToCat(catId); }
 var _eiCallback = null;
 var _eiItemId   = null;
 var _eiAtts     = [];
-var _eiLinks    = [];  // [{url, label}]
 
 function eiOpen(it) {
   document.getElementById('ei-title').value  = it.text       || '';
@@ -3482,9 +3502,7 @@ function eiOpen(it) {
   document.getElementById('ei-notes').value  = it.notes || '';
   document.getElementById('ei-dtype').value  = (it.motion && it.motion.dt)   ? it.motion.dt   : 'MAJORITY';
   _eiAtts = (it.atts || []).slice();
-  _eiLinks = (it.links || []).slice();
   eiRenderAtts();
-  eiRenderLinks();
   eiToggleMotionFields(it.type || 'FOR_INFORMATION');
   document.getElementById('ei-rtype').onchange = function(){ eiToggleMotionFields(this.value); };
 
@@ -3550,37 +3568,6 @@ function eiRemoveAtt(i) {
   eiRenderAtts();
 }
 
-function eiRenderLinks() {
-  var el = document.getElementById('ei-lnk-list');
-  if (!el) return;
-  if (!_eiLinks.length) { el.innerHTML = ''; return; }
-  el.innerHTML = _eiLinks.map(function(lnk, i) {
-    var display = escHtml(lnk.label || lnk.url);
-    return '<span class="lnk-chip">'
-      + '<a href="' + escHtml(lnk.url) + '" target="_blank" rel="noopener" title="' + escHtml(lnk.url) + '">' + display + '</a>'
-      + '<button class="lnk-chip-rm" onclick="eiRemoveLink(' + i + ')">×</button>'
-      + '</span>';
-  }).join('');
-}
-
-function eiAddLink() {
-  var urlEl   = document.getElementById('ei-lnk-url');
-  var labelEl = document.getElementById('ei-lnk-label');
-  var url = (urlEl && urlEl.value.trim()) || '';
-  var label = (labelEl && labelEl.value.trim()) || '';
-  if (!url) { nAlert('Please enter a URL.'); return; }
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  _eiLinks.push({ url: url, label: label || url });
-  if (urlEl)   urlEl.value   = '';
-  if (labelEl) labelEl.value = '';
-  eiRenderLinks();
-}
-
-function eiRemoveLink(i) {
-  _eiLinks.splice(i, 1);
-  eiRenderLinks();
-}
-
 function eiSave() {
   var title = document.getElementById('ei-title').value.trim();
   if (!title) { nAlert('Please enter a title for this agenda item.'); return; }
@@ -3595,7 +3582,6 @@ function eiSave() {
     financial:  document.getElementById('ei-fin').value.trim(),
     risks:      document.getElementById('ei-risk').value.trim(),
     atts:       _eiAtts.slice(),
-    links:      _eiLinks.slice(),
     motion:     needsMotion ? {
       text:    document.getElementById('ei-motion').value.trim(),
       dt:      document.getElementById('ei-dtype').value,
@@ -5439,24 +5425,9 @@ function buildRetrievedContext(sc, query, chunks) {
   lines.push('Brokerage: ' + (APP.brokerage.name||'—') + ' (Lic: ' + (APP.brokerage.lic||'—') + ')');
   lines.push('');
 
-  // Always include the full decision ledger — decisions are structured data, not well-served by vector search alone
-  var decisions = (sc.decisions || []).slice().sort(function(a, b) {
-    return (b.date || '').localeCompare(a.date || ''); // newest first
-  });
-  if (decisions.length) {
-    lines.push('=== DECISION LEDGER (' + decisions.length + ' decisions, newest first) ===');
-    decisions.forEach(function(d) {
-      var voteStr = (d.votes && (d.votes.for || d.votes.against || d.votes.abstain))
-        ? ' | ' + d.votes.for + 'F/' + d.votes.against + 'A/' + d.votes.abstain + 'Ab' : '';
-      lines.push('[' + (d.date || 'Date unknown') + '] ' + (d.text || '') + ' — ' + (d.outcome || '') + voteStr);
-      if (d.motion) lines.push('  Motion: ' + d.motion);
-    });
-    lines.push('');
-  }
-
   if (chunks && chunks.length) {
-    lines.push('=== RETRIEVED DOCUMENT CONTEXT (' + chunks.length + ' excerpts, ranked by relevance) ===');
-    lines.push('The following excerpts were retrieved from indexed documents and minutes for this query.');
+    lines.push('=== RETRIEVED CONTEXT (' + chunks.length + ' excerpts, ranked by relevance) ===');
+    lines.push('Answer using these excerpts only. If the answer is not here, say so explicitly.');
     lines.push('');
     chunks.forEach(function(c, i) {
       lines.push('[' + (i+1) + ' | score:' + (c.similarity||0).toFixed(2) + ']');
@@ -5464,8 +5435,8 @@ function buildRetrievedContext(sc, query, chunks) {
       lines.push('');
     });
   } else {
-    lines.push('=== RETRIEVED DOCUMENT CONTEXT ===');
-    lines.push('No indexed document content matched this query. If documents have been uploaded, they may not be indexed yet.');
+    lines.push('=== NO RELEVANT CONTEXT FOUND ===');
+    lines.push('No indexed content matched this query. Documents may not be indexed yet.');
   }
 
   return lines.join('\n');
@@ -5528,66 +5499,6 @@ function embedScSummary(sc) {
   }).catch(function(){}); // silent — non-critical
 }
 
-// Re-embed all decisions for a SC — use to backfill after historic minutes upload
-// or any time the vector index needs to be rebuilt for the decision ledger.
-function reEmbedAllDecisions(sc) {
-  if (!sc || !sc.plan) return;
-  var decisions = sc.decisions || [];
-  if (!decisions.length) { nAlert('No decisions to re-index for ' + sc.plan + '.'); return; }
-  var count = 0;
-  decisions.forEach(function(d) {
-    embedDecision(sc, d);
-    count++;
-  });
-  nAlert('Re-indexing ' + count + ' decision' + (count !== 1 ? 's' : '') + ' for ' + sc.plan + '. StrataSphere will reflect them within a few seconds.');
-}
-
-// Bulk re-index all decisions and indexed documents across all SCs in the current brokerage context.
-// Accessible via the "↻ Re-index All" button in the SA super admin bar.
-function reIndexAll() {
-  var scs = APP.sc || [];
-  if (!scs.length) { nAlert('No strata corporations loaded.', 'Nothing to index', 'warn'); return; }
-
-  var decisionCount = 0;
-  var docCount = 0;
-  var scCount = scs.length;
-
-  scs.forEach(function(sc) {
-    // 1. Re-embed all decisions
-    (sc.decisions || []).forEach(function(d) {
-      embedDecision(sc, d);
-      decisionCount++;
-    });
-
-    // 2. Re-embed all documents that have extracted text
-    (sc.docs || []).forEach(function(doc) {
-      if (doc.documentText && doc.documentText.length > 50 && doc.dbId) {
-        getSupabase().auth.getSession().then(function(s) {
-          var token = s.data && s.data.session && s.data.session.access_token;
-          return fetch(WORKER_URL + '/embed-document', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
-            body: JSON.stringify({
-              documentId:   doc.dbId,
-              documentText: doc.documentText,
-              scId:         sc.plan,
-              brokerageId:  APP.brokerage && APP.brokerage.lic || ''
-            })
-          });
-        }).catch(function(e) { console.warn('[reIndexAll] embed error for', doc.name, e.message); });
-        docCount++;
-      }
-    });
-  });
-
-  nAlert(
-    'Re-indexing ' + decisionCount + ' decision' + (decisionCount !== 1 ? 's' : '')
-    + ' and ' + docCount + ' document' + (docCount !== 1 ? 's' : '')
-    + ' across ' + scCount + ' strata corporation' + (scCount !== 1 ? 's' : '') + '.'
-    + ' StrataSphere will reflect everything within a few seconds.',
-    'Re-indexing', 'success'
-  );
-}
 
 function buildGssContext() {
   var lines = [];
@@ -5747,7 +5658,8 @@ function mgmtSsSend(scId) {
 
   doVectorSearch(function(chunks) {
   var lssCtx = buildRetrievedContext(sc, msg, chunks);
-  // countingRule and recencyRule are module-level constants (defined near WORKER_URL)
+  var countingRule = 'COUNTING AND ENUMERATION RULE: When any question requires counting, filtering, or summing data — roster entries, decisions, meetings, documents, votes, fees, or any other records — you must work through every single entry systematically before giving a final answer. List each matching entry explicitly, then state the total. Never give a count or sum without showing the entries you counted. If you find yourself uncertain about a count, recount from the beginning. A wrong number with confidence is worse than a correct number with visible working.';
+  var recencyRule = 'RECENCY RULE: When multiple documents or decisions address the same topic, treat the most recently uploaded one as the most authoritative — documents are sorted with the most recent first and their upload date is stamped in the content header. For financial statements, always use the most recently uploaded version for current figures while referencing older statements for trends or year-over-year context. For bylaws or policies, the most recently uploaded version governs. Acknowledge older records where relevant but base your answer on the most recent. ';
   if (ssTier === 'global') {
     // GLOBAL SS — vector retrieval handles all context
     var gssCtx = ''; // no dumps — vector search retrieves relevant content
@@ -6316,18 +6228,6 @@ function renderAtts(it){
       : escHtml(name);
     return '<div class="att-it"><span class="att-nm">'+attHtml+'</span></div>';
   }).join('')+'<button class="att-up" onclick="document.getElementById(\'mm-att-input\').click()">+ Add</button>';
-
-  // Render links
-  var lnkSec = document.getElementById('mm-lnks-sec');
-  var lnkEl  = document.getElementById('mm-lnks');
-  var links   = it.links || [];
-  if (lnkSec) lnkSec.style.display = links.length ? '' : 'none';
-  if (lnkEl) {
-    lnkEl.innerHTML = links.map(function(lnk) {
-      var display = escHtml(lnk.label || lnk.url);
-      return '<div class="mm-lnk-it"><a href="' + escHtml(lnk.url) + '" target="_blank" rel="noopener" title="' + escHtml(lnk.url) + '">' + display + '</a></div>';
-    }).join('');
-  }
 }
 
 function openAttDoc(storagePath, name) {
@@ -6420,7 +6320,7 @@ function mmAiSend(){
       }
     }
 
-    var mmSsTier = scSsTier(sc);
+    var mmSsTier = scSsTier(sc_);
     var mmGssCtx = ''; // GSS context now via vector search, not dumps
 
     var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
@@ -6437,7 +6337,7 @@ function mmAiSend(){
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
       + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence. ' + countingRule + '\n\n'
       + lssCtx
-      + (mmGssCtx ? '\n\n' + mmGssCtx : '');
+      + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
 
     fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -7186,14 +7086,6 @@ function finalizeMinutesFromCard(scId, mtgId) {
       minutes_state: 'FINAL',
       minutes_content: mtg.minutes
     }).eq('id', mtgId).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
-    // Embed finalized minutes as a vector chunk so SS can search them
-    if (mtg.minutes) {
-      var minsText = typeof mtg.minutes === 'string' ? mtg.minutes
-        : (mtg.minutes.sections||[]).map(function(s){ return (s.heading||'') + '\n' + (s.content||''); }).join('\n\n');
-      if (minsText && minsText.length > 50) {
-        embedDecision(sc_, { id: 'minutes-' + mtgId, text: 'Meeting minutes ' + (mtg.date||''), motion: minsText, outcome: 'FINAL', date: mtg.date||'' });
-      }
-    }
     nAlert('Minutes finalized.', '', 'success');
     // Re-render whichever tab is active
     var activeTab = document.querySelector('.mtg-tab.on');
@@ -7218,14 +7110,6 @@ function _finalizeProceed() {
     minutes_state:   'FINAL',
     minutes_content: mtg.minutes
   }).eq('id', mtg.id).then(function(r){ if(r.error) console.error('Minutes finalize error:', r.error); });
-  // Embed finalized minutes as a vector chunk so SS can search them
-  if (mtg.minutes) {
-    var minsText = typeof mtg.minutes === 'string' ? mtg.minutes
-      : (mtg.minutes.sections||[]).map(function(s){ return (s.heading||'') + '\n' + (s.content||''); }).join('\n\n');
-    if (minsText && minsText.length > 50) {
-      embedDecision(sc_, { id: 'minutes-' + mtg.id, text: 'Meeting minutes ' + (mtg.date||''), motion: minsText, outcome: 'FINAL', date: mtg.date||'' });
-    }
-  }
   document.getElementById('min-status-tag').textContent='FINAL';
   document.getElementById('min-status-tag').className='tag grn';
   document.getElementById('min-pdf-btn').disabled=false;
@@ -11116,8 +11000,7 @@ function renderSuperAdminBar() {
       var a = r===cur;
       return '<button onclick="switchSuperAdminRole(\''+r+'\')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,'+(a?'.8':'.25')+');background:'+(a?'rgba(255,255,255,.25)':'none')+';color:#fff;cursor:pointer;font-weight:'+(a?'700':'400')+'">'+ rl[r] +'</button>';
     }).join('');
-    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>' + btns
-      + '<button onclick="reIndexAll()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid rgba(255,255,255,.25);background:none;color:rgba(255,255,255,.7);cursor:pointer;margin-left:8px" title="Re-index all decisions and documents for StrataSphere">↻ Re-index All</button>';
+    bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-right:8px">SUPER ADMIN</span>' + btns;
   } else {
     bar.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6)">SUPER ADMIN</span>';
   }
@@ -14512,12 +14395,7 @@ function renderLedger(sc, el) {
       +'<span class="tag '+(d.outcome==='CARRIED'?'grn':'red')+'" style="font-size:10px">'+escHtml(d.outcome||'—')+'</span>'
       +'</td></tr>';
   });
-  html += '</tbody></table>'
-    + '<div style="margin-top:12px;text-align:right">'
-    + '<button class="btn xs ghost" style="color:var(--g4);font-size:11px" '
-    + 'onclick="reEmbedAllDecisions(APP.sc.find(function(s){return s.id===APP.currentScId;}))" '
-    + 'title="Re-index all decisions so StrataSphere can find them via vector search">↻ Re-index for StrataSphere</button>'
-    + '</div>';
+  html += '</tbody></table>';
   el.innerHTML = html;
 }
 
@@ -15014,24 +14892,6 @@ function _saveDocText(docId, scId, text, docType) {
     } else {
       console.warn('_saveDocText: could not find doc with id', docId, 'in sc_.docs — text saved to DB but not cached in memory');
     }
-  }
-  // Auto-embed for vector search — so SS can find this document without manual "Index" click
-  if (text.length > 50) {
-    getSupabase().auth.getSession().then(function(s) {
-      var token = s.data && s.data.session && s.data.session.access_token;
-      return fetch(WORKER_URL + '/embed-document', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
-        body: JSON.stringify({
-          documentId:   docId,
-          documentText: text,
-          scId:         scId,
-          brokerageId:  APP.brokerage && APP.brokerage.lic || ''
-        })
-      });
-    }).then(function(r){ return r && r.json(); })
-    .then(function(d){ if (d && d.error) console.warn('[auto-embed] Failed:', d.error); })
-    .catch(function(e){ console.warn('[auto-embed] Error:', e.message); });
   }
 }
 
@@ -15779,8 +15639,6 @@ function hmSave() {
     })).then(function(r){
       if (r.error) console.error('Could not save decisions:', r.error);
     });
-    // Embed each decision as a vector chunk so SS can find it immediately
-    newDecisions.forEach(function(d) { embedDecision(sc_, d); });
   }
 
   var decCount = newDecisions.length;
@@ -15893,7 +15751,6 @@ function mmAddCategory() {
   renderMmNav();
   _eiItemId = newIt.id;
   _eiAtts = [];
-  _eiLinks = [];
   _eiCallback = function(updated){
     Object.assign(newIt, updated);
     renumAgenda(MM.agenda);
@@ -15924,7 +15781,6 @@ function mmAddItem() {
   renderMmNav();
   _eiItemId = newIt.id;
   _eiAtts = [];
-  _eiLinks = [];
   _eiCallback = function(updated){
     Object.assign(newIt, updated);
     renumAgenda(MM.agenda);
@@ -15940,7 +15796,6 @@ function mmEditCurrentItem() {
   if (!it) return;
   _eiItemId = it.id;
   _eiAtts = (it.atts||[]).slice();
-  _eiLinks = (it.links||[]).slice();
   _eiCallback = function(updated){
     Object.assign(it, updated);
     renumAgenda(MM.agenda);
