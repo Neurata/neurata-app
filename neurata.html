@@ -2944,7 +2944,16 @@ function agOpen(scId, mtgId) {
   if (!mtg) return;
   AG._mtg  = mtg; // store live reference — survives async UUID update
   AG.agenda = JSON.parse(JSON.stringify(mtg.agenda || []));
-  AG._cats = null;  // reset so agRender rebuilds from loaded items
+  // Rebuild AG._cats from placeholder items (empty categories) then strip them
+  var seenCats = {}, catsFromLoad = [];
+  AG.agenda.forEach(function(it){
+    if (!seenCats[it.catId]) {
+      seenCats[it.catId] = true;
+      catsFromLoad.push({id: it.catId, name: it.cat});
+    }
+  });
+  AG._cats = catsFromLoad;
+  AG.agenda = AG.agenda.filter(function(it){ return !it._catPlaceholder; });
   // Modal header — SC plan + full meeting type
   var typeLabels = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
   var titlePlan = sc_ ? sc_.plan + ' — ' : '';
@@ -2975,7 +2984,9 @@ function agOpen(scId, mtgId) {
 function agClose() {
   // Check if agenda has unsaved changes vs what's stored on the meeting
   var mtg = AG._mtg;
-  var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(mtg.agenda || []);
+  var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(
+    (mtg.agenda || []).filter(function(it){ return !it._catPlaceholder; })
+  );
   if (isDirty) {
     nConfirm('You have unsaved changes. Close without saving?', function(ok) {
       if (ok) closeMo('mo-agenda');
@@ -2989,10 +3000,25 @@ function agSaveAndClose() {
   var mtg = AG._mtg;
   var sc_ = APP.sc.find(function(s){return s.id===AG.scId;});
   if (!mtg || !sc_) { closeMo('mo-agenda'); return; }
-  mtg.agenda = JSON.parse(JSON.stringify(AG.agenda));
+
+  // Include placeholder items for categories with no real items,
+  // so empty categories survive save → reload → rebuild.
+  var itemCatIds = {};
+  AG.agenda.forEach(function(it){ if (!it._catPlaceholder) itemCatIds[it.catId] = true; });
+  var placeholders = [];
+  if (AG._cats) {
+    AG._cats.forEach(function(cat) {
+      if (!itemCatIds[cat.id]) {
+        placeholders.push({ _catPlaceholder: true, catId: cat.id, cat: cat.name,
+          id: cat.id + '_ph', text: '', type: 'FOR_INFORMATION', num: 0,
+          done: false, atts: [], links: [] });
+      }
+    });
+  }
+  var agendaToSave = JSON.parse(JSON.stringify(AG.agenda.concat(placeholders)));
+  mtg.agenda = agendaToSave;
   sv('sc_'+sc_.id, sc_);
-  // Persist agenda to Supabase — mtg.id is the UUID by now (or temp id if insert is still in flight, which is fine)
-  getSupabase().from('meetings').update({agenda: mtg.agenda})
+  getSupabase().from('meetings').update({agenda: agendaToSave})
     .eq('id', mtg.id).then(function(r){ if(r.error) console.error('Agenda save error:', r.error); });
   renderMeetings();
   closeMo('mo-agenda');
@@ -3009,6 +3035,7 @@ function agStartTemplate() {
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return m.id===AG.mtgId;});
   var type = mtg ? mtg.type : 'council';
   AG.agenda = ensureBookends(buildAgendaFromTemplate(type));
+  AG.agenda = AG.agenda.filter(function(it){ return !it._catPlaceholder; });
   AG._cats = null;  // reset so agRender rebuilds from items
   document.getElementById('ag-start-opts').style.display = 'none';
   agRender();
@@ -3207,7 +3234,7 @@ function agRender() {
       && (it.text||'').toLowerCase().replace(/\s+/g,' ').indexOf('approve agenda') >= 0;
   });
 
-  if (AG.agenda.length === 0) {
+  if (AG.agenda.filter(function(it){return !it._catPlaceholder;}).length === 0 && (!AG._cats || AG._cats.length === 0)) {
     area.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g4);font-size:13px">No agenda items yet. Add a category to get started.</div>';
     return;
   }
