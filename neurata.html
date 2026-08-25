@@ -15039,11 +15039,35 @@ function uploadDoc(file, sc_, opts) {
 
   function storeText(text) {
     docEntry.documentText = text || '';
-    docEntry._indexing = false;
-    if (docEntry.dbId && text) {
+    if (docEntry.dbId && text && text.length > 50) {
       getSupabase().from('documents').update({document_text: text}).eq('id', docEntry.dbId).then(function(){});
+      // Embed for vector search — keep _indexing true until chunks are stored
+      getSupabase().auth.getSession().then(function(s) {
+        var token = s.data && s.data.session && s.data.session.access_token;
+        return fetch(WORKER_URL + '/embed-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+          body: JSON.stringify({
+            documentId:   docEntry.dbId,
+            documentText: text,
+            scId:         sc_.plan,
+            brokerageId:  APP.brokerage && APP.brokerage.lic || ''
+          })
+        });
+      }).then(function(r){ return r && r.json(); })
+      .then(function(d){
+        if (d && d.error) console.warn('[embed] Failed:', d.error);
+        else console.log('[embed] Stored', d && d.chunkCount, 'chunks for', docEntry.name);
+      })
+      .catch(function(e){ console.warn('[embed] Error:', e.message); })
+      .finally(function(){
+        docEntry._indexing = false;
+        _reRenderDocs(sc_);
+      });
+    } else {
+      docEntry._indexing = false;
+      _reRenderDocs(sc_);
     }
-    _reRenderDocs(sc_);
   }
 
   if (isIndexable) {
@@ -15097,8 +15121,29 @@ function uploadDoc(file, sc_, opts) {
   .then(function(r) {
     if (!r || !r.data) return;
     docEntry.dbId = r.data.id;
-    if (docEntry.documentText) {
+    if (docEntry.documentText && docEntry.documentText.length > 50) {
+      // Text was extracted before dbId arrived — save and embed now
       getSupabase().from('documents').update({document_text: docEntry.documentText}).eq('id', r.data.id).then(function(){});
+      getSupabase().auth.getSession().then(function(s) {
+        var token = s.data && s.data.session && s.data.session.access_token;
+        return fetch(WORKER_URL + '/embed-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+          body: JSON.stringify({
+            documentId:   r.data.id,
+            documentText: docEntry.documentText,
+            scId:         sc_.plan,
+            brokerageId:  APP.brokerage && APP.brokerage.lic || ''
+          })
+        });
+      }).then(function(res){ return res && res.json(); })
+      .then(function(d){ if (d && d.chunkCount) console.log('[embed] late-dbId stored', d.chunkCount, 'chunks'); })
+      .catch(function(e){ console.warn('[embed] late-dbId error:', e.message); })
+      .finally(function(){ docEntry._indexing = false; _reRenderDocs(sc_); });
+    } else if (!docEntry._indexing) {
+      // Text extraction already finished with no content
+      docEntry._indexing = false;
+      _reRenderDocs(sc_);
     }
     if (opts.onComplete) opts.onComplete(docEntry);
     _reRenderDocs(sc_);
