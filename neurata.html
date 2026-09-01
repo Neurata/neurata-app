@@ -6239,12 +6239,11 @@ function mmAiSend(){
   var mmBrkId = APP.brokerage && APP.brokerage.lic || '';
   var sc = APP.sc.find(function(s){return s.id===mmScId;});
 
-  // If this item has attachments but none have documentText yet, try fetching from Supabase
-  var attNeedsFetch = false; // no longer needed - text is in sc.docs
-  function buildAndSend() {
-    var lssCtx = sc ? buildRetrievedContext(sc, msg) : '';
+  // Run vector search first, then assemble full context and send
+  function buildAndSend(chunks) {
+    chunks = chunks || [];
 
-    // Priority context: docs tagged with this agenda item's ID
+    // ── 1. Agenda item attachment context (PRIORITY — shown first) ──
     var itemCtx = '';
     if (it && sc) {
       var itemId = it.id;
@@ -6254,34 +6253,63 @@ function mmAiSend(){
         return (d.agendaItemId === itemId || attNames[d.name]) && d.documentText && d.documentText.trim();
       });
       if (itemAttDocs.length) {
-        itemCtx = '=== CURRENT AGENDA ITEM ATTACHMENTS (PRIORITY CONTEXT) ===\n'
-          + 'The following documents are attached to the current agenda item "' + (it.text||'') + '". '
-          + 'Answer questions about these documents directly using their content below.\n\n';
+        itemCtx = '=== CURRENT AGENDA ITEM ATTACHMENTS (HIGHEST PRIORITY) ===\n'
+          + 'These documents are directly attached to the current agenda item "' + (it.text||'') + '". Answer questions about this item using these first.\n\n';
         itemAttDocs.forEach(function(d) {
-          var txt = (d.documentText||'').trim();
-          itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + txt + '\n[END ATTACHMENT: ' + (d.name||'') + ']\n\n';
+          itemCtx += '[ATTACHMENT: ' + (d.name||'') + ']\n' + (d.documentText||'').trim() + '\n[END ATTACHMENT]\n\n';
         });
       }
     }
 
-    var mmSsTier = scSsTier(sc_);
-    var mmGssCtx = ''; // GSS context now via vector search, not dumps
+    // ── 2. Decision ledger (always included in full — structured data) ──
+    var decisionCtx = '';
+    if (sc && sc.decisions && sc.decisions.length) {
+      var decisions = (sc.decisions||[]).slice().sort(function(a,b){
+        return (b.date||'').localeCompare(a.date||'');
+      });
+      // Also include live decisions from current meeting
+      var liveDecIds = {};
+      decisions.forEach(function(d){ if(d.itemId) liveDecIds[d.itemId]=true; });
+      (MM.agenda||[]).forEach(function(agIt){
+        if (agIt.done && agIt.motion && agIt.motion.outcome && !liveDecIds[agIt.id]) {
+          decisions.unshift({
+            date: MM.date||'', text: agIt.text||'',
+            motion: agIt.motion.text||'', outcome: agIt.motion.outcome||'',
+            votes: {for:agIt.motion.for||0,against:agIt.motion.against||0,abstain:agIt.motion.abstain||0},
+            source: 'current-meeting'
+          });
+        }
+      });
+      decisionCtx = '\n=== DECISION LEDGER (' + decisions.length + ' decisions, newest first) ===\n';
+      decisions.forEach(function(d) {
+        var voteStr = (d.votes && (d.votes.for||d.votes.against||d.votes.abstain))
+          ? ' (' + (d.votes.for||0) + 'F/' + (d.votes.against||0) + 'A/' + (d.votes.abstain||0) + 'Ab)' : '';
+        decisionCtx += '[' + (d.date||'Date unknown') + '] ' + (d.text||'') + ' — ' + (d.outcome||'') + voteStr + '\n';
+        if (d.motion) decisionCtx += '  Motion: ' + d.motion + '\n';
+      });
+    }
+
+    // ── 3. LSS vector search results (indexed documents) ──
+    var lssCtx = sc ? buildRetrievedContext(sc, msg, chunks) : '';
+
+    // ── 4. GSS context (if subscribed) — fetched async via worker ──
+    var mmGssCtx = ''; // populated async below if GSS tier
 
     var systemPrompt = (itemCtx ? itemCtx + '\n' : '')
       + 'You are StrataSphere, the BC strata governance assistant, operating inside an active strata council meeting.'
       + ' Current agenda item: "' + (it ? it.text : 'Unknown') + '" (' + (it ? it.cat : '') + ').'
       + (it && it.atts && it.atts.length
         ? (itemCtx
-          ? ' This item has ' + it.atts.length + ' attachment(s) — their full content is provided above as PRIORITY CONTEXT. Answer questions about them directly.'
-          : ' This item has ' + it.atts.length + ' attachment(s) but their text content is not yet available (still indexing).')
+          ? ' This item has ' + it.atts.length + ' attachment(s) — full content provided above as PRIORITY CONTEXT.'
+          : ' This item has ' + it.atts.length + ' attachment(s) but their text is not yet indexed.')
         : '')
       + ' Answer questions using the SC data provided AND your knowledge of BC legislation: Strata Property Act (SPA), Real Estate Services Act (RESA), BCFSA rules, PIPA, and SPABC guidance.'
-      + ' If the answer is in the SC bylaws or decision ledger, cite the specific bylaw or decision.'
-      + (mmGssCtx ? ' You also have access to anonymized, PII-stripped data from all strata corporations on the Neurata platform — use it to provide benchmarking and precedent context when relevant.' : '')
+      + ' If the answer is in the bylaws or decision ledger, cite the specific bylaw or decision.'
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
       + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence. ' + countingRule + '\n\n'
       + lssCtx
-      + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
+      + decisionCtx
+      + (mmGssCtx ? '\n\n' + mmGssCtx : '');
 
     var fetchTimeout;
     var fetchDone = false;
@@ -6295,7 +6323,6 @@ function mmAiSend(){
       }
     }
 
-    // 30-second timeout — clears indicator and shows actionable error
     fetchTimeout = setTimeout(function() {
       if (!fetchDone) {
         clearTyping();
@@ -6339,7 +6366,27 @@ function mmAiSend(){
     });
   } // end buildAndSend
 
-  buildAndSend();
+  // Run vector search against the SC's indexed documents, then build and send
+  if (sc && sc.plan) {
+    getSupabase().auth.getSession().then(function(s) {
+      var token = s.data && s.data.session && s.data.session.access_token;
+      return fetch(WORKER_URL + '/search-chunks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token||'') },
+        body: JSON.stringify({ query: msg, scId: sc.plan, matchCount: 12, threshold: 0.35 })
+      });
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      console.log('[MM SS] Vector search returned', (d.chunks||[]).length, 'chunks');
+      buildAndSend(d.chunks || []);
+    })
+    .catch(function(e){
+      console.warn('[MM SS] Vector search failed, proceeding without chunks:', e.message);
+      buildAndSend([]);  // fall back to decision ledger + attachment context only
+    });
+  } else {
+    buildAndSend([]);
+  }
 }
 
 function mmMoverChanged() {
