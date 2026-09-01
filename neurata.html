@@ -6289,8 +6289,22 @@ function mmAiSend(){
       });
     }
 
-    // ── 3. LSS vector search results (indexed documents) ──
-    var lssCtx = sc ? buildRetrievedContext(sc, msg, chunks) : '';
+    // ── 3. LSS — full KB context (documents, decisions, meeting history) ──
+    // buildLssContext includes full document text (bylaws first, then others).
+    // Cap at 80K chars for MM SS to keep responses fast during live meetings.
+    var lssFullCtx = sc ? buildLssContext(sc) : '';
+    if (lssFullCtx.length > 80000) {
+      lssFullCtx = lssFullCtx.slice(0, 80000) + '\n\n[...additional documents truncated for meeting mode speed — use standalone StrataSphere for full document search]';
+    }
+
+    // ── 4. Vector search results — query-specific excerpts on top ──
+    // Surfaces the most relevant passages for this specific question
+    var lssCtx = chunks.length
+      ? '\n=== MOST RELEVANT EXCERPTS FOR THIS QUERY ===\n'
+        + chunks.map(function(c, i) {
+            return '[' + (i+1) + ' | score:' + (c.similarity||0).toFixed(2) + ']\n' + c.chunk_text;
+          }).join('\n\n')
+      : '';
 
     // ── 4. GSS context (if subscribed) — fetched async via worker ──
     var mmGssCtx = ''; // populated async below if GSS tier
@@ -6307,8 +6321,9 @@ function mmAiSend(){
       + ' If the answer is in the bylaws or decision ledger, cite the specific bylaw or decision.'
       + ' Be concise — 2-4 sentences maximum. Direct facts only, no preamble, no recommendations. Plain prose, no markdown, no bullets.'
       + ' If uncertain, say so in one sentence. When multiple documents or decisions address the same topic, the most recently dated one takes precedence. ' + countingRule + '\n\n'
-      + lssCtx
+      + lssFullCtx
       + decisionCtx
+      + lssCtx
       + (mmGssCtx ? '\n\n' + mmGssCtx : '');
 
     var fetchTimeout;
