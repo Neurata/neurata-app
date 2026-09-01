@@ -12670,7 +12670,8 @@ function scAnniversaryStr(activatedAt) {
 }
 
 function renderSCForms(s) {
-  var isPaid = !!(s.isSubscribed || (s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId));
+  var isEnterprise = APP.brokerage && APP.brokerage.isEnterprise;
+  var isPaid = !!(isEnterprise || s.isSubscribed || s.mmStatus === 'ACTIVE' || s.ssTier === 'global' || s.ssTier === 'local');
   var html = '<div style="padding:28px 32px;max-width:820px">';
   html += '<div style="margin-bottom:24px">';
   html += '<div style="font-size:18px;font-weight:700;color:var(--ch);margin-bottom:6px">Forms &amp; Documents</div>';
@@ -13020,7 +13021,7 @@ function renderSCSubscription(s) {
       + '</div>';
   }
 
-  var isPaidSub  = !!(s.isSubscribed || (s.mmStatus === 'ACTIVE' && s.stripeSubscriptionId)); // paid or SA-activated
+  var isPaidSub  = !!(isEnterprise || s.isSubscribed || s.mmStatus === 'ACTIVE' || s.ssTier === 'global' || s.ssTier === 'local'); // paid, SA-activated, or enterprise
   var mmOn       = isPaidSub;
   var ssTier     = scSsTier(s);
   var trialActive = scMmActive(s) && !isPaidSub;
