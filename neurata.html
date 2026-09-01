@@ -2944,16 +2944,6 @@ function agOpen(scId, mtgId) {
   if (!mtg) return;
   AG._mtg  = mtg; // store live reference — survives async UUID update
   AG.agenda = JSON.parse(JSON.stringify(mtg.agenda || []));
-  // Rebuild AG._cats from placeholder items (empty categories) then strip them
-  var seenCats = {}, catsFromLoad = [];
-  AG.agenda.forEach(function(it){
-    if (!seenCats[it.catId]) {
-      seenCats[it.catId] = true;
-      catsFromLoad.push({id: it.catId, name: it.cat});
-    }
-  });
-  AG._cats = catsFromLoad;
-  AG.agenda = AG.agenda.filter(function(it){ return !it._catPlaceholder; });
   // Modal header — SC plan + full meeting type
   var typeLabels = {council:'Strata Council Meeting',agm:'Annual General Meeting',sgm:'Special General Meeting',committee:'Committee Meeting'};
   var titlePlan = sc_ ? sc_.plan + ' — ' : '';
@@ -2984,13 +2974,11 @@ function agOpen(scId, mtgId) {
 function agClose() {
   // Check if agenda has unsaved changes vs what's stored on the meeting
   var mtg = AG._mtg;
-  var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(
-    (mtg.agenda || []).filter(function(it){ return !it._catPlaceholder; })
-  );
+  var isDirty = mtg && JSON.stringify(AG.agenda) !== JSON.stringify(mtg.agenda || []);
   if (isDirty) {
-    nConfirm('You have unsaved changes. Close without saving?', function(ok) {
-      if (ok) closeMo('mo-agenda');
-    }, 'Unsaved Changes');
+    nConfirm('You have unsaved changes. Close without saving?', 'Unsaved Changes', function() {
+      closeMo('mo-agenda');
+    });
     return;
   }
   closeMo('mo-agenda');
@@ -3000,25 +2988,10 @@ function agSaveAndClose() {
   var mtg = AG._mtg;
   var sc_ = APP.sc.find(function(s){return s.id===AG.scId;});
   if (!mtg || !sc_) { closeMo('mo-agenda'); return; }
-
-  // Include placeholder items for categories with no real items,
-  // so empty categories survive save → reload → rebuild.
-  var itemCatIds = {};
-  AG.agenda.forEach(function(it){ if (!it._catPlaceholder) itemCatIds[it.catId] = true; });
-  var placeholders = [];
-  if (AG._cats) {
-    AG._cats.forEach(function(cat) {
-      if (!itemCatIds[cat.id]) {
-        placeholders.push({ _catPlaceholder: true, catId: cat.id, cat: cat.name,
-          id: cat.id + '_ph', text: '', type: 'FOR_INFORMATION', num: 0,
-          done: false, atts: [], links: [] });
-      }
-    });
-  }
-  var agendaToSave = JSON.parse(JSON.stringify(AG.agenda.concat(placeholders)));
-  mtg.agenda = agendaToSave;
+  mtg.agenda = JSON.parse(JSON.stringify(AG.agenda));
   sv('sc_'+sc_.id, sc_);
-  getSupabase().from('meetings').update({agenda: agendaToSave})
+  // Persist agenda to Supabase — mtg.id is the UUID by now (or temp id if insert is still in flight, which is fine)
+  getSupabase().from('meetings').update({agenda: mtg.agenda})
     .eq('id', mtg.id).then(function(r){ if(r.error) console.error('Agenda save error:', r.error); });
   renderMeetings();
   closeMo('mo-agenda');
@@ -3035,17 +3008,14 @@ function agStartTemplate() {
   var mtg  = sc_ && sc_.meetings && sc_.meetings.find(function(m){return m.id===AG.mtgId;});
   var type = mtg ? mtg.type : 'council';
   AG.agenda = ensureBookends(buildAgendaFromTemplate(type));
-  AG.agenda = AG.agenda.filter(function(it){ return !it._catPlaceholder; });
-  AG._cats = null;  // reset so agRender rebuilds from items
   document.getElementById('ag-start-opts').style.display = 'none';
   agRender();
 }
 
 function agAddCategory() {
   document.getElementById('ag-start-opts').style.display = 'none';
-  var catId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  if (!AG._cats) AG._cats = [];
-  AG._cats.push({id: catId, name: 'New Category'});
+  var catId = 'c_' + Date.now();
+  AG.agenda.push(mkItem('New Item', 'New Category', {catId: catId}));
   renumAgenda(AG.agenda);
   agRender();
   setTimeout(function(){
@@ -3076,25 +3046,11 @@ function agEditCategoryName(catId, currentName) {
 
 function agRenameCategory(catId, val) {
   AG.agenda.forEach(function(it){ if(it.catId===catId) it.cat = val; });
-  if (AG._cats) {
-    var cat = AG._cats.find(function(c){return c.id===catId;});
-    if (cat) cat.name = val;
-  }
 }
 
 function agDeleteCategory(catId) {
   var count = AG.agenda.filter(function(it){return it.catId===catId;}).length;
-  function doDelete() {
-    AG.agenda = AG.agenda.filter(function(it){return it.catId!==catId;});
-    if (AG._cats) AG._cats = AG._cats.filter(function(c){return c.id!==catId;});
-    renumAgenda(AG.agenda);
-    agRender();
-  }
-  if (count > 0) {
-    nConfirm('Delete this category and its '+count+' item(s)?', function(ok){ if(ok) doDelete(); }, 'Delete Category', 'danger');
-  } else {
-    doDelete();
-  }
+  if (count > 0) { nConfirm('Delete this category and its '+count+' item(s)?', function(ok){ if(!ok) return; AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }, 'Delete Category', 'danger'); } else { AG.agenda=AG.agenda.filter(function(it){return it.catId!==catId;}); renumAgenda(AG.agenda); agRender(); }
 }
 
 function agDeleteItem(id) {
@@ -3159,16 +3115,7 @@ function agDrop(ev, targetId, type) {
   if (!AG._dragId || AG._dragId === targetId) { AG._dragId=null; return; }
 
   if (AG._dragType === 'cat' && type === 'cat') {
-    // Reorder AG._cats (display order)
-    if (AG._cats) {
-      var fromCatIdx = AG._cats.findIndex(function(c){return c.id===AG._dragId;});
-      var toCatIdx   = AG._cats.findIndex(function(c){return c.id===targetId;});
-      if (fromCatIdx >= 0 && toCatIdx >= 0) {
-        var draggedCat = AG._cats.splice(fromCatIdx, 1)[0];
-        AG._cats.splice(toCatIdx, 0, draggedCat);
-      }
-    }
-    // Also reorder AG.agenda items to match
+    // Reorder categories — move all items of dragged cat before target cat's items
     var draggedItems = AG.agenda.filter(function(it){return it.catId===AG._dragId;});
     var rest         = AG.agenda.filter(function(it){return it.catId!==AG._dragId;});
     var insertIdx    = rest.findIndex(function(it){return it.catId===targetId;});
@@ -3181,42 +3128,10 @@ function agDrop(ev, targetId, type) {
     var toIdx   = AG.agenda.findIndex(function(it){return it.id===targetId;});
     if (fromIdx < 0 || toIdx < 0) { AG._dragId=null; return; }
     var item = AG.agenda.splice(fromIdx, 1)[0];
-    // Update catId if dropped into a different category
-    var refIdx = toIdx > fromIdx ? toIdx-1 : toIdx;
-    if (AG.agenda[refIdx]) {
-      item.catId = AG.agenda[refIdx].catId;
-      item.cat   = AG.agenda[refIdx].cat;
-    }
+    // Also update catId if dropped into a different category
+    item.catId = AG.agenda[toIdx > fromIdx ? toIdx-1 : toIdx].catId;
+    item.cat   = AG.agenda[toIdx > fromIdx ? toIdx-1 : toIdx].cat;
     AG.agenda.splice(toIdx, 0, item);
-  } else if (AG._dragType === 'item' && type === 'cat') {
-    // Item dropped onto a category header or empty category — move item into that category
-    var draggedItem = AG.agenda.find(function(it){return it.id===AG._dragId;});
-    if (!draggedItem) { AG._dragId=null; return; }
-    // Find the target cat name
-    var targetCat = AG._cats && AG._cats.find(function(c){return c.id===targetId;});
-    if (!targetCat) { AG._dragId=null; return; }
-    // Remove item from current position
-    AG.agenda = AG.agenda.filter(function(it){return it.id!==AG._dragId;});
-    // Update item's category
-    draggedItem.catId = targetCat.id;
-    draggedItem.cat   = targetCat.name;
-    // Append to end of that category's items
-    var lastInCat = -1;
-    AG.agenda.forEach(function(it, idx){ if(it.catId===targetId) lastInCat=idx; });
-    if (lastInCat >= 0) {
-      AG.agenda.splice(lastInCat+1, 0, draggedItem);
-    } else {
-      // Empty category — find position based on AG._cats order and insert after last item of preceding cat
-      var catIdx = AG._cats.findIndex(function(c){return c.id===targetId;});
-      var insertAt = 0;
-      for (var ci = catIdx-1; ci >= 0; ci--) {
-        var prevCatId = AG._cats[ci].id;
-        var lastOfPrev = -1;
-        AG.agenda.forEach(function(it, idx){ if(it.catId===prevCatId) lastOfPrev=idx; });
-        if (lastOfPrev >= 0) { insertAt = lastOfPrev+1; break; }
-      }
-      AG.agenda.splice(insertAt, 0, draggedItem);
-    }
   }
   AG._dragId = null;
   document.querySelectorAll('.drag-over').forEach(function(el){el.classList.remove('drag-over');});
@@ -3234,7 +3149,7 @@ function agRender() {
       && (it.text||'').toLowerCase().replace(/\s+/g,' ').indexOf('approve agenda') >= 0;
   });
 
-  if (AG.agenda.filter(function(it){return !it._catPlaceholder;}).length === 0 && (!AG._cats || AG._cats.length === 0)) {
+  if (AG.agenda.length === 0) {
     area.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g4);font-size:13px">No agenda items yet. Add a category to get started.</div>';
     return;
   }
@@ -3255,38 +3170,32 @@ function agRender() {
   } else {
     var b = document.getElementById('ag-locked-banner'); if(b) b.remove();
   }
-  // Build AG._cats from agenda items if not already initialised (backward compat)
-  if (!AG._cats || AG._cats.length === 0) {
-    var seenCats = {};
-    AG._cats = [];
-    AG.agenda.forEach(function(it){
-      if (!seenCats[it.catId]) {
-        seenCats[it.catId] = true;
-        AG._cats.push({id: it.catId, name: it.cat});
-      }
-    });
-  } else {
-    // Sync cat names from items (in case items were renamed)
-    var nameMap = {};
-    AG.agenda.forEach(function(it){ nameMap[it.catId] = it.cat; });
-    AG._cats.forEach(function(c){ if (nameMap[c.id]) c.name = nameMap[c.id]; });
-  }
-
-  // Group items by catId
-  var itemsByCat = {};
+  // Group by catId preserving order
+  var cats = [], catMap = {};
   AG.agenda.forEach(function(it){
-    if (!itemsByCat[it.catId]) itemsByCat[it.catId] = [];
-    itemsByCat[it.catId].push(it);
+    if (!catMap[it.catId]) {
+      catMap[it.catId] = {id:it.catId, name:it.cat, items:[]};
+      cats.push(catMap[it.catId]);
+    }
+    catMap[it.catId].items.push(it);
   });
 
   var html = topBar;
-  AG._cats.forEach(function(cat) {
-    var catItems = itemsByCat[cat.id] || [];
+  cats.forEach(function(cat) {
     html += '<div class="ag-cat-block" data-catid="'+cat.id+'"'
       + ' ondragover="agDragOver(event,\''+cat.id+'\',\'cat\')"'
-      + ' ondrop="agDrop(event,\''+cat.id+'\',\'cat\')">'      + '<div class="ag-cat-hd" draggable="true" ondragstart="agDragStartCat(event,\''+cat.id+'\')">'      + '<span class="ag-drag" title="Drag to reorder">⠿</span>'      + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'      + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'      + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name">Edit</button>'      + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'      + '</div>'      + '<div class="ag-items">';
+      + ' ondrop="agDrop(event,\''+cat.id+'\',\'cat\')">'
+      + '<div class="ag-cat-hd" draggable="true" ondragstart="agDragStartCat(event,\''+cat.id+'\')">'
+      + '<span class="ag-drag" title="Drag to reorder">⠿</span>'
+      + '<input class="ag-cat-name" value="'+escHtml(cat.name)+'" placeholder="Category name"'
+      + ' onchange="agRenameCategory(\''+cat.id+'\',this.value)"'
+      + ' oninput="agRenameCategory(\''+cat.id+'\',this.value)"/>'
+      + '<button class="btn xs" onclick="this.previousElementSibling.focus();this.previousElementSibling.select()" title="Edit category name">Edit</button>'
+      + '<button class="btn xs" onclick="agDeleteCategory(\''+cat.id+'\')" style="color:var(--red)" title="Delete">✕</button>'
+      + '</div>'
+      + '<div class="ag-items">';
 
-    catItems.forEach(function(it) {
+    cat.items.forEach(function(it) {
       var color = RTAG_COLORS[it.type] || '#999';
       var short = RTAG_SHORT[it.type] || it.type;
       var hasBg = it.background || it.financial || it.risks || (it.motion && it.motion.text);
@@ -5734,7 +5643,6 @@ function mgmtSsSend(scId) {
         _brokerageId: APP.brokerage.lic || '',
         _scId: sc.plan,
         _userId: APP.currentUser && APP.currentUser.id || '',
-        tools:[{type:'web_search_20250305',name:'web_search'}],
         system: systemPrompt,
         messages: history.concat([lastUser || {role:'user', content:msg}])
       })
@@ -6375,29 +6283,59 @@ function mmAiSend(){
       + lssCtx
       + (mmGssCtx ? '\\n\\n' + mmGssCtx : '');
 
-    fetch(WORKER_URL+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        _usageType:'mm_ai',_brokerageId:mmBrkId,_scId:mmScId,_userId:APP.currentUser&&APP.currentUser.id||'',
-        tools:[{type:'web_search_20250305',name:'web_search'}],
+    var fetchTimeout;
+    var fetchDone = false;
+
+    function clearTyping() {
+      if (!fetchDone) {
+        fetchDone = true;
+        clearTimeout(fetchTimeout);
+        var typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+      }
+    }
+
+    // 30-second timeout — clears indicator and shows actionable error
+    fetchTimeout = setTimeout(function() {
+      if (!fetchDone) {
+        clearTyping();
+        MM.ssLog.push({role:'ai', text:'No response — the request timed out. Please try again.'});
+        el.innerHTML += '<div class="mm-aimsg ai fi" style="color:var(--red)">No response — request timed out. Please try again.</div>';
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 30000);
+
+    fetch(WORKER_URL+'/ai', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        _usageType: 'mm_ai', _brokerageId: mmBrkId, _scId: mmScId,
+        _userId: APP.currentUser && APP.currentUser.id || '',
         system: systemPrompt,
-        messages:[{role:'user',content:msg}]
+        messages: [{role:'user', content:msg}]
       })
     })
-    .then(function(r){return r.json();})
+    .then(function(r){ return r.json(); })
     .then(function(d){
-      var typing=document.getElementById(typingId);if(typing)typing.remove();
-      var txt=(d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('').trim();
-      var response = txt||'Unable to respond.';
-      MM.ssLog.push({role:'ai',text:response});
-      el.innerHTML+='<div class="mm-aimsg ai fi">'+escHtml(response)+'</div>';
-      el.scrollTop=el.scrollHeight;
+      clearTyping();
+      if (d.error === 'usage_limit_exceeded') {
+        el.innerHTML += '<div class="mm-aimsg ai fi">' + escHtml(d.message || 'Monthly StrataSphere limit reached.') + '</div>';
+        el.scrollTop = el.scrollHeight;
+        return;
+      }
+      var txt = (d.content||[]).filter(function(b){ return b.type==='text'; }).map(function(b){ return b.text||''; }).join('').trim();
+      var response = txt || (d.error ? 'Error: ' + escHtml(d.error) : 'Unable to respond. Please try again.');
+      MM.ssLog.push({role:'ai', text:response});
+      el.innerHTML += '<div class="mm-aimsg ai fi">' + escHtml(response) + '</div>';
+      el.scrollTop = el.scrollHeight;
     })
-    .catch(function(){
-      var typing=document.getElementById(typingId);if(typing)typing.remove();
-      el.innerHTML+='<div class="mm-aimsg ai fi">Network error. Please try again.</div>';
-      el.scrollTop=el.scrollHeight;
+    .catch(function(e){
+      clearTyping();
+      var errMsg = (e && e.message && e.message.toLowerCase().includes('network'))
+        ? 'Network error — check your connection and try again.'
+        : 'Something went wrong. Please try again.';
+      el.innerHTML += '<div class="mm-aimsg ai fi" style="color:var(--red)">' + escHtml(errMsg) + '</div>';
+      el.scrollTop = el.scrollHeight;
     });
   } // end buildAndSend
 
@@ -15039,35 +14977,11 @@ function uploadDoc(file, sc_, opts) {
 
   function storeText(text) {
     docEntry.documentText = text || '';
-    if (docEntry.dbId && text && text.length > 50) {
+    docEntry._indexing = false;
+    if (docEntry.dbId && text) {
       getSupabase().from('documents').update({document_text: text}).eq('id', docEntry.dbId).then(function(){});
-      // Embed for vector search — keep _indexing true until chunks are stored
-      getSupabase().auth.getSession().then(function(s) {
-        var token = s.data && s.data.session && s.data.session.access_token;
-        return fetch(WORKER_URL + '/embed-document', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
-          body: JSON.stringify({
-            documentId:   docEntry.dbId,
-            documentText: text,
-            scId:         sc_.plan,
-            brokerageId:  APP.brokerage && APP.brokerage.lic || ''
-          })
-        });
-      }).then(function(r){ return r && r.json(); })
-      .then(function(d){
-        if (d && d.error) console.warn('[embed] Failed:', d.error);
-        else console.log('[embed] Stored', d && d.chunkCount, 'chunks for', docEntry.name);
-      })
-      .catch(function(e){ console.warn('[embed] Error:', e.message); })
-      .finally(function(){
-        docEntry._indexing = false;
-        _reRenderDocs(sc_);
-      });
-    } else {
-      docEntry._indexing = false;
-      _reRenderDocs(sc_);
     }
+    _reRenderDocs(sc_);
   }
 
   if (isIndexable) {
@@ -15121,29 +15035,8 @@ function uploadDoc(file, sc_, opts) {
   .then(function(r) {
     if (!r || !r.data) return;
     docEntry.dbId = r.data.id;
-    if (docEntry.documentText && docEntry.documentText.length > 50) {
-      // Text was extracted before dbId arrived — save and embed now
+    if (docEntry.documentText) {
       getSupabase().from('documents').update({document_text: docEntry.documentText}).eq('id', r.data.id).then(function(){});
-      getSupabase().auth.getSession().then(function(s) {
-        var token = s.data && s.data.session && s.data.session.access_token;
-        return fetch(WORKER_URL + '/embed-document', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
-          body: JSON.stringify({
-            documentId:   r.data.id,
-            documentText: docEntry.documentText,
-            scId:         sc_.plan,
-            brokerageId:  APP.brokerage && APP.brokerage.lic || ''
-          })
-        });
-      }).then(function(res){ return res && res.json(); })
-      .then(function(d){ if (d && d.chunkCount) console.log('[embed] late-dbId stored', d.chunkCount, 'chunks'); })
-      .catch(function(e){ console.warn('[embed] late-dbId error:', e.message); })
-      .finally(function(){ docEntry._indexing = false; _reRenderDocs(sc_); });
-    } else if (!docEntry._indexing) {
-      // Text extraction already finished with no content
-      docEntry._indexing = false;
-      _reRenderDocs(sc_);
     }
     if (opts.onComplete) opts.onComplete(docEntry);
     _reRenderDocs(sc_);
