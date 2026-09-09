@@ -5547,7 +5547,8 @@ function mgmtSsSend(scId) {
   }
 
   var ssTier = scSsTier(sc) || 'local';
-  var isPaidSS = sc && (sc.mmStatus === 'ACTIVE' || sc.ssTier === 'global' || sc.ssTier === 'local');
+  var isPaidSS = sc && (sc.mmStatus === 'ACTIVE' || sc.ssTier === 'global' || sc.ssTier === 'local'
+    || (APP.brokerage && APP.brokerage.isEnterprise));
 
   // Trial SS limit — 10 queries per SC per month for unpaid SCs
   if (!isPaidSS) {
@@ -6832,7 +6833,18 @@ function mmSyncToMtg(){
 // ══════════════════════════════════════════
 function adjournMtg() {
   nConfirm('Adjourn this meeting?\n\nThe trial counter will advance and minutes will be generated immediately.', function(ok){
-    if(!ok) return;
+    if (!ok) {
+      // User cancelled — reset the adjournment item so it can be acted on again
+      var adjItem = MM.agenda.find(function(a){ return (a.text||'').toLowerCase().indexOf('adjourn') >= 0; });
+      if (adjItem) {
+        adjItem.done = false;
+        adjItem.minutesSummary = '';
+        if (adjItem.motion) adjItem.motion.outcome = null;
+        mmSyncToMtg();
+        setItem(adjItem.id);
+      }
+      return;
+    }
     _adjournProceed();
   }, 'Adjourn Meeting', 'danger');
 }
