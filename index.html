@@ -1,46 +1,20 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Neurata</title>
 <style>
-  :root {
-    --ink: #1B2A41; --paper: #F8F6F1; --surface: #FFFFFF;
-    --line: #E3DFD5; --accent: #B4602F; --muted: #6B7280;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ink: #E8E4DC; --paper: #161C26; --surface: #1E2733;
-      --line: #2E3A4A; --accent: #C97040; --muted: #8A95A3;
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ink: #E8E4DC; --paper: #161C26; --surface: #1E2733;
-    --line: #2E3A4A; --accent: #C97040; --muted: #8A95A3;
-    color-scheme: dark;
-  }
+  :root { --ink: #1B2A41; --paper: #F8F6F1; --accent: #B4602F; --muted: #6B7280; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink: #E8E4DC; --paper: #161C26; --accent: #C97040; --muted: #8A95A3; color-scheme: dark; } }
+  :root[data-theme="dark"] { --ink: #E8E4DC; --paper: #161C26; --accent: #C97040; --muted: #8A95A3; color-scheme: dark; }
   *, *::before, *::after { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font-family: 'Work Sans', system-ui, sans-serif;
-    min-height: 100%; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding-block: 64px;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
-    text-align: center;
-  }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Work Sans', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px max(16px, env(safe-area-inset-left, 0px)); text-align: center; }
   .lockup { display: flex; flex-direction: column; align-items: center; gap: 40px; max-width: 480px; width: 100%; }
   .logo-mark { color: var(--ink); width: 48px; height: 48px; opacity: 0.5; }
   .wordmark { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 28px; letter-spacing: -0.02em; color: var(--ink); line-height: 1; margin: 0; }
   .divider { width: 40px; height: 1px; background: var(--accent); opacity: 0.6; }
-  .headline { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: clamp(22px, 5vw, 28px); line-height: 1.25; text-wrap: balance; color: var(--ink); margin: 0; }
+  .headline { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: clamp(22px, 5vw, 28px); line-height: 1.25; color: var(--ink); margin: 0; }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500&display=swap" rel="stylesheet">
 <div class="lockup">
-  <svg class="logo-mark" viewBox="0 0 192.7 188.28" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
-    <path d="M96.35,94.14l-45.22-26.1V15.95L96.35,0l45.22,26.1v52.09l-45.22,26.1Zm0,94.14L51.13,162.18v-52.09l45.22-26.1,45.22,26.1v52.09l-45.22,26.1ZM0,141.19V89.1l45.22-26.1,45.22,26.1v52.09L45.22,167.29,0,141.19Zm147.48,0V89.1l45.22-26.1v52.09l-45.22,26.1Z"/>
-  </svg>
+  <svg class="logo-mark" viewBox="0 0 192.7 188.28" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true"><path d="M96.35,94.14l-45.22-26.1V15.95L96.35,0l45.22,26.1v52.09l-45.22,26.1Zm0,94.14L51.13,162.18v-52.09l45.22-26.1,45.22,26.1v52.09l-45.22,26.1ZM0,141.19V89.1l45.22-26.1,45.22,26.1v52.09L45.22,167.29,0,141.19Zm147.48,0V89.1l45.22-26.1v52.09l-45.22,26.1Z"/></svg>
   <h1 class="wordmark">Neurata</h1>
   <div class="divider"></div>
   <h2 class="headline">This service is no longer available.</h2>
